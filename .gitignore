@@ -1,0 +1,7 @@
+*.DS_Store
+*.h5
+*.png
+*.pdf
+*.txt
+*.idea
+*__pycache__
