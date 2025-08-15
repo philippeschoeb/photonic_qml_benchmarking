@@ -1,44 +1,68 @@
-import os
-import h5py
+# Copyright 2024 Xanadu Quantum Technologies Inc.
+
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+
+#     http://www.apache.org/licenses/LICENSE-2.0
+
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import numpy as np
 
-def get_dataset(d: int, m: int):
+
+def neural_net(x, W, v):
+    """Transforms inputs via a single-layer neural network.
+    Args:
+        x (ndarray): input of shape (manifold_dimension,)
+        W (ndarray): input-to-hidden weight matrix of shape (manifold_dimension, manifold_dimension)
+        v (ndarray): hidden-to-output weight matrix of shape (manifold_dimension,)
     """
-    Get Hidden Manifold dataset.
-    :param d: int between 2 and 20
-    :param m: int between 2 and 20
-    :return: x_train, x_test, y_train, y_test
+    return np.dot(v, np.tanh(W @ x) / np.sqrt(W.shape[0]))
+
+
+def nonlinearity(X, biases):
+    """Element-wise nonlinearity.
+
+    Args:
+        X (ndarray): inputs of shape (n_samples, n_features)
+        biases (ndarray): biases of shape (n_features,)
     """
-    assert type(d) == int and d >= 2 and d <= 20, f"Invalid parameter d: {d}"
-    assert type(m) == int and m >= 2 and m <= 20, f"Invalid parameter m: {m}"
+    return np.tanh(X - biases)
 
-    base_path = os.path.dirname(os.path.abspath(__file__))  # path of the current .py file
-    file_path = os.path.join(base_path, 'hidden-manifold', 'hidden-manifold.h5')
-    with h5py.File(file_path, "r") as f:
-        if m == 6:
-            inputs_train_group = f['diff_train'][str(d)]['inputs']
-            inputs_test_group = f['diff_test'][str(d)]['inputs']
-            labels_train_group = f['diff_train'][str(d)]['labels']
-            labels_test_group = f['diff_test'][str(d)]['labels']
-        elif d == 10:
-            inputs_train_group = f['train'][str(m)]['inputs']
-            inputs_test_group = f['test'][str(m)]['inputs']
-            labels_train_group = f['train'][str(m)]['labels']
-            labels_test_group = f['test'][str(m)]['labels']
-        else:
-            raise Exception(f"Invalid combination of parameters d,m: {d},{m}\nEither m=6 or d=10 is needed")
 
-        def load_data(inputs_group, labels_group):
-            x_data = []
-            y_data = []
-            for i in range(len(inputs_group)):
-                sample_keys = sorted([int(k) for k in inputs_group[str(i)].keys()])
-                sample = [float(inputs_group[str(i)][str(dim)][()]) for dim in sample_keys]
-                x_data.append(sample)
-                y_data.append(labels_group[str(i)][()])
-            return np.array(x_data), np.array(y_data)
+def generate_hidden_manifold_model(n_samples, n_features, manifold_dimension):
+    """Data generation procedure for the 'hidden manifold model'.
 
-        x_train, y_train = load_data(inputs_train_group, labels_train_group)
-        x_test, y_test = load_data(inputs_test_group, labels_test_group)
+    Args:
+        n_samples (int): number of samples to generate
+        n_features (int): dimension of the data samples
+        manifold_dimension (int): dimension of hidden maniforls
+    """
 
-    return x_train, x_test, y_train, y_test
+    # feature matrix F controls the embedding of the manifold
+    F = np.random.normal(size=(manifold_dimension, n_features))
+
+    # Gaussian matrix samples original inputs from the lower-dimensional manifold
+    C = np.random.normal(size=(n_samples, manifold_dimension), loc=0, scale=1)
+
+    # embed data, adding an element-wise nonlinearity
+    biases = 2 * np.random.uniform(size=(n_features,)) - 1
+    X = nonlinearity(C @ F / np.sqrt(manifold_dimension), biases)
+
+    # define labels via a neural network
+    W = np.random.normal(size=(manifold_dimension, manifold_dimension))
+    v = np.random.normal(size=(manifold_dimension,))
+    y = np.array([neural_net(c, W, v) for c in C])
+
+    # post-process the labels to get balanced classes
+    y = y - np.median(y)
+    y = np.array([-1 if y_ < 0 else 1 for y_ in y])
+    assert len(X[y == 1]) == n_samples // 2
+    assert len(X[y == -1]) == n_samples // 2
+
+    return X, y

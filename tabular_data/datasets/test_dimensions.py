@@ -11,7 +11,7 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 import downscaled_mnist_pca
 import hidden_manifold
-import two_curves
+import two_curves_loading
 
 def test_downscaled_mnist():
     print("Testing downscaled_mnist_pca.py...")
@@ -58,7 +58,7 @@ def test_hidden_manifold():
             print(f"  d=10, m={m}: ERROR - {e}")
 
 def test_two_curves():
-    print("\nTesting two_curves.py...")
+    print("\nTesting two_curves_loading.py...")
     
     # Test degree=5 cases
     test_dims = [2, 5, 10, 15, 20]
@@ -77,7 +77,7 @@ def test_two_curves():
     test_degrees = [2, 5, 10, 15, 20]
     for degree in test_degrees:
         try:
-            x_train, x_test, y_train, y_test = two_curves.get_dataset(10, degree)
+            x_train, x_test, y_train, y_test = two_curves_loading.get_dataset(10, degree)
             print(f"  d=10, degree={degree}: x_train.shape={x_train.shape}, x_test.shape={x_test.shape}")
             print(f"                       Expected feature dim: 10, Actual: {x_train.shape[1]}")
             assert x_train.shape[1] == 10, f"Feature dimension mismatch for d=10, degree={degree}"
