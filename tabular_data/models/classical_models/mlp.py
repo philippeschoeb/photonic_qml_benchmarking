@@ -24,7 +24,10 @@ class MLP(torch.nn.Module):
             self.mlp.add_module(f"linear_{i}", linear_layer)
             self.mlp.add_module(f"activation_{i}", activation)
 
-        last_linear = torch.nn.Linear(in_features=num_neurons[-1], out_features=output_size, bias=True)
+        if num_h_layers == 0:
+            last_linear = torch.nn.Linear(in_features=input_size, out_features=output_size, bias=True)
+        else:
+            last_linear = torch.nn.Linear(in_features=num_neurons[-1], out_features=output_size, bias=True)
         self.mlp.add_module(f"linear_{len(num_neurons)}", last_linear)
 
     def forward(self, x):

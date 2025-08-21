@@ -2,12 +2,12 @@
 Main data handling file: Tabular data fetching and preparation
 """
 
-from downscaled_mnist_pca_loading import get_dataset as get_mnist_pca
-from mnist import generate_mnist
-from hidden_manifold_loading import get_dataset as get_hm
-from hidden_manifold import generate_hidden_manifold_model
-from two_curves_loading import get_dataset as get_two_curves
-from two_curves import generate_two_curves
+from datasets.downscaled_mnist_pca_loading import get_dataset as get_mnist_pca
+from datasets.mnist import generate_mnist
+from datasets.hidden_manifold_loading import get_dataset as get_hm
+from datasets.hidden_manifold import generate_hidden_manifold_model
+from datasets.two_curves_loading import get_dataset as get_two_curves
+from datasets.two_curves import generate_two_curves
 import pennylane as qml
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler, MinMaxScaler
@@ -43,8 +43,8 @@ def get_data(data: str, loading="fetch", arg1=None, arg2=None, random_state=42):
             x_train, x_test, y_train, y_test = get_hm(arg1, arg2)
             return x_train, x_test, y_train.astype(np.int64), y_test.astype(np.int64)
         elif loading == "build":
-            X, y = generate_hidden_manifold_model(300, arg1, arg2)
-            return train_test_split(X, y, test_size=60, train_size=240, random_state=random_state)
+            x, y = generate_hidden_manifold_model(300, arg1, arg2)
+            return train_test_split(x, y, test_size=60, train_size=240, random_state=random_state)
         else:
             raise ValueError(f"Unknown loading {loading}")
 
@@ -53,8 +53,8 @@ def get_data(data: str, loading="fetch", arg1=None, arg2=None, random_state=42):
             x_train, x_test, y_train, y_test = get_two_curves(arg1, arg2)
             return x_train, x_test, y_train.astype(np.int64), y_test.astype(np.int64)
         elif loading == "build":
-            X, y = generate_two_curves(300, arg1, arg2, 1/(2*arg2), 0.01)
-            return train_test_split(X, y, test_size=60, train_size=240, random_state=random_state)
+            x, y = generate_two_curves(300, arg1, arg2, 1/(2*arg2), 0.01)
+            return train_test_split(x, y, test_size=60, train_size=240, random_state=random_state)
         else:
             raise ValueError(f"Unknown loading {loading}")
     else:
@@ -122,7 +122,7 @@ def get_summary(x_train, x_test, y_train, y_test, path, dataset):
     return
 
 
-def preprocess_data(x_train, x_test, y_train, y_test, scaling):
+def preprocess_data(x_train, x_test, scaling):
     """
     Preprocess the data by applying the specified scaling technique.
 
@@ -140,7 +140,7 @@ def preprocess_data(x_train, x_test, y_train, y_test, scaling):
         tuple: Scaled feature matrices (x_train, x_test) and label vectors (y_train, y_test).
     """
     # Assert valid scaling method
-    assert scaling in ["standardize", "minmax", "arctan"], "Invalid scaling method"
+    assert scaling in ["standardize", "minmax", "arctan", "none", None], f"Invalid scaling method: {scaling}"
 
     # Standardization (zero mean, unit variance)
     if scaling == "standardize":
@@ -159,10 +159,28 @@ def preprocess_data(x_train, x_test, y_train, y_test, scaling):
         x_train = np.arctan(x_train)
         x_test = np.arctan(x_test)
 
-    return x_train, x_test, y_train, y_test
+    return x_train, x_test
 
 
-def convert_array_to_tensor(x_train, x_test, y_train, y_test, dtype=torch.float32):
+def preprocess_labels(y_train, y_test, treatment='0-1'):
+    if treatment == '0-1':
+        # Only apply conversion if necessary
+        if set(np.unique(y_train)) <= {-1, 1}:
+            y_train = (y_train + 1) // 2
+        if set(np.unique(y_test)) <= {-1, 1}:
+            y_test = (y_test + 1) // 2
+    elif treatment == 'none' or treatment is None or treatment == 'None':
+        y_train = y_train
+        y_test = y_test
+    elif treatment == 'q_kernel':
+        y_train = y_train
+        y_test = y_test
+    else:
+        raise NotImplementedError(f'Invalid labels treatment: {treatment}')
+    return y_train, y_test
+
+
+def convert_array_to_tensor(x_train, x_test, y_train, y_test, dtype=torch.float32, labels_treatment='0-1'):
     """
     Converts train/test features and labels to PyTorch tensors.
     Args:
@@ -177,7 +195,7 @@ def convert_array_to_tensor(x_train, x_test, y_train, y_test, dtype=torch.float3
     x_test_t = torch.tensor(x_test, dtype=dtype)
 
     # For labels, use float for regression, long for classification
-    if np.issubdtype(y_train.dtype, np.floating):
+    if np.issubdtype(y_train.dtype, np.floating) or labels_treatment == 'q_kernel':
         y_dtype = torch.float32
     else:
         y_dtype = torch.long
@@ -204,3 +222,16 @@ def convert_tensor_to_loader(x, y, batch_size=32, shuffle=True):
     dataset = TensorDataset(x, y)
     loader = DataLoader(dataset, batch_size=batch_size, shuffle=shuffle)
     return loader
+
+
+def subsample(x_train, x_test, y_train, y_test, num_train, num_test, rng):
+    # pick random indices
+    train_idx = rng.choice(len(x_train), size=num_train, replace=False)
+    test_idx = rng.choice(len(x_test), size=num_test, replace=False)
+
+    # subset
+    x_train = x_train[train_idx]
+    y_train = y_train[train_idx]
+    x_test = x_test[test_idx]
+    y_test = y_test[test_idx]
+    return x_train, x_test, y_train, y_test

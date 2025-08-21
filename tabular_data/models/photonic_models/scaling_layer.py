@@ -15,7 +15,7 @@ class ScalingLayer(torch.nn.Module):
             self.scaling_factor = np.pi
         elif self.scaling == '2pi':
             self.scaling_factor = 2*np.pi
-        elif self.scaling == '/pi':
+        elif self.scaling == '1/pi':
             self.scaling_factor = 1.0/np.pi
         elif self.scaling == '1/2pi':
             self.scaling_factor = 1.0/(2*np.pi)
@@ -27,6 +27,20 @@ class ScalingLayer(torch.nn.Module):
     def forward(self, x):
         return self.scaling_factor * x
 
+
+def scale_from_string_to_value(scaling):
+    if scaling == '1':
+        return 1
+    elif scaling == 'pi':
+        return np.pi
+    elif scaling == '2pi':
+        return 2*np.pi
+    elif scaling == '1/pi':
+        return 1.0/np.pi
+    elif scaling == '1/2pi':
+        return 1.0/(2*np.pi)
+    else:
+        raise NotImplementedError(f'scaling {scaling} not implemented')
 
 
 class StandardizationLayer(torch.nn.Module):

@@ -1,5 +1,5 @@
 import os
-from data import download_datasets
+from datasets.data import download_datasets
 
 base_path = os.path.dirname(os.path.abspath(__file__))  # path of the current .py file
 path_to_mnist = os.path.join(base_path, 'downscaled-mnist', 'downscaled-mnist.h5')
