@@ -52,3 +52,14 @@ Different datasets:
 3. two_curves_{d}_{D}
 
 with d in [2, 3, ... , 20]; m in [2, 3, ... , 20]; D in [2, 3, ... , 20]
+
+Two run types:
+1. single
+2. hyperparam_search
+
+Backend:
+1. photonic
+2. gate
+3. {empty}
+
+Architectures depend on the model chosen

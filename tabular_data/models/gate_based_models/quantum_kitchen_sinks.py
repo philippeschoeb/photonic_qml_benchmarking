@@ -23,7 +23,7 @@ from sklearn.utils.extmath import softmax
 from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import StandardScaler
 from sklearn.preprocessing import MinMaxScaler
-from qml_benchmarks.model_utils import chunk_vmapped_fn
+from training.gate_based_training.model_utils import chunk_vmapped_fn
 
 
 class QuantumKitchenSinks(BaseEstimator, ClassifierMixin):
@@ -102,6 +102,7 @@ class QuantumKitchenSinks(BaseEstimator, ClassifierMixin):
         # data-dependant attributes
         # which will be initialised by calling "fit"
         self.params_ = None
+        self.rands_ = None
         self.n_qubits_ = None
         self.scaler = None  # data scaler for inputs
         self.scaler2 = None  # data scaler for quantum generated features
@@ -123,7 +124,7 @@ class QuantumKitchenSinks(BaseEstimator, ClassifierMixin):
             self.dev_type,
             wires=self.n_qubits_,
             shots=1,
-            prng_key=self.generate_key(),
+            seed=self.random_state,
         )
 
         @qml.qnode(dev, **self.qnode_kwargs)
@@ -131,8 +132,12 @@ class QuantumKitchenSinks(BaseEstimator, ClassifierMixin):
 
             for i, q in enumerate(Q):
                 qml.RX(q, wires=i)
-            qml.broadcast(qml.CNOT, wires=range(self.n_qubits_), pattern="double")
-            qml.broadcast(qml.CNOT, wires=range(self.n_qubits_), pattern=pattern)
+            #qml.broadcast(qml.CNOT, wires=range(self.n_qubits_), pattern="double")
+            for i in range(0, self.n_qubits_ - 1, 2):
+                qml.CNOT(wires=[i, i + 1])
+            #qml.broadcast(qml.CNOT, wires=range(self.n_qubits_), pattern=pattern)
+            for pair in pattern:
+                qml.CNOT(wires=pair)
 
             return qml.sample(wires=range(self.n_qubits_))
 
@@ -184,7 +189,7 @@ class QuantumKitchenSinks(BaseEstimator, ClassifierMixin):
                 key=self.generate_key(), shape=(self.n_episodes, self.n_qubits_)
             )
         )
-        self.params_ = {"omegas": np.array(omegas), "betas": np.array(betas)}
+        self.rands_ = {"omegas": np.array(omegas), "betas": np.array(betas)}
 
     def fit(self, X, y):
         """Fit the model to data X and labels y.
@@ -242,8 +247,8 @@ class QuantumKitchenSinks(BaseEstimator, ClassifierMixin):
             X (np.ndarray): Data of shape (n_samples, n_features)
         """
         if (
-            self.params_["betas"] is None
-            or self.params_["omegas"] is None
+            self.rands_["betas"] is None
+            or self.rands_["omegas"] is None
             or self.circuit is None
         ):
             raise ValueError("Model cannot predict without fitting to data first.")
@@ -259,8 +264,8 @@ class QuantumKitchenSinks(BaseEstimator, ClassifierMixin):
         n_data = X.shape[0]
         input_features = np.zeros([self.n_episodes, n_data, self.n_qubits_])
         for e in range(self.n_episodes):
-            stacked_beta = np.stack([self.params_["betas"][e] for __ in range(n_data)])
-            input_features[e] = (self.params_["omegas"][e] @ X.T + stacked_beta.T).T
+            stacked_beta = np.stack([self.rands_["betas"][e] for __ in range(n_data)])
+            input_features[e] = (self.rands_["omegas"][e] @ X.T + stacked_beta.T).T
         input_features = np.reshape(input_features, (n_data * self.n_episodes, -1))
 
         features = self.forward(input_features)

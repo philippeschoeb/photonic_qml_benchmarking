@@ -20,7 +20,7 @@ import jax.numpy as jnp
 from sklearn.base import BaseEstimator, ClassifierMixin
 from sklearn.svm import SVC
 from sklearn.preprocessing import MinMaxScaler
-from qml_benchmarks.model_utils import chunk_vmapped_fn
+from training.gate_based_training.model_utils import chunk_vmapped_fn
 
 jax.config.update("jax_enable_x64", True)
 

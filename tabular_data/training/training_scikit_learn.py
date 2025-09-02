@@ -6,6 +6,8 @@ def training_sklearn(model_dict, x_train, x_test, y_train, y_test):
     model_name = model_dict['name']
     model = model_dict['model']
 
+    # Convert tensors to numpy arrays ?
+
     model.fit(x_train, y_train)
     y_pred_test = model.predict(x_test)
     test_accuracy = accuracy_score(y_test, y_pred_test)

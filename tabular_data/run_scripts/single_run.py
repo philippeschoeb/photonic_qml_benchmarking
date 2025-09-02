@@ -1,29 +1,33 @@
 import torch
 import logging
+import json
 
-from prompt_toolkit.utils import to_int
 
-
-def get_dataset_hps(dataset_name, arg1, arg2, model):
-    # Need labels -1 vs 1 for q_kernel_method
-    if model == 'q_kernel_method':
+def get_dataset_hps(dataset_name, model, backend):
+    # Need labels -1 vs 1 for q_kernel_method and for gate_based models
+    if model == 'q_kernel_method' or backend == 'gate':
         labels_treatment = 'q_kernel'
     else:
         labels_treatment = '0-1'
 
     # Only keep 250 training samples and 250 test samples if utilizing a kernel method
-    if model in ['q_kernel_method', 'q_kernel_method_reservoir', 'q_rks', 'rbf_svc', 'rks']:
+    if dataset_name == 'downscaled_mnist_pca' and model in ['q_kernel_method', 'q_kernel_method_reservoir', 'q_rks', 'rbf_svc', 'rks']:
         num_train = 250
         num_test = 250
     else:
         num_train = None
         num_test = None
 
-    hps = {'downscaled_mnist_pca': {'scaling': 'minmax', 'batch_size': 32, 'labels_treatment': labels_treatment, 'num_train': num_train, 'num_test': num_test},
-           'hidden_manifold': {'scaling': 'minmax', 'batch_size': 32, 'labels_treatment': labels_treatment},
-           'two_curves': {'scaling': 'minmax', 'batch_size': 32, 'labels_treatment': labels_treatment},}
+    # Load other hps
+    with open("hyperparameters/single_run/dataset_hps.json", "r") as f:
+        hps = json.load(f)
 
-    return hps[dataset_name]
+    hps = hps[dataset_name]
+    hps['labels_treatment'] = labels_treatment
+    hps['num_train'] = num_train
+    hps['num_test'] = num_test
+
+    return hps
 
 
 def get_model_hps_photonic(model, architecture):
@@ -93,9 +97,58 @@ def get_model_hps_photonic(model, architecture):
     return model_hps
 
 
-def get_model_hps_gate(model, architecture):
-    #TODO
-    return {}
+def get_model_hps_gate(model, architecture, random_state):
+    hps = {'dressed_quantum_circuit': {'default': {'n_layers': 5, 'lr': 0.001, 'batch_size': 32, 'max_vmap': 1, 'max_steps': 100000, 'convergence_interval': 200, 'scaling': 1.0, 'random_state': random_state},
+                                       **{f'n_layers_{i}': {'n_layers': i, 'lr': 0.001, 'batch_size': 32, 'max_vmap': 1, 'max_steps': 100000, 'convergence_interval': 200, 'scaling': 1.0, 'random_state': random_state}
+                                       for i in [1, 5, 10, 15]}},
+           'dressed_quantum_circuit_reservoir': {'default': {'n_layers': 5, 'lr': 0.001, 'batch_size': 32, 'max_vmap': 1, 'max_steps': 100000, 'convergence_interval': 200, 'scaling': 1.0, 'random_state': random_state},
+                                                 **{f'n_layers_{i}': {'n_layers': i, 'lr': 0.001, 'batch_size': 32, 'max_vmap': 1, 'max_steps': 100000, 'convergence_interval': 200, 'scaling': 1.0, 'random_state': random_state}
+                                                 for i in [1, 5, 10, 15]}},
+           'multiple_paths_model': {'default': {'n_layers': 5, 'n_classical_h_layers':0, 'num_neurons': [], 'lr': 0.001, 'batch_size': 32, 'max_vmap': 1, 'max_steps': 100000, 'convergence_interval': 200, 'scaling': 1.0, 'random_state': random_state},
+               **{f'num_h_layers_{i}': {'n_layers': 5, 'n_classical_h_layers':i, 'num_neurons': [4]*i, 'lr': 0.001, 'batch_size': 32, 'max_vmap': 1, 'max_steps': 100000, 'convergence_interval': 200, 'scaling': 1.0, 'random_state': random_state}
+                  for i in range(0, 4)}},
+           'multiple_paths_model_reservoir': {'default': {'n_layers': 5, 'n_classical_h_layers':0, 'num_neurons': [], 'lr': 0.001, 'batch_size': 32, 'max_vmap': 1, 'max_steps': 100000, 'convergence_interval': 200, 'scaling': 1.0, 'random_state': random_state},
+               **{f'num_h_layers_{i}': {'n_layers': 5, 'n_classical_h_layers':i, 'num_neurons': [4]*i, 'lr': 0.001, 'batch_size': 32, 'max_vmap': 1, 'max_steps': 100000, 'convergence_interval': 200, 'scaling': 1.0, 'random_state': random_state}
+                  for i in range(0, 4)}},
+           'data_reuploading': {'default': {'n_layers': 4, 'observable_type': 'single', 'convergence_interval': 200, 'max_steps': 10000, 'lr': 0.05, 'batch_size': 32, 'scaling': 1.0, 'random_state': random_state},
+                                **{f'n_layers_{i}': {'n_layers': i, 'observable_type': 'single', 'convergence_interval': 200, 'max_steps': 10000, 'lr': 0.05, 'batch_size': 32, 'scaling': 1.0, 'random_state': random_state}
+                                   for i in range(2, 21)}},
+           'data_reuploading_reservoir': {'default': {'n_layers': 4, 'observable_type': 'single', 'convergence_interval': 200, 'max_steps': 10000, 'lr': 0.05, 'batch_size': 32, 'scaling': 1.0, 'random_state': random_state},
+                                **{f'n_layers_{i}': {'n_layers': i, 'observable_type': 'single', 'convergence_interval': 200, 'max_steps': 10000, 'lr': 0.05, 'batch_size': 32, 'scaling': 1.0, 'random_state': random_state}
+                                   for i in range(2, 21)}},
+           'q_kernel_method': {'default': {'repeats': 2, 'C': 1.0, 'scaling': 1.0, 'max_vmap': 250, 'random_state': random_state},
+               **{f'repeats_{i}': {'repeats': i, 'C': 1.0, 'scaling': 1.0, 'max_vmap': 250, 'random_state': random_state}
+                  for i in range(1, 11)}},
+           'q_kernel_method_reservoir': {'default': {'repeats': 2, 'C': 1.0, 'scaling': 1.0, 'max_vmap': 250, 'random_state': random_state},
+               **{f'repeats_{i}': {'repeats': i, 'C': 1.0, 'scaling': 1.0, 'max_vmap': 250, 'random_state': random_state}
+                  for i in range(1, 11)}},
+           'q_rks': {
+               'default': {'n_episodes': 100, 'n_qfeatures': 'full', 'var': 1.0, 'scaling': 1.0, 'random_state': 42},
+               **{f'R_{k}_var_{l ** 2}': {'n_episodes': k, 'n_qfeatures': 'full', 'var': l ** 2, 'scaling': 1.0, 'random_state': 42}
+                  for k in range(10, 110, 10)  # Equivalent to R
+                  for l in range(1, 10)}}  # Equivalent to gamma**2
+           }
+    # Access model hyperparams
+    try:
+        model_hps = hps[model]
+    except Exception:
+        raise Exception(f'Model {model} not found in hyperparams dictionary.')
+    try:
+        model_hps = model_hps[architecture]
+    except Exception:
+        raise Exception(f'Architecture {architecture} of model {model} not found in hyperparams dictionary.')
+
+    # Define model type
+    if model in ['dressed_quantum_circuit', 'multiple_paths_model', 'data_reuploading', 'q_rks']:
+        model_hps['type'] = 'jax_sklearn_gate'
+    elif model in ['q_rks']:
+        model_hps['type'] = 'gate_rks'
+    else:
+        model_hps['type'] = 'sklearn_gate'
+
+    # Keep model name
+    model_hps['name'] = model + f'_({architecture})'
+    return model_hps
 
 
 def get_model_hps_classical(model, architecture, random_state):
@@ -174,6 +227,10 @@ def get_training_hps(model_type, dataset_name, model):
         return {'output_size': 2}
     elif model_type == 'sklearn':
         return {'output_size': 2}
+    elif model_type == 'jax_sklearn_gate':
+        return {'output_size': 2}
+    elif model_type == 'sklearn_gate':
+        return {'output_size': 2}
     else:
         raise Exception(f'Model type {model_type} has no training hyperparameters.')
 
@@ -186,20 +243,13 @@ def get_hyperparams(dataset, model, architecture, backend, sk_random):
     # Find which dataset_name matches the start of the string
     dataset_name = next(name for name in dataset_names if dataset.startswith(name))
 
-    # Remove dataset_name + underscore and split the rest
-    args_part = dataset[len(dataset_name) + 1:]  # skip underscore
-    args = args_part.split("_") if args_part else []
-
-    arg1 = args[0] if len(args) >= 1 else None
-    arg2 = args[1] if len(args) >= 2 else None
-
-    dataset_hps = get_dataset_hps(dataset_name, arg1, arg2, model)
+    dataset_hps = get_dataset_hps(dataset_name, model, backend)
 
     # Model HPs #####################################################
     if backend == 'photonic':
         model_hps = get_model_hps_photonic(model, architecture)
     elif backend == 'gate':
-        model_hps = get_model_hps_gate(model, architecture)
+        model_hps = get_model_hps_gate(model, architecture, sk_random)
     elif backend == 'classical':
         model_hps = get_model_hps_classical(model, architecture, sk_random)
     else:

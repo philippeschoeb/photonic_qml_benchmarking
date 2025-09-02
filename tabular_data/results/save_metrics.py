@@ -183,3 +183,89 @@ def save_hyperparams(hps, save_dir):
         json.dump(hps, f, indent=4)
 
     return
+
+
+def save_sk_train_losses_accs(train_loss, train_accs, final_test_acc, save_dir):
+    os.makedirs(save_dir, exist_ok=True)
+
+    fig, axes = plt.subplots(1, 2, figsize=(12, 5))  # 2 plots side by side
+
+    # Plot train loss
+    axes[0].plot(train_loss, label="Train Loss", color="tab:blue")
+    axes[0].set_title("Train Losses", fontsize=16)
+    axes[0].set_xlabel("Epoch", fontsize=14)
+    axes[0].set_ylabel("Loss", fontsize=14)
+    axes[0].tick_params(axis="both", labelsize=12)
+    #axes[0].legend(fontsize=12)
+    axes[0].grid()
+
+    # Plot train accuracy
+    axes[1].plot(train_accs, label="Train Accuracy", color="tab:blue")
+    axes[1].axhline(y=final_test_acc, color='red', linestyle='--', label='Test Accuracy')
+    axes[1].set_title("Train Accuracies", fontsize=16)
+    axes[1].set_xlabel("Epoch", fontsize=14)
+    axes[1].set_ylabel("Accuracy", fontsize=14)
+    axes[1].tick_params(axis="both", labelsize=12)
+    axes[1].legend(fontsize=12)
+    axes[1].grid()
+
+    # Reduce spacing
+    plt.tight_layout(pad=1.0, w_pad=2.0)
+
+    # Save
+    save_path = os.path.join(save_dir, "training_curves.png")
+    plt.savefig(save_path, dpi=300, bbox_inches="tight")
+    plt.close()
+
+    metrics_dict = {
+        "train_loss": serialize(train_loss),
+        "train_acc": serialize(train_accs),
+        "final_test_acc": final_test_acc,
+    }
+    save_path = os.path.join(save_dir, "training_metrics.json")
+    with open(save_path, "w") as f:
+        json.dump(metrics_dict, f, indent=4)
+
+    return
+
+
+def save_search_hyperparams(cv_results, hps, best_hps, save_dir):
+    """Save dataset, model, and training hyperparameters as JSON."""
+    os.makedirs(save_dir, exist_ok=True)
+
+    # Helper to make everything JSON serializable
+    def make_serializable(obj):
+        if isinstance(obj, torch.device):
+            return str(obj)  # e.g., "cuda:0" or "cpu"
+        if isinstance(obj, (tuple, set)):
+            return list(obj)  # convert to list
+        if isinstance(obj, np.random.RandomState):
+            seed = obj.get_state()[1][0]
+            return int(seed)
+        # Add more conversions if needed
+        return obj
+
+    # Walk recursively through dicts
+    def serialize_dict(d):
+        return {k: make_serializable(v) if not isinstance(v, dict) else serialize_dict(v)
+                for k, v in d.items()}
+
+    hps = serialize_dict(hps)
+    cv_results = serialize_dict(cv_results)
+    best_hps = serialize_dict(best_hps)
+
+    # Save
+
+    save_path = os.path.join(save_dir, "search_hyperparams.json")
+    with open(save_path, "w") as f:
+        json.dump(hps, f, indent=4, default=str)
+
+    save_path = os.path.join(save_dir, "cv_results.json")
+    with open(save_path, "w") as f:
+        json.dump(cv_results, f, indent=4, default=str)
+
+    save_path = os.path.join(save_dir, "best_hps.json")
+    with open(save_path, "w") as f:
+        json.dump(best_hps, f, indent=4, default=str)
+
+    return

@@ -1,5 +1,6 @@
 from training.training_torch import training_torch, training_reuploading, training_sklearn_q_kernel
 from training.training_scikit_learn import training_sklearn, training_sklearn_kernel
+from training.gate_based_training.training_sklearn_gate import training_sklearn_gate
 
 def distribute_training(model_dict, train_loader, test_loader, x_train, x_test, y_train, y_test, **hyperparams):
     if model_dict['type'] == 'torch':
@@ -12,5 +13,9 @@ def distribute_training(model_dict, train_loader, test_loader, x_train, x_test, 
         return training_sklearn_kernel(model_dict, x_train, x_test, y_train, y_test)
     elif model_dict['type'] == 'sklearn':
         return training_sklearn(model_dict, x_train, x_test, y_train, y_test)
+    elif model_dict['type'] == 'jax_sklearn_gate':
+        return training_sklearn_gate(model_dict, x_train, x_test, y_train, y_test)
+    elif model_dict['type'] == 'sklearn_gate' or model_dict['type'] == 'gate_rks':
+        return training_sklearn_gate(model_dict, x_train, x_test, y_train, y_test)
     else:
         raise ValueError(f'Unknown model type: {model_dict["type"]}')

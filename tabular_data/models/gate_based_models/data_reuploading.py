@@ -21,8 +21,8 @@ import optax
 from sklearn.base import BaseEstimator, ClassifierMixin
 from sklearn.utils.validation import check_is_fitted
 from sklearn.preprocessing import MinMaxScaler
-from qml_benchmarks.model_utils import train
-from qml_benchmarks.model_utils import chunk_vmapped_fn
+from training.gate_based_training.model_utils import train
+from training.gate_based_training.model_utils import chunk_vmapped_fn
 
 jax.config.update("jax_enable_x64", True)
 
@@ -149,10 +149,18 @@ class DataReuploadingClassifier(BaseEstimator, ClassifierMixin):
                     qml.Rot(*angles, wires=i)
 
                     x_idx += 3
-                if layer % 2 == 0:
+                '''if layer % 2 == 0:
                     qml.broadcast(qml.CZ, range(self.n_qubits_), pattern="double")
                 else:
-                    qml.broadcast(qml.CZ, range(self.n_qubits_), pattern="double_odd")
+                    qml.broadcast(qml.CZ, range(self.n_qubits_), pattern="double_odd")'''
+                wires = list(range(self.n_qubits_))
+                if layer % 2 == 0:
+                    pairs = [(wires[i], wires[i + 1]) for i in range(0, len(wires) - 1, 2)]
+                else:
+                    pairs = [(wires[i], wires[i + 1]) for i in range(1, len(wires) - 1, 2)]
+
+                for w1, w2 in pairs:
+                    qml.CZ(wires=[w1, w2])
 
             # final reupload without CZs
             x_idx = 0

@@ -224,10 +224,10 @@ def convert_tensor_to_loader(x, y, batch_size=32, shuffle=True):
     return loader
 
 
-def subsample(x_train, x_test, y_train, y_test, num_train, num_test, rng):
+def subsample(x_train, x_test, y_train, y_test, num_train, num_test):
     # pick random indices
-    train_idx = rng.choice(len(x_train), size=num_train, replace=False)
-    test_idx = rng.choice(len(x_test), size=num_test, replace=False)
+    train_idx = np.random.choice(len(x_train), num_train, replace=False)
+    test_idx = np.random.choice(len(x_test), num_test, replace=False)
 
     # subset
     x_train = x_train[train_idx]

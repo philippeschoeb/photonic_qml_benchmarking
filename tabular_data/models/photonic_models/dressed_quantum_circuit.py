@@ -34,7 +34,7 @@ class DressedQuantumCircuit(torch.nn.Module):
 
 
 # Scikit-learn model version
-SKDressedQuantumCircuit(BaseEstimator, ClassifierMixin):
+'''SKDressedQuantumCircuit(BaseEstimator, ClassifierMixin):
     def __init__(self, model_class, data_params=None, model_params=None, training_params=None):
         self.model_class = model_class
         self.data_params = data_params or {}
@@ -44,4 +44,4 @@ SKDressedQuantumCircuit(BaseEstimator, ClassifierMixin):
         self.model = None  # will be build in fit()
 
     def fit(self, x, y):
-        x_tensor = torch.tensor(x, dtype=torch.float32).to(self.training)
+        x_tensor = torch.tensor(x, dtype=torch.float32).to(self.training)'''

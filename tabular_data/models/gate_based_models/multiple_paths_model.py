@@ -22,10 +22,12 @@ import jax.numpy as jnp
 from training.gate_based_training.model_utils import train, chunk_vmapped_fn
 
 
-class DressedQuantumCircuitClassifier(BaseEstimator, ClassifierMixin):
+class MultiplePathsModelClassifier(BaseEstimator, ClassifierMixin):
     def __init__(
         self,
         n_layers=3,
+        n_classical_h_layers=0,
+        num_neurons=[],
         learning_rate=0.001,
         batch_size=32,
         max_vmap=None,
@@ -49,6 +51,7 @@ class DressedQuantumCircuitClassifier(BaseEstimator, ClassifierMixin):
 
         Args:
             n_layers (int): number of layers in the variational part of the circuit.
+            #TODO
             learning_rate (float): initial learning rate for gradient descent.
             max_steps (int): Maximum number of training steps. A warning will be raised if training did not converge.
             max_vmap (int or None): The maximum size of a chunk to vectorise over. Lower values use less memory.
@@ -63,6 +66,8 @@ class DressedQuantumCircuitClassifier(BaseEstimator, ClassifierMixin):
         """
         # attributes that do not depend on data
         self.n_layers = n_layers
+        self.n_classical_h_layers = n_classical_h_layers
+        self.num_neurons = num_neurons
         self.learning_rate = learning_rate
         self.batch_size = batch_size
         self.max_steps = max_steps
@@ -89,21 +94,15 @@ class DressedQuantumCircuitClassifier(BaseEstimator, ClassifierMixin):
     def generate_key(self):
         return jax.random.PRNGKey(self.rng.integers(1000000))
 
-    def input_transform(self, params, x):
-        """
-        The first neural network that we implement as matrix multiplication.
-
-        Removed from model for comparison with photonic
-        """
-        #x = jnp.matmul(params["input_weights"], x)
-        #x = jnp.tanh(x) * jnp.pi / 2
-        return x
-
     def output_transform(self, params, x):
         """
         The final neural network
         """
-        x = jnp.matmul(params["output_weights"], x)
+        if self.n_classical_h_layers == 0:
+            x = jnp.matmul(params["output_weights"], x)
+        else:
+            for param_layer in params["output_weights"]:
+                    x = jnp.matmul(param_layer, x)
         return x
 
     def construct_model(self):
@@ -130,11 +129,20 @@ class DressedQuantumCircuitClassifier(BaseEstimator, ClassifierMixin):
 
         self.circuit = circuit
 
+        def post_circuit(x: jnp.ndarray) -> jnp.ndarray:
+            # mean and std over batch dimension (axis=0)
+            mean = jnp.mean(x, axis=0, keepdims=True)
+            std = jnp.std(x, axis=0, keepdims=True)
+
+            return (x - mean) / (std + 1e-8)
+
         def dressed_circuit(params, x):
-            x = self.input_transform(params, x)
-            x = jnp.array(circuit(params, x)).T
-            x = self.output_transform(params, x)
-            return x
+            x_1 = x
+            x_2 = jnp.array(circuit(params, x)).T
+            x_2 = post_circuit(x_2)
+            x_3 = jnp.concatenate([x_1, x_2])
+            x_out = self.output_transform(params, x_3)
+            return x_out
 
         if self.jit:
             dressed_circuit = jax.jit(dressed_circuit)
@@ -178,10 +186,21 @@ class DressedQuantumCircuitClassifier(BaseEstimator, ClassifierMixin):
             )
             / self.n_features_
         )'''
-        output_weights = (
-            jax.random.normal(shape=(2, self.n_qubits_), key=self.generate_key())
-            / self.n_features_
-        )
+        if self.n_classical_h_layers == 0:
+            output_weights = (
+                jax.random.normal(shape=(2, self.n_qubits_ + self.n_features_), key=self.generate_key())
+                / self.n_features_
+            )
+            #output_weights = tuple(output_weights)
+        else:
+            output_weights = []
+            previous_size = self.n_qubits_ + self.n_features_
+            for i, num in enumerate(self.num_neurons):
+                output_weights.append(jax.random.normal(shape=(num, previous_size), key=self.generate_key()))
+                previous_size = num
+            output_weights.append(jax.random.normal(shape=(2, previous_size), key=self.generate_key()))
+            output_weights = tuple(output_weights)
+
         self.params_ = {
             "circuit_weights": circuit_weights,
             #"input_weights": input_weights,
@@ -265,7 +284,7 @@ class DressedQuantumCircuitClassifier(BaseEstimator, ClassifierMixin):
         return X * self.scaling
 
 
-class DressedQuantumCircuitClassifierOnlyNN(DressedQuantumCircuitClassifier):
+"""class DressedQuantumCircuitClassifierOnlyNN(DressedQuantumCircuitClassifier):
 
     def construct_model(self):
         def dressed_circuit(params, x):
@@ -317,9 +336,9 @@ class DressedQuantumCircuitClassifierSeparable(DressedQuantumCircuitClassifier):
 
         @qml.qnode(dev, **self.qnode_kwargs)
         def circuit(params, x):
-            """
+            '''
             The variational circuit taken from the plots
-            """
+            '''
             # data encoding
             for i in range(self.n_qubits_):
                 qml.Hadamard(wires=i)
@@ -344,4 +363,4 @@ class DressedQuantumCircuitClassifierSeparable(DressedQuantumCircuitClassifier):
         self.forward = jax.vmap(dressed_circuit, in_axes=(None, 0))
         self.chunked_forward = chunk_vmapped_fn(self.forward, 1, self.max_vmap)
 
-        return self.forward
+        return self.forward"""

@@ -82,6 +82,7 @@ class DressedQuantumCircuitClassifier(BaseEstimator, ClassifierMixin):
         # data-dependant attributes
         # which will be initialised by calling "fit"
         self.params_ = None  # Dictionary containing the trainable parameters
+        self.non_train_params_ = None
         self.n_qubits_ = None
         self.n_features_ = None
         self.scaler = None  # data scaler will be fitted on training data
@@ -121,8 +122,8 @@ class DressedQuantumCircuitClassifier(BaseEstimator, ClassifierMixin):
             # trainable unitary
             for layer in range(self.n_layers):
                 for i in range(self.n_qubits_):
-                    qml.RY(params["circuit_weights"][layer, i], wires=i)
-                #qml.broadcast(qml.CNOT, wires=range(self.n_qubits_), pattern="ring")
+                    qml.RY(self.non_train_params_["circuit_weights"][layer, i], wires=i)
+                # qml.broadcast(qml.CNOT, wires=range(self.n_qubits_), pattern="ring")
                 for i in range(self.n_qubits_):
                     qml.CNOT(wires=[i, (i + 1) % self.n_qubits_])
 
@@ -183,9 +184,12 @@ class DressedQuantumCircuitClassifier(BaseEstimator, ClassifierMixin):
             / self.n_features_
         )
         self.params_ = {
-            "circuit_weights": circuit_weights,
+            #"circuit_weights": circuit_weights,
             #"input_weights": input_weights,
             "output_weights": output_weights,
+        }
+        self.non_train_params_ = {
+            "circuit_weights": circuit_weights,
         }
 
     def fit(self, X, y):
