@@ -1,3 +1,5 @@
+import logging
+
 from models.photonic_models.dressed_quantum_circuit import DressedQuantumCircuit as DressedQuantumCircuitPhotonic
 from models.photonic_models.multiple_paths_model import MultiplePathsModel as MultiplePathsModelPhotonic
 from models.photonic_models.data_reuploading import DataReuploading as DataReuploadingPhotonic
@@ -22,9 +24,9 @@ def fetch_model(model, backend, input_size, output_size, **hyperparams):
         if model == 'dressed_quantum_circuit' or model == 'dressed_quantum_circuit_reservoir':
             return DressedQuantumCircuitPhotonic(scaling=hyperparams['scaling'], input_size=input_size, output_size=output_size, m=hyperparams['m'], n=hyperparams['n'], circuit_type=hyperparams['circuit'], reservoir=hyperparams['reservoir'], no_bunching=hyperparams['no_bunching'])
         elif model == 'multiple_paths_model' or model == 'multiple_paths_model_reservoir':
-            return MultiplePathsModelPhotonic(scaling=hyperparams['scaling'], input_size=input_size, output_size=output_size, m=hyperparams['m'], n=hyperparams['n'], circuit_type=hyperparams['circuit'], reservoir=hyperparams['reservoir'], no_bunching=hyperparams['no_bunching'], post_circuit_scaling=hyperparams['post_circuit_scaling'], num_h_layers=hyperparams['num_h_layers'], num_neurons=hyperparams['num_neurons'])
+            return MultiplePathsModelPhotonic(scaling=hyperparams['scaling'], input_size=input_size, output_size=output_size, m=hyperparams['m'], n=hyperparams['n'], circuit_type=hyperparams['circuit'], reservoir=hyperparams['reservoir'], no_bunching=hyperparams['no_bunching'], post_circuit_scaling=hyperparams['post_circuit_scaling'], num_h_layers=len(hyperparams['numNeurons']), num_neurons=hyperparams['numNeurons'])
         elif model == 'data_reuploading':
-            return DataReuploadingPhotonic(scaling=hyperparams['scaling'], input_size=input_size, num_layers=hyperparams['num_layers'], design=hyperparams['design'])
+            return DataReuploadingPhotonic(scaling=hyperparams['scaling'], input_size=input_size, num_layers=hyperparams['numLayers'], design=hyperparams['design'])
         elif model == 'data_reuploading_reservoir':
             raise NotImplementedError('Data Reuploading not suited for reservoir mode')
         elif model == 'q_kernel_method' or model == 'q_kernel_method_reservoir':
@@ -37,19 +39,23 @@ def fetch_model(model, backend, input_size, output_size, **hyperparams):
     # Gate based quantum models
     elif backend == 'gate':
         if model == 'dressed_quantum_circuit':
-            return DressedQuantumCircuitGate(n_layers=hyperparams['n_layers'], learning_rate=hyperparams['lr'], batch_size=hyperparams['batch_size'], max_vmap=hyperparams['max_vmap'], max_steps=hyperparams['max_steps'], convergence_interval=hyperparams['convergence_interval'], scaling=hyperparams['scaling'], random_state=hyperparams['random_state'])
+            return DressedQuantumCircuitGate(n_layers=hyperparams['nLayers'], learning_rate=hyperparams['lr'], batch_size=hyperparams['batch_size'], max_vmap=hyperparams['max_vmap'], max_steps=hyperparams['max_steps'], convergence_interval=hyperparams['convergence_interval'], scaling=hyperparams['scaling'], random_state=hyperparams['random_state'])
         elif model == 'dressed_quantum_circuit_reservoir':
-            return DressedQuantumCircuitReservoirGate(n_layers=hyperparams['n_layers'], learning_rate=hyperparams['lr'], batch_size=hyperparams['batch_size'], max_vmap=hyperparams['max_vmap'], max_steps=hyperparams['max_steps'], convergence_interval=hyperparams['convergence_interval'], scaling=hyperparams['scaling'], random_state=hyperparams['random_state'])
+            return DressedQuantumCircuitReservoirGate(n_layers=hyperparams['nLayers'], learning_rate=hyperparams['lr'], batch_size=hyperparams['batch_size'], max_vmap=hyperparams['max_vmap'], max_steps=hyperparams['max_steps'], convergence_interval=hyperparams['convergence_interval'], scaling=hyperparams['scaling'], random_state=hyperparams['random_state'])
         elif model == 'multiple_paths_model':
-            return MultiplePathsModelGate(n_layers=hyperparams['n_layers'], n_classical_h_layers=hyperparams['n_classical_h_layers'], num_neurons=hyperparams['num_neurons'], learning_rate=hyperparams['lr'], batch_size=hyperparams['batch_size'], max_vmap=hyperparams['max_vmap'], max_steps=hyperparams['max_steps'], convergence_interval=hyperparams['convergence_interval'], scaling=hyperparams['scaling'], random_state=hyperparams['random_state'])
+            return MultiplePathsModelGate(n_layers=hyperparams['nLayers'], n_classical_h_layers=len(hyperparams['numNeurons']), num_neurons=hyperparams['numNeurons'], learning_rate=hyperparams['lr'], batch_size=hyperparams['batch_size'], max_vmap=hyperparams['max_vmap'], max_steps=hyperparams['max_steps'], convergence_interval=hyperparams['convergence_interval'], scaling=hyperparams['scaling'], random_state=hyperparams['random_state'])
         elif model == 'multiple_paths_model_reservoir':
-            return MultiplePathsModelReservoirGate(n_layers=hyperparams['n_layers'], n_classical_h_layers=hyperparams['n_classical_h_layers'], num_neurons=hyperparams['num_neurons'], learning_rate=hyperparams['lr'], batch_size=hyperparams['batch_size'], max_vmap=hyperparams['max_vmap'], max_steps=hyperparams['max_steps'], convergence_interval=hyperparams['convergence_interval'], scaling=hyperparams['scaling'], random_state=hyperparams['random_state'])
+            return MultiplePathsModelReservoirGate(n_layers=hyperparams['nLayers'], n_classical_h_layers=len(hyperparams['numNeurons']), num_neurons=hyperparams['numNeurons'], learning_rate=hyperparams['lr'], batch_size=hyperparams['batch_size'], max_vmap=hyperparams['max_vmap'], max_steps=hyperparams['max_steps'], convergence_interval=hyperparams['convergence_interval'], scaling=hyperparams['scaling'], random_state=hyperparams['random_state'])
         elif model == 'data_reuploading':
-            return DataReuploadingGate(n_layers=hyperparams['n_layers'], observable_type=hyperparams['observable_type'], convergence_interval=hyperparams['convergence_interval'], max_steps=hyperparams['max_steps'], learning_rate=hyperparams['lr'], batch_size=hyperparams['batch_size'], scaling=hyperparams['scaling'], random_state=hyperparams['random_state'])
+            return DataReuploadingGate(n_layers=hyperparams['nLayers'], observable_type=hyperparams['observable_type'], convergence_interval=hyperparams['convergence_interval'], max_steps=hyperparams['max_steps'], learning_rate=hyperparams['lr'], batch_size=hyperparams['batch_size'], scaling=hyperparams['scaling'], random_state=hyperparams['random_state'])
         elif model == 'q_kernel_method_reservoir':
             return IQPKernelGate(repeats=hyperparams['repeats'], C=hyperparams['C'], scaling=hyperparams['scaling'], max_vmap=hyperparams['max_vmap'], random_state=hyperparams['random_state'])
+        elif model == 'q_kernel_method':
+            logging.warning('q_kernel_method with gate based backend is only available in reservoir mode')
+            logging.warning('Returning q_kernel_method_reservoir')
+            return IQPKernelGate(repeats=hyperparams['repeats'], C=hyperparams['C'], scaling=hyperparams['scaling'], max_vmap=hyperparams['max_vmap'], random_state=hyperparams['random_state'])
         elif model == 'q_rks':
-            return QRKSGate(n_episodes=hyperparams['n_episodes'], n_qfeatures=hyperparams['n_qfeatures'], var=hyperparams['var'], scaling=hyperparams['scaling'], random_state=hyperparams['random_state'])
+            return QRKSGate(n_episodes=hyperparams['R'], n_qfeatures=hyperparams['n_qfeatures'], var=hyperparams['gamma']**2, scaling=hyperparams['scaling'], random_state=hyperparams['random_state'])
         else:
             raise NotImplementedError(f'Model {model} not implemented for gate-based backend.')
         return
@@ -57,7 +63,7 @@ def fetch_model(model, backend, input_size, output_size, **hyperparams):
     # Classical models
     elif backend == 'classical':
         if model == 'mlp':
-            return MLP(input_size=input_size, output_size=output_size, num_h_layers=hyperparams['num_h_layers'], num_neurons=hyperparams['num_neurons'])
+            return MLP(input_size=input_size, output_size=output_size, num_h_layers=len(hyperparams['numNeurons']), num_neurons=hyperparams['numNeurons'])
         elif model == 'rbf_svc':
             return RBFSVC(C=hyperparams['C'], gamma=hyperparams['gamma'], random_state=hyperparams['random_state'])
         elif model == 'rks':

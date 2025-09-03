@@ -162,8 +162,8 @@ def preprocess_data(x_train, x_test, scaling):
     return x_train, x_test
 
 
-def preprocess_labels(y_train, y_test, treatment='0-1'):
-    if treatment == '0-1':
+def preprocess_labels(y_train, y_test, treatment='0_1'):
+    if treatment == '0_1':
         # Only apply conversion if necessary
         if set(np.unique(y_train)) <= {-1, 1}:
             y_train = (y_train + 1) // 2
@@ -172,7 +172,7 @@ def preprocess_labels(y_train, y_test, treatment='0-1'):
     elif treatment == 'none' or treatment is None or treatment == 'None':
         y_train = y_train
         y_test = y_test
-    elif treatment == 'q_kernel':
+    elif treatment == '-1_1':
         y_train = y_train
         y_test = y_test
     else:
@@ -180,7 +180,7 @@ def preprocess_labels(y_train, y_test, treatment='0-1'):
     return y_train, y_test
 
 
-def convert_array_to_tensor(x_train, x_test, y_train, y_test, dtype=torch.float32, labels_treatment='0-1'):
+def convert_array_to_tensor(x_train, x_test, y_train, y_test, dtype=torch.float32, labels_treatment='0_1'):
     """
     Converts train/test features and labels to PyTorch tensors.
     Args:
@@ -195,7 +195,7 @@ def convert_array_to_tensor(x_train, x_test, y_train, y_test, dtype=torch.float3
     x_test_t = torch.tensor(x_test, dtype=dtype)
 
     # For labels, use float for regression, long for classification
-    if np.issubdtype(y_train.dtype, np.floating) or labels_treatment == 'q_kernel':
+    if np.issubdtype(y_train.dtype, np.floating) or labels_treatment == '-1_1':
         y_dtype = torch.float32
     else:
         y_dtype = torch.long

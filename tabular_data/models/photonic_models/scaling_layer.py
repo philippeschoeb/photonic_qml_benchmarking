@@ -39,6 +39,8 @@ def scale_from_string_to_value(scaling):
         return 1.0/np.pi
     elif scaling == '1/2pi':
         return 1.0/(2*np.pi)
+    elif scaling == 'pi/4':
+        return np.pi/4.0
     else:
         raise NotImplementedError(f'scaling {scaling} not implemented')
 

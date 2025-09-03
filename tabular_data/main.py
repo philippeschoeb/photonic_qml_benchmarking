@@ -4,6 +4,7 @@ Main run file for tabular data benchmarking.
 
 import argparse
 from run_scripts.run import run_single, run_search
+from helper import architecture_help
 import sys
 import os
 # Current file is tabular_data/main.py
@@ -47,6 +48,12 @@ if __name__ == '__main__':
     dataset = args.dataset
     model = args.model
     architecture = args.architecture
+
+    # If the user wants help with different architecture configurations
+    if architecture == 'help':
+        print(architecture_help(model))
+        sys.exit(0)
+
     if architecture is None:
         architecture = 'default'
     backend = args.backend

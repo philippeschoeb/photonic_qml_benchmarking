@@ -14,7 +14,8 @@ from skopt import BayesSearchCV
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from run_scripts.single_run import get_hyperparams as single_hps
-from run_scripts.hyperparam_search_run import get_hyperparams as search_hps
+from run_scripts.hyperparam_search_run import get_hyperparams_halving_grid
+from run_scripts.hyperparam_search_run import get_hyperparams_bayes
 from datasets.fetch_data import fetch_data, fetch_sk_data
 from models.fetch_model import fetch_model, fetch_sk_model
 from training.distribute_training import distribute_training
@@ -99,7 +100,13 @@ def run_search(dataset, model, architecture, backend, random_state):
     logging.warning(f'HYPERPARAM SEARCH {separator}\nDataset: {dataset}\nModel: {model}\nArchitecture: {architecture}\nBackend: {backend}\nRunType: hyperparam_search\nRandomState: {random_state}')
 
     # Fetch hyperparameter grid for hyperparameter search
-    param_grid, dataset_hps, model_hps, training_hps = search_hps(dataset, model, architecture, backend, random_state)
+
+    if model in ['dressed_quantum_circuit', 'dressed_quantum_circuit_reservoir', 'multiple_paths_model', 'multiple_paths_model_reservoir', 'data_reuploading', 'mlp']:
+        param_grid, dataset_hps, model_hps, training_hps = get_hyperparams_halving_grid(dataset, model, architecture, backend, random_state)
+    elif model in ['q_kernel_method', 'q_kernel_method_reservoir', 'q_rks', 'rbf_svc', 'rks']:
+        param_grid, dataset_hps, model_hps, training_hps = get_hyperparams_bayes(dataset, model, architecture, backend, random_state)
+    else:
+        raise NotImplementedError(f'Unknown model name for hp search: {model}')
 
     # Get device
     device = training_hps['device'][0]
@@ -119,32 +126,30 @@ def run_search(dataset, model, architecture, backend, random_state):
     # Check device
     if device == torch.device('cpu'):
 
-        # Check model type
-        if model_type in ['torch', 'reuploading', 'jax_sklearn_gate']:
+        # Check model
+        if model in ['dressed_quantum_circuit', 'dressed_quantum_circuit_reservoir', 'multiple_paths_model',
+                     'multiple_paths_model_reservoir', 'data_reuploading', 'mlp']:
             # HalvingGridSearchCV
             search = HalvingGridSearchCV(sk_model, param_grid=param_grid, cv=3, n_jobs=-1, verbose=1, min_resources=20)
-        elif model_type in ['sklearn_kernel', 'sklearn', 'sklearn_gate']:
+        elif model in ['q_kernel_method', 'q_kernel_method_reservoir', 'q_rks', 'rbf_svc', 'rks']:
             # BayesSearchCV
             search = BayesSearchCV(sk_model, param_grid, scoring='accuracy', cv=3, n_jobs=-1, verbose=1, n_iter=100)
-        elif model_type in ['sklearn_q_kernel', 'gate_rks']:
-            raise NotImplementedError('sklearn_q_kernel and gate_rks -> HalvingGridSearchCV or BayesSearchCV ?')
         else:
-            raise NotImplementedError(f'Unknown model type: {model_type}')
+            raise NotImplementedError(f'Unknown model name for hp search: {model}')
 
     # Check device
     else:
 
-        # Check model type
-        if model_type in ['torch', 'reuploading', 'jax_sklearn_gate']:
+        # Check model
+        if model in ['dressed_quantum_circuit', 'dressed_quantum_circuit_reservoir', 'multiple_paths_model',
+                     'multiple_paths_model_reservoir', 'data_reuploading', 'mlp']:
             # HalvingGridSearchCV
             search = HalvingGridSearchCV(sk_model, param_grid=param_grid, cv=3, n_jobs=1, verbose=1, min_resources=20)
-        elif model_type in ['sklearn_kernel', 'sklearn', 'sklearn_gate']:
+        elif model in ['q_kernel_method', 'q_kernel_method_reservoir', 'q_rks', 'rbf_svc', 'rks']:
             # BayesSearchCV
             search = BayesSearchCV(sk_model, param_grid, scoring='accuracy', cv=3, n_jobs=1, verbose=1, n_iter=100)
-        elif model_type in ['sklearn_q_kernel', 'gate_rks']:
-            raise NotImplementedError('sklearn_q_kernel -> HalvingGridSearchCV or BayesSearchCV ?')
         else:
-            raise NotImplementedError(f'Unknown model type: {model_type}')
+            raise NotImplementedError(f'Unknown model name for hp search: {model}')
 
     # Hyperparameter search
     search.fit(x_train, y_train)
@@ -247,7 +252,7 @@ def count_parameters(model_dict):
     elif model_type == 'sklearn_kernel':
         num_support_vectors = len(model.model.support_)
     elif model_type == 'sklearn':
-        num_support_vectors = len(model.support_)
+        num_support_vectors = len(model.model.support_)
     elif model_type == 'jax_sklearn_gate':
         num_params = sum(p.size if not isinstance(p, tuple) else sum(e.size for e in p) for p in model.params_.values())
     elif model_type == 'gate_rks':
@@ -256,5 +261,6 @@ def count_parameters(model_dict):
         num_support_vectors = len(model.svm.support_)
     else:
         raise NotImplementedError(f'Unknown model type: {model_type}')
-    logging.warning(f'Number of parameters: {num_params}\nNumber of support vectors: {num_support_vectors}')
+    logging.warning(f'Number of parameters: {num_params}')
+    logging.warning(f'Number of support vectors: {num_support_vectors}')
     return num_params, num_support_vectors

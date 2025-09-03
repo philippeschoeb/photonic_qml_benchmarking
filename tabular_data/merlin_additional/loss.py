@@ -25,7 +25,7 @@ class NKernelAlignment(_Loss):
     def forward(self, input: Tensor, target: Tensor) -> Tensor:
         if input.dim() != 2:
             raise ValueError(
-                'Input must be a 2D tensor representing the kernel matrix.')
+                f'Input must be a 2D tensor representing the kernel matrix: {input.dim()}')
 
         if torch.any((target != 1) & (target != -1)):
             raise ValueError(

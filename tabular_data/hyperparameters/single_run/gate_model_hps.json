@@ -1,0 +1,94 @@
+{
+    "dressed_quantum_circuit": {
+        "default": {
+            "nLayers": 5,
+            "lr": 0.001,
+            "batch_size": 32,
+            "max_vmap": 1,
+            "max_steps": 100000,
+            "convergence_interval": 200,
+            "scaling": 1.0
+        }
+    },
+    "dressed_quantum_circuit_reservoir": {
+        "default": {
+            "nLayers": 5,
+            "lr": 0.001,
+            "batch_size": 32,
+            "max_vmap": 1,
+            "max_steps": 100000,
+            "convergence_interval": 200,
+            "scaling": 1.0
+        }
+    },
+    "multiple_paths_model": {
+        "default": {
+            "nLayers": 5,
+            "numNeurons": [],
+            "lr": 0.001,
+            "batch_size": 32,
+            "max_vmap": 1,
+            "max_steps": 100000,
+            "convergence_interval": 200,
+            "scaling": 1.0
+        }
+    },
+    "multiple_paths_model_reservoir": {
+        "default": {
+            "nLayers": 5,
+            "numNeurons": [],
+            "lr": 0.001,
+            "batch_size": 32,
+            "max_vmap": 1,
+            "max_steps": 100000,
+            "convergence_interval": 200,
+            "scaling": 1.0
+        }
+    },
+    "data_reuploading": {
+        "default": {
+            "nLayers": 4,
+            "observable_type": "single",
+            "convergence_interval": 200,
+            "max_steps": 10000,
+            "lr": 0.05,
+            "batch_size": 32,
+            "scaling": 1.0
+        }
+    },
+    "data_reuploading_reservoir": {
+        "default": {
+            "nLayers": 4,
+            "observable_type": "single",
+            "convergence_interval": 200,
+            "max_steps": 10000,
+            "lr": 0.05,
+            "batch_size": 32,
+            "scaling": 1.0
+        }
+    },
+    "q_kernel_method": {
+        "default": {
+            "repeats": 2,
+            "C": 1.0,
+            "scaling": 1.0,
+            "max_vmap": 250
+        }
+    },
+    "q_kernel_method_reservoir": {
+        "default": {
+            "repeats": 2,
+            "C": 1.0,
+            "scaling": 1.0,
+            "max_vmap": 250
+        }
+    },
+    "q_rks": {
+        "default": {
+            "R": 100,
+            "n_qfeatures": "full",
+            "gamma": 1.0,
+            "scaling": 1.0
+        }
+    }
+}

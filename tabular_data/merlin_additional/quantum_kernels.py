@@ -357,6 +357,9 @@ class FidelityKernel(torch.nn.Module):
         eigenvals, eigenvecs = torch.linalg.eigh(matrix)
         eigenvals = torch.diag(torch.where(eigenvals > 0, eigenvals, 0))
 
+        # Put back into diagonal, keep dtype consistent with matrix
+        #eigenvals = torch.diag(eigenvals.to(matrix.dtype))
+
         matrix_psd = eigenvecs @ eigenvals @ eigenvecs.T
 
         return matrix_psd

@@ -210,7 +210,7 @@ class QuantumKitchenSinks(BaseEstimator, ClassifierMixin):
         start = time.time()
         self.linear_model.fit(features, y)
         end = time.time()
-        self.params_["weights"] = self.linear_model.coef_
+        self.params_ = {"weights": self.linear_model.coef_}
         self.training_time_ = end - start
         return self
 
