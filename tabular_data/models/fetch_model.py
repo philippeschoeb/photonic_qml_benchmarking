@@ -14,9 +14,9 @@ from models.gate_based_models.data_reuploading import DataReuploadingClassifier 
 from models.gate_based_models.iqp_kernel import IQPKernelClassifier as IQPKernelGate
 from models.gate_based_models.quantum_kitchen_sinks import QuantumKitchenSinks as QRKSGate
 
-from models.classical_models.mlp import MLP, SKMLP
-from models.classical_models.rbf_svc import RBFSVC
-from models.classical_models.rks import RKS
+from models.classical_models.mlp import MLP, HalvingGridMLP
+from models.classical_models.rbf_svc import RBFSVC, HalvingGridRBFSVC
+from models.classical_models.rks import RKS, HalvingGridRKS
 
 def fetch_model(model, backend, input_size, output_size, **hyperparams):
     # Photonic based quantum models
@@ -77,7 +77,11 @@ def fetch_model(model, backend, input_size, output_size, **hyperparams):
 def fetch_sk_model(model, backend):
     if backend == 'classical':
         if model == 'mlp':
-            return SKMLP()
+            return HalvingGridMLP()
+        elif model == 'rbf_svc':
+            return HalvingGridRBFSVC()
+        elif model == 'rks':
+            return HalvingGridRKS()
         else:
             raise NotImplementedError(f'Model {model} not implemented for classical backend.')
     else:

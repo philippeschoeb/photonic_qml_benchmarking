@@ -1,0 +1,94 @@
+{
+    "dressed_quantum_circuit": {
+        "default": {
+            "numLayers": [3, 1, 9],
+            "lr": [0.001, 0.01, 0.0001],
+            "batch_size": [32],
+            "max_vmap": [1],
+            "max_steps": [100000],
+            "convergence_interval": [200],
+            "scaling": [1.0, 0.3183, 3.1416]
+        }
+    },
+    "dressed_quantum_circuit_reservoir": {
+        "default": {
+            "numLayers": [3, 1, 9],
+            "lr": [0.001, 0.01, 0.0001],
+            "batch_size": [32],
+            "max_vmap": [1],
+            "max_steps": [100000],
+            "convergence_interval": [200],
+            "scaling": [1.0, 0.3183, 3.1416]
+        }
+    },
+    "multiple_paths_model": {
+        "default": {
+            "numLayers": [3, 1, 9],
+            "numNeurons": [[], [4], [4, 4]],
+            "lr": [0.001, 0.01, 0.0001],
+            "batch_size": [32],
+            "max_vmap": [1],
+            "max_steps": [100000],
+            "convergence_interval": [200],
+            "scaling": [1.0, 0.3183, 3.1416]
+        }
+    },
+    "multiple_paths_model_reservoir": {
+        "default": {
+            "numLayers": [3, 1, 9],
+            "numNeurons": [[], [4], [4, 4]],
+            "lr": [0.001, 0.01, 0.0001],
+            "batch_size": [32],
+            "max_vmap": [1],
+            "max_steps": [100000],
+            "convergence_interval": [200],
+            "scaling": [1.0, 0.3183, 3.1416]
+        }
+    },
+    "data_reuploading": {
+        "default": {
+            "numLayers": [4, 2, 8],
+            "observable_type": ["single", "half"],
+            "convergence_interval": [200],
+            "max_steps": [10000],
+            "lr": [0.05, 0.5, 0.005],
+            "batch_size": [32],
+            "scaling": [1.0, 0.3183, 3.1416]
+        }
+    },
+    "data_reuploading_reservoir": {
+        "default": {
+            "numLayers": [4, 2, 8],
+            "observable_type": ["single", "half"],
+            "convergence_interval": [200],
+            "max_steps": [10000],
+            "lr": [0.05, 0.5, 0.005],
+            "batch_size": [32],
+            "scaling": [1.0, 0.3183, 3.1416]
+        }
+    },
+    "q_kernel_method": {
+        "default": {
+            "repeats": [2, 1, 4],
+            "C": [1.0, 0.25, 4.0],
+            "scaling": [1.0, 0.3183, 3.1416],
+            "max_vmap": [250]
+        }
+    },
+    "q_kernel_method_reservoir": {
+        "default": {
+            "repeats": [2, 1, 4],
+            "C": [1.0, 0.25, 4.0],
+            "scaling": [1.0, 0.3183, 3.1416],
+            "max_vmap": [250]
+        }
+    },
+    "q_rks": {
+        "default": {
+            "R": [50, 20, 100],
+            "n_qfeatures": ["full", "half"],
+            "gamma": [3, 1, 5],
+            "scaling": [1.0, 0.3183, 3.1416]
+        }
+    }
+}

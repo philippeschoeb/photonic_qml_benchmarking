@@ -7,6 +7,8 @@ from run_scripts.run import run_single, run_search
 from helper import architecture_help
 import sys
 import os
+import logging
+
 # Current file is tabular_data/main.py
 tabular_data_folder = os.path.dirname(os.path.abspath(__file__))  # .../tabular_data
 repo_root = os.path.dirname(tabular_data_folder)                 # parent of tabular_data
@@ -47,20 +49,22 @@ if __name__ == '__main__':
     args = parser.parse_args()
     dataset = args.dataset
     model = args.model
+    run_type = args.run_type
     architecture = args.architecture
-
-    # If the user wants help with different architecture configurations
-    if architecture == 'help':
-        print(architecture_help(model))
-        sys.exit(0)
-
-    if architecture is None:
-        architecture = 'default'
     backend = args.backend
     # If classical model, change backend to classical
     if model in ['mlp', 'rbf_svc', 'rks']:
         backend = 'classical'
-    run_type = args.run_type
+    print(f'Backend type: {backend}')
+
+    # If the user wants help with different architecture configurations
+    if architecture == 'help':
+        print(architecture_help(model, backend))
+        sys.exit(0)
+
+    if architecture is None:
+        architecture = 'default'
+
     random_state = args.random_state
     if random_state is None:
         random_state = 42

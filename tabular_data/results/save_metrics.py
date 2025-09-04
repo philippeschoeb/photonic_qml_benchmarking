@@ -229,7 +229,49 @@ def save_sk_train_losses_accs(train_loss, train_accs, final_test_acc, save_dir):
     return
 
 
-def save_search_hyperparams(cv_results, hps, best_hps, save_dir):
+def save_sk_final_test_acc(final_test_acc, save_dir):
+    os.makedirs(save_dir, exist_ok=True)
+
+    fig, ax = plt.subplots(figsize=(6, 5))
+
+    # Bar chart
+    bars = ax.bar(
+        ["Test Acc"],
+        [final_test_acc],
+        color=["tab:red"],
+    )
+    ax.set_title("Final Test Accuracy", fontsize=16)
+    ax.set_ylabel("Accuracy", fontsize=14)
+    ax.tick_params(axis="both", labelsize=12)
+    # ax.grid()
+
+    # Annotate values
+    for bar in bars:
+        height = bar.get_height()
+        ax.annotate(f"{height:.2f}",
+                    xy=(bar.get_x() + bar.get_width() / 2, height - 0.07),
+                    xytext=(0, 5),
+                    textcoords="offset points",
+                    ha="center", va="bottom", fontsize=16, fontweight="bold")
+
+    plt.tight_layout()
+
+    # Save
+    save_path = os.path.join(save_dir, "final_test_accuracy.png")
+    plt.savefig(save_path, dpi=300, bbox_inches="tight")
+    plt.close()
+
+    metrics_dict = {
+        "final_test_acc": final_test_acc,
+    }
+    save_path = os.path.join(save_dir, "training_metrics.json")
+    with open(save_path, "w") as f:
+        json.dump(metrics_dict, f, indent=4)
+
+    return
+
+
+def save_search_hyperparams(hps, best_hps, save_dir):
     """Save dataset, model, and training hyperparameters as JSON."""
     os.makedirs(save_dir, exist_ok=True)
 
@@ -251,18 +293,13 @@ def save_search_hyperparams(cv_results, hps, best_hps, save_dir):
                 for k, v in d.items()}
 
     hps = serialize_dict(hps)
-    cv_results = serialize_dict(cv_results)
     best_hps = serialize_dict(best_hps)
 
     # Save
 
-    save_path = os.path.join(save_dir, "search_hyperparams.json")
+    save_path = os.path.join(save_dir, "search_hps.json")
     with open(save_path, "w") as f:
         json.dump(hps, f, indent=4, default=str)
-
-    save_path = os.path.join(save_dir, "cv_results.json")
-    with open(save_path, "w") as f:
-        json.dump(cv_results, f, indent=4, default=str)
 
     save_path = os.path.join(save_dir, "best_hps.json")
     with open(save_path, "w") as f:

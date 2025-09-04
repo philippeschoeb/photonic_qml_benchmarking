@@ -36,7 +36,7 @@ def fetch_data(dataset, random_state, **hyperparams):
     return train_loader, test_loader, x_train, x_test, y_train, y_test
 
 
-def fetch_sk_data(dataset, random_state, **hyperparams):
+def fetch_sk_data(dataset, **hyperparams):
     # List of allowed dataset names
     dataset_names = ['downscaled_mnist_pca', 'hidden_manifold', 'two_curves']
 
@@ -53,13 +53,13 @@ def fetch_sk_data(dataset, random_state, **hyperparams):
     x_train, x_test, y_train, y_test = get_data(dataset_name, arg1=int(arg1), arg2=int(arg2) if arg2 else None)
 
     # Subsampling dataset if kernel method on downscaled_mnist_pca
-    num_train = hyperparams.get('num_train', 'None')
-    if num_train != 'None':
+    num_train = hyperparams.get('num_train', [None])
+    if num_train != [None]:
         num_train = num_train[0]
-    num_test = hyperparams.get('num_test', 'None')
-    if num_test != 'None':
+    num_test = hyperparams.get('num_test', [None])
+    if num_test != [None]:
         num_test = num_test[0]
-    if num_train != 'None' and num_test != 'None':
+    if num_train != [None] and num_test != [None]:
         x_train, x_test, y_train, y_test = subsample(x_train, x_test, y_train, y_test, num_train, num_test)
         logging.info(f'Subsample {num_train} training and {num_test} testing data')
 

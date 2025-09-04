@@ -75,7 +75,7 @@ class DataReuploadingClassifier(BaseEstimator, ClassifierMixin):
             n_layers (int): Number of blocks used in the trainable embedding. The data is uploaded n_layers+1 times.
             observable_type (str): Defines the number of qubits used to evaluate the weighed cost fucntion,
                 either 'single', 'half' or 'full'.
-                 max_steps (int): Maximum number of training steps. A warning will be raised if training did not
+            max_steps (int): Maximum number of training steps. A warning will be raised if training did not
                     converge.
             learning_rate (float): Initial learning rate for training.
             convergence_interval (int): The number of loss values to consider to decide convergence.

@@ -5,11 +5,12 @@ import random
 import numpy as np
 import torch
 import sys
+import json
 from time import time
 
 from sklearn.metrics import accuracy_score
 from sklearn.experimental import enable_halving_search_cv
-from sklearn.model_selection import HalvingGridSearchCV
+from sklearn.model_selection import HalvingGridSearchCV, GridSearchCV
 from skopt import BayesSearchCV
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -19,7 +20,15 @@ from run_scripts.hyperparam_search_run import get_hyperparams_bayes
 from datasets.fetch_data import fetch_data, fetch_sk_data
 from models.fetch_model import fetch_model, fetch_sk_model
 from training.distribute_training import distribute_training
-from results.save_metrics import save_train_losses_accs, save_train_loss_final_accs, save_final_accs, save_hyperparams, save_sk_train_losses_accs, save_search_hyperparams
+from results.save_metrics import (
+    save_train_losses_accs,
+    save_train_loss_final_accs,
+    save_final_accs,
+    save_hyperparams,
+    save_sk_train_losses_accs,
+    save_sk_final_test_acc,
+    save_search_hyperparams
+)
 
 
 def run_single(dataset, model, architecture, backend, random_state):
@@ -99,12 +108,20 @@ def run_search(dataset, model, architecture, backend, random_state):
     separator = '##' * 40
     logging.warning(f'HYPERPARAM SEARCH {separator}\nDataset: {dataset}\nModel: {model}\nArchitecture: {architecture}\nBackend: {backend}\nRunType: hyperparam_search\nRandomState: {random_state}')
 
-    # Fetch hyperparameter grid for hyperparameter search
+    # Load model_search_assignment
+    with open("hyperparameters/hyperparam_search/model_search_assignment.json", "r") as f:
+        model_search_assignment = json.load(f)
+    halving_grid_list = model_search_assignment['halving_grid']
+    bayes_list = model_search_assignment['bayes']
+    grid_list = model_search_assignment['grid']
 
-    if model in ['dressed_quantum_circuit', 'dressed_quantum_circuit_reservoir', 'multiple_paths_model', 'multiple_paths_model_reservoir', 'data_reuploading', 'mlp']:
+    # Fetch hyperparameter grid for hyperparameter search
+    if model in halving_grid_list:
         param_grid, dataset_hps, model_hps, training_hps = get_hyperparams_halving_grid(dataset, model, architecture, backend, random_state)
-    elif model in ['q_kernel_method', 'q_kernel_method_reservoir', 'q_rks', 'rbf_svc', 'rks']:
+    elif model in bayes_list:
         param_grid, dataset_hps, model_hps, training_hps = get_hyperparams_bayes(dataset, model, architecture, backend, random_state)
+    elif model in grid_list:
+        param_grid, dataset_hps, model_hps, training_hps = get_hyperparams_halving_grid(dataset, model, architecture, backend, random_state)
     else:
         raise NotImplementedError(f'Unknown model name for hp search: {model}')
 
@@ -114,7 +131,7 @@ def run_search(dataset, model, architecture, backend, random_state):
     model_type = model_hps['type'][0]
 
     # Fetch data
-    x_train, x_test, y_train, y_test = fetch_sk_data(dataset, random_state, **dataset_hps)
+    x_train, x_test, y_train, y_test = fetch_sk_data(dataset, **dataset_hps)
 
     # Fetch model
     sk_model = fetch_sk_model(model, backend)
@@ -125,53 +142,48 @@ def run_search(dataset, model, architecture, backend, random_state):
 
     # Check device
     if device == torch.device('cpu'):
-
-        # Check model
-        if model in ['dressed_quantum_circuit', 'dressed_quantum_circuit_reservoir', 'multiple_paths_model',
-                     'multiple_paths_model_reservoir', 'data_reuploading', 'mlp']:
-            # HalvingGridSearchCV
-            search = HalvingGridSearchCV(sk_model, param_grid=param_grid, cv=3, n_jobs=-1, verbose=1, min_resources=20)
-        elif model in ['q_kernel_method', 'q_kernel_method_reservoir', 'q_rks', 'rbf_svc', 'rks']:
-            # BayesSearchCV
-            search = BayesSearchCV(sk_model, param_grid, scoring='accuracy', cv=3, n_jobs=-1, verbose=1, n_iter=100)
-        else:
-            raise NotImplementedError(f'Unknown model name for hp search: {model}')
-
-    # Check device
+        n_jobs = -1
     else:
+        n_jobs = 1
 
-        # Check model
-        if model in ['dressed_quantum_circuit', 'dressed_quantum_circuit_reservoir', 'multiple_paths_model',
-                     'multiple_paths_model_reservoir', 'data_reuploading', 'mlp']:
-            # HalvingGridSearchCV
-            search = HalvingGridSearchCV(sk_model, param_grid=param_grid, cv=3, n_jobs=1, verbose=1, min_resources=20)
-        elif model in ['q_kernel_method', 'q_kernel_method_reservoir', 'q_rks', 'rbf_svc', 'rks']:
-            # BayesSearchCV
-            search = BayesSearchCV(sk_model, param_grid, scoring='accuracy', cv=3, n_jobs=1, verbose=1, n_iter=100)
-        else:
-            raise NotImplementedError(f'Unknown model name for hp search: {model}')
+    # Check model
+    if model in halving_grid_list:
+        # HalvingGridSearchCV
+        search = HalvingGridSearchCV(sk_model, param_grid=param_grid, cv=3, n_jobs=n_jobs, verbose=1, min_resources=20)
+    elif model in bayes_list:
+        # BayesSearchCV
+        search = BayesSearchCV(sk_model, param_grid, scoring='accuracy', cv=3, n_jobs=n_jobs, verbose=1, n_iter=100)
+    elif model in grid_list:
+        # GridSearchCV
+        search = GridSearchCV(sk_model, param_grid=param_grid, cv=3, n_jobs=n_jobs, verbose=1)
+    else:
+        raise NotImplementedError(f'Unknown model name for hp search: {model}')
 
     # Hyperparameter search
     search.fit(x_train, y_train)
     logging.warning(f'HPs search completed, best test accuracy reached: {search.best_score_:.4f}')
-    # Get best model
+    # Get best model and final accuracies
     best_model = search.best_estimator_
-    y_pred = best_model.predict(x_test)
-    # Get final test accuracy
-    final_test_accuracy = accuracy_score(y_test, y_pred)
-    logging.warning(f'Final test accuracy reached: {final_test_accuracy:.4f}')
+    y_pred_train = best_model.predict(x_train)
+    final_train_acc = accuracy_score(y_train, y_pred_train)
+    y_pred_test = best_model.predict(x_test)
+    final_test_acc = accuracy_score(y_test, y_pred_test)
+    logging.warning(f'Final train accuracy: {final_train_acc:.4f} | Final test accuracy: {final_test_acc:.4f}')
 
     # Save metrics based on model type
     if model_type == 'torch':
         save_sk_train_losses_accs(best_model.train_losses, best_model.train_accuracies, final_test_accuracy, save_dir)
-    #TODO other model types
+    elif model_type == 'sklearn':
+        save_final_accs(final_train_acc, final_test_acc, save_dir)
+    elif model_type == 'sklearn_kernel':
+        save_final_accs(final_train_acc, final_test_acc, save_dir)
     else:
         raise NotImplementedError(f'Unknown model type: {model_type}')
     logging.warning(f'Metrics saved at {save_dir}\n\n')
 
     # Save optimal hyperparameters
     best_params = search.best_params_
-    save_search_hyperparams(search.cv_results_, param_grid, best_params, save_dir)
+    save_search_hyperparams(param_grid, best_params, save_dir)
     return
 
 

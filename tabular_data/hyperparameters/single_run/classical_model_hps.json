@@ -1,7 +1,6 @@
 {
     "mlp": {
         "default": {
-            "numHLayers": 4,
             "numNeurons": [
                 16,
                 32,
