@@ -62,4 +62,10 @@ Backend:
 2. gate
 3. {empty}
 
-Architectures depend on the model chosen
+Architectures depend on the model chosen.
+
+For help with the architecture string formatting of your chosen model and backend, simply insert "help" after the "--architecture" argument as such:
+
+```bash
+python main.py --dataset {dataset_name} --model {model_name} --architecture help --run_type {run_type}
+```
