@@ -63,7 +63,7 @@ def fetch_model(model, backend, input_size, output_size, **hyperparams):
     # Classical models
     elif backend == 'classical':
         if model == 'mlp':
-            return MLP(input_size=input_size, output_size=output_size, num_h_layers=len(hyperparams['numNeurons']), num_neurons=hyperparams['numNeurons'])
+            return MLP(input_size=input_size, output_size=output_size, numNeurons=hyperparams['numNeurons'])
         elif model == 'rbf_svc':
             return RBFSVC(C=hyperparams['C'], gamma=hyperparams['gamma'], random_state=hyperparams['random_state'])
         elif model == 'rks':

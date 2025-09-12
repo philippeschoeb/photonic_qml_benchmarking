@@ -76,8 +76,6 @@ class HalvingGridMLP(BaseEstimator, ClassifierMixin):
 
     def fit(self, x, y):
         self.model = self.model_class(**self.model_params)
-        num_params = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
-        logging.warning(f'Number of parameters: {num_params}')
 
         # Get hyperparams
         criterion = self.training_params.get('criterion', 'CrossEntropyLoss')
@@ -136,6 +134,9 @@ class HalvingGridMLP(BaseEstimator, ClassifierMixin):
             if scheduler is not None:
                 scheduler.step()  # standard schedulers
 
+        # Count number of parameters
+        num_params = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
+        logging.warning(f'Number of parameters: {num_params}')
         logging.warning(f'Final Train Accuracy: {train_acc:.4f} out of total train size: {total}')
         self.train_losses = train_losses
         self.train_accuracies = train_accuracies

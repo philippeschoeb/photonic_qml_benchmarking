@@ -1,28 +1,35 @@
 """
 Main run file for tabular data benchmarking.
 """
-
 import argparse
 from run_scripts.run import run_single, run_search
 from helper import architecture_help
+import wandb
 import sys
-import os
-import logging
 
-# Current file is tabular_data/main.py
-tabular_data_folder = os.path.dirname(os.path.abspath(__file__))  # .../tabular_data
-repo_root = os.path.dirname(tabular_data_folder)                 # parent of tabular_data
+def main(dataset, model, architecture, backend, run_type, random_state, use_wandb):
+    # Setup Wandb
+    if use_wandb:
+        wandb.init(project='photonic-qml-benchmarking-tabular',
+                   name=f'{model}&{dataset}&{run_type}',
+                   tags=[model, dataset, run_type, architecture, backend])
+        wandb.run.summary['model'] = model
+        wandb.run.summary['dataset'] = dataset
+        wandb.run.summary['run_type'] = run_type
+        wandb.run.summary['architecture'] = architecture
+        wandb.run.summary['backend'] = backend
+        wandb.run.summary['random_state'] = random_state
 
-if repo_root not in sys.path:
-    sys.path.insert(0, repo_root)  # add repo root to path
-
-def main(dataset, model, architecture, backend, run_type, random_state):
     if run_type == 'single':
-        run_single(dataset, model, architecture, backend, random_state)
+        run_single(dataset, model, architecture, backend, random_state, use_wandb)
     elif run_type == 'hyperparam_search':
-        run_search(dataset, model, architecture, backend, random_state)
+        run_search(dataset, model, architecture, backend, random_state, use_wandb)
     else:
         raise ValueError(f'Invalid run type: {run_type}')
+
+    # Close Wandb
+    if use_wandb:
+        wandb.finish()
 
 
 if __name__ == '__main__':
@@ -45,6 +52,9 @@ if __name__ == '__main__':
 
     parser.add_argument('--random_state', type=int, required=False, default=None, help="Random state to use")
 
+    parser.add_argument('--no-wandb', action='store_false', dest='wandb', help="Disable wandb")
+    parser.set_defaults(wandb=True)  # default is True
+
     # Parse and handle args
     args = parser.parse_args()
     dataset = args.dataset
@@ -52,6 +62,7 @@ if __name__ == '__main__':
     run_type = args.run_type
     architecture = args.architecture
     backend = args.backend
+    use_wandb = args.wandb
     # If classical model, change backend to classical
     if model in ['mlp', 'rbf_svc', 'rks']:
         backend = 'classical'
@@ -68,4 +79,4 @@ if __name__ == '__main__':
     random_state = args.random_state
     if random_state is None:
         random_state = 42
-    main(dataset, model, architecture, backend, run_type, random_state)
+    main(dataset, model, architecture, backend, run_type, random_state, use_wandb)

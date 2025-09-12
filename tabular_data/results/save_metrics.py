@@ -3,8 +3,9 @@ import os
 import json
 import torch
 import numpy as np
+import wandb
 
-def save_train_losses_accs(train_loss, test_loss, train_accs, test_accs, save_dir):
+def save_train_losses_accs(train_loss, test_loss, train_accs, test_accs, save_dir, use_wandb):
     os.makedirs(save_dir, exist_ok=True)
 
     fig, axes = plt.subplots(1, 2, figsize=(12, 5))  # 2 plots side by side
@@ -47,10 +48,21 @@ def save_train_losses_accs(train_loss, test_loss, train_accs, test_accs, save_di
     with open(save_path, "w") as f:
         json.dump(metrics_dict, f, indent=4)
 
+    # Save to Wandb
+    if use_wandb:
+        wandb.log({"final_train_acc": train_accs[-1], "final_test_acc": test_accs[-1]})
+        for train_l, test_l, train_a, test_a in zip(train_loss, test_loss, train_accs, test_accs):
+            wandb.log({
+                "train_loss": train_l,
+                "test_loss": test_l,
+                "train_acc": train_a,
+                "test_acc": test_a,
+            })
+
     return
 
 
-def save_train_loss_final_accs(train_loss, final_train_acc, final_test_acc, save_dir):
+def save_train_loss_final_accs(train_loss, final_train_acc, final_test_acc, save_dir, use_wandb):
     os.makedirs(save_dir, exist_ok=True)
 
     fig, axes = plt.subplots(1, 2, figsize=(12, 5))  # 2 plots side by side
@@ -101,10 +113,19 @@ def save_train_loss_final_accs(train_loss, final_train_acc, final_test_acc, save
     with open(save_path, "w") as f:
         json.dump(metrics_dict, f, indent=4)
 
+    # Save to Wandb
+    if use_wandb:
+        wandb.log({
+            "final_train_acc": final_train_acc,
+            "final_test_acc": final_test_acc,
+        })
+        for train_l in train_loss:
+            wandb.log({"train_loss": train_l})
+
     return
 
 
-def save_final_accs(final_train_acc, final_test_acc, save_dir):
+def save_final_accs(final_train_acc, final_test_acc, save_dir, use_wandb):
     os.makedirs(save_dir, exist_ok=True)
 
     fig, ax = plt.subplots(figsize=(6, 5))
@@ -143,6 +164,13 @@ def save_final_accs(final_train_acc, final_test_acc, save_dir):
     save_path = os.path.join(save_dir, "training_metrics.json")
     with open(save_path, "w") as f:
         json.dump(metrics_dict, f, indent=4)
+
+    # Save to Wandb
+    if use_wandb:
+        wandb.log({
+            "final_train_acc": final_train_acc,
+            "final_test_acc": final_test_acc,
+        })
 
     return
 
@@ -185,7 +213,7 @@ def save_hyperparams(hps, save_dir):
     return
 
 
-def save_sk_train_losses_accs(train_loss, train_accs, final_test_acc, save_dir):
+def save_sk_train_losses_accs(train_loss, train_accs, final_test_acc, save_dir, use_wandb):
     os.makedirs(save_dir, exist_ok=True)
 
     fig, axes = plt.subplots(1, 2, figsize=(12, 5))  # 2 plots side by side
@@ -226,10 +254,16 @@ def save_sk_train_losses_accs(train_loss, train_accs, final_test_acc, save_dir):
     with open(save_path, "w") as f:
         json.dump(metrics_dict, f, indent=4)
 
+    # Save to Wandb
+    if use_wandb:
+        wandb.log({"final_train_acc": train_accs[-1], "final_test_acc": final_test_acc})
+        for train_l, train_a in zip(train_loss, train_accs):
+            wandb.log({"train_loss": train_l, "train_acc": train_a})
+
     return
 
 
-def save_sk_final_test_acc(final_test_acc, save_dir):
+def save_sk_final_test_acc(final_test_acc, save_dir, use_wandb):
     os.makedirs(save_dir, exist_ok=True)
 
     fig, ax = plt.subplots(figsize=(6, 5))
@@ -267,6 +301,10 @@ def save_sk_final_test_acc(final_test_acc, save_dir):
     save_path = os.path.join(save_dir, "training_metrics.json")
     with open(save_path, "w") as f:
         json.dump(metrics_dict, f, indent=4)
+
+    # Save to Wandb
+    if use_wandb:
+        wandb.log({"final_test_acc": final_test_acc})
 
     return
 

@@ -220,7 +220,7 @@ def convert_tensor_to_loader(x, y, batch_size=32, shuffle=True):
         DataLoader object
     """
     dataset = TensorDataset(x, y)
-    loader = DataLoader(dataset, batch_size=batch_size, shuffle=shuffle)
+    loader = DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, num_workers=0)
     return loader
 
 

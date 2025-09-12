@@ -6,6 +6,7 @@ import numpy as np
 import torch
 import sys
 import json
+import wandb
 from time import time
 
 from sklearn.metrics import accuracy_score
@@ -13,7 +14,7 @@ from sklearn.experimental import enable_halving_search_cv
 from sklearn.model_selection import HalvingGridSearchCV, GridSearchCV
 from skopt import BayesSearchCV
 
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+#sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from run_scripts.single_run import get_hyperparams as single_hps
 from run_scripts.hyperparam_search_run import get_hyperparams_halving_grid
 from run_scripts.hyperparam_search_run import get_hyperparams_bayes
@@ -31,7 +32,7 @@ from results.save_metrics import (
 )
 
 
-def run_single(dataset, model, architecture, backend, random_state):
+def run_single(dataset, model, architecture, backend, random_state, use_wandb):
     # Setup logging and return save directory
     save_dir = set_up_logging(dataset, model, architecture, backend)
     # Setup random state across torch, numpy and random
@@ -46,6 +47,9 @@ def run_single(dataset, model, architecture, backend, random_state):
     dataset_hps = hyperparams['dataset']
     model_hps = hyperparams['model']
     training_hps = hyperparams['training']
+    # Setup hyperparameters in wandb
+    if use_wandb:
+        wandb.run.config.update(hyperparams)
 
     # Fetch data
     train_loader, test_loader, x_train, x_test, y_train, y_test = fetch_data(dataset, random_state, **dataset_hps)
@@ -72,33 +76,36 @@ def run_single(dataset, model, architecture, backend, random_state):
 
     # Save metrics based on model type
     if model_type == 'torch':
-        save_train_losses_accs(results_dict['train_losses'], results_dict['test_losses'], results_dict['train_accs'], results_dict['test_accs'], save_dir)
+        save_train_losses_accs(results_dict['train_losses'], results_dict['test_losses'], results_dict['train_accs'], results_dict['test_accs'], save_dir, use_wandb)
     elif model_type == 'reuploading':
-        save_train_loss_final_accs(results_dict['train_losses'], results_dict['final_train_acc'], results_dict['final_test_acc'], save_dir)
+        save_train_loss_final_accs(results_dict['train_losses'], results_dict['final_train_acc'], results_dict['final_test_acc'], save_dir, use_wandb)
     elif model_type == 'sklearn_q_kernel':
-        save_train_loss_final_accs(results_dict['train_losses'], results_dict['final_train_acc'], results_dict['final_test_acc'], save_dir)
+        save_train_loss_final_accs(results_dict['train_losses'], results_dict['final_train_acc'], results_dict['final_test_acc'], save_dir, use_wandb)
     elif model_type == 'sklearn_kernel':
-        save_final_accs(results_dict['final_train_acc'], results_dict['final_test_acc'], save_dir)
+        save_final_accs(results_dict['final_train_acc'], results_dict['final_test_acc'], save_dir, use_wandb)
     elif model_type == 'sklearn':
-        save_final_accs(results_dict['final_train_acc'], results_dict['final_test_acc'], save_dir)
+        save_final_accs(results_dict['final_train_acc'], results_dict['final_test_acc'], save_dir, use_wandb)
     elif model_type == 'jax_sklearn_gate':
         loss_history = results_dict['model'].loss_history_
-        save_train_loss_final_accs(loss_history, results_dict['final_train_acc'], results_dict['final_test_acc'], save_dir)
+        save_train_loss_final_accs(loss_history, results_dict['final_train_acc'], results_dict['final_test_acc'], save_dir, use_wandb)
     elif model_type == 'sklearn_gate' or model_type == 'gate_rks':
-        save_final_accs(results_dict['final_train_acc'], results_dict['final_test_acc'], save_dir)
+        save_final_accs(results_dict['final_train_acc'], results_dict['final_test_acc'], save_dir, use_wandb)
     else:
         raise NotImplementedError(f'Unknown model type: {model_type}')
     logging.warning(f'Metrics saved at {save_dir}\n\n')
 
-    # Save hyperparameters
+    # Save hyperparameters, number of parameters / support vectors and training time
     model_hps['num_params'] = num_params
     model_hps['num_support_vectors'] = num_support_vectors
     training_hps['training_time'] = training_time
     save_hyperparams({'dataset': dataset_hps, 'model': model_hps, 'training': training_hps}, save_dir)
+    # Also in wandb
+    if use_wandb:
+        wandb.log({'number_of_params': num_params, 'num_support_vectors': num_support_vectors, 'training_time': training_time})
     return
 
 
-def run_search(dataset, model, architecture, backend, random_state):
+def run_search(dataset, model, architecture, backend, random_state, use_wandb):
     # Setup logging and return save directory
     save_dir = set_up_logging(dataset, model, architecture, backend)
     # Setup random state across torch, numpy and random
@@ -118,12 +125,21 @@ def run_search(dataset, model, architecture, backend, random_state):
     # Fetch hyperparameter grid for hyperparameter search
     if model in halving_grid_list:
         param_grid, dataset_hps, model_hps, training_hps = get_hyperparams_halving_grid(dataset, model, architecture, backend, random_state)
+        search_type = 'halving_grid_search'
     elif model in bayes_list:
         param_grid, dataset_hps, model_hps, training_hps = get_hyperparams_bayes(dataset, model, architecture, backend, random_state)
+        search_type = 'bayes_search'
     elif model in grid_list:
         param_grid, dataset_hps, model_hps, training_hps = get_hyperparams_halving_grid(dataset, model, architecture, backend, random_state)
+        search_type = 'grid_search'
     else:
         raise NotImplementedError(f'Unknown model name for hp search: {model}')
+
+    # Save hyperparameter grid to Wandb
+    if use_wandb:
+        wandb.run.config.update(param_grid)
+        wandb.config.update({"hp_search_type": search_type})
+        wandb.run.summary['hp_search_type'] = search_type
 
     # Get device
     device = training_hps['device'][0]
@@ -135,10 +151,6 @@ def run_search(dataset, model, architecture, backend, random_state):
 
     # Fetch model
     sk_model = fetch_sk_model(model, backend)
-
-    # Define the hyperparameter search method:
-    # 1. HalvingGridSearchCV or
-    # 2. BayesSearchCV
 
     # Check device
     if device == torch.device('cpu'):
@@ -172,11 +184,11 @@ def run_search(dataset, model, architecture, backend, random_state):
 
     # Save metrics based on model type
     if model_type == 'torch':
-        save_sk_train_losses_accs(best_model.train_losses, best_model.train_accuracies, final_test_accuracy, save_dir)
+        save_sk_train_losses_accs(best_model.train_losses, best_model.train_accuracies, final_test_acc, save_dir, use_wandb)
     elif model_type == 'sklearn':
-        save_final_accs(final_train_acc, final_test_acc, save_dir)
+        save_final_accs(final_train_acc, final_test_acc, save_dir, use_wandb)
     elif model_type == 'sklearn_kernel':
-        save_final_accs(final_train_acc, final_test_acc, save_dir)
+        save_final_accs(final_train_acc, final_test_acc, save_dir, use_wandb)
     else:
         raise NotImplementedError(f'Unknown model type: {model_type}')
     logging.warning(f'Metrics saved at {save_dir}\n\n')
@@ -184,6 +196,9 @@ def run_search(dataset, model, architecture, backend, random_state):
     # Save optimal hyperparameters
     best_params = search.best_params_
     save_search_hyperparams(param_grid, best_params, save_dir)
+    # Save them to Wandb too
+    if use_wandb:
+        wandb.run.config.update({"best_hps": best_params})
     return
 
 
