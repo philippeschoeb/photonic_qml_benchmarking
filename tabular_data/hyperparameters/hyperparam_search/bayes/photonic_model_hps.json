@@ -1,96 +1,95 @@
 {
     "dressed_quantum_circuit": {
         "default": {
-            "scaling": "1",
-            "m": 20,
-            "n": 4,
-            "circuit": "generic_mzi",
-            "reservoir": false,
-            "no_bunching": true
+            "scaling": ["1", "1/pi", "pi"],
+            "m": [10, 20, 30],
+            "n": [2, 4, 6],
+            "circuit": ["generic_mzi"],
+            "reservoir": [false],
+            "no_bunching": [true, false]
         }
     },
     "dressed_quantum_circuit_reservoir": {
         "default": {
-            "scaling": "1",
-            "m": 20,
-            "n": 4,
-            "circuit": "generic_mzi",
-            "reservoir": true,
-            "no_bunching": true
+            "scaling": ["1", "1/pi", "pi"],
+            "m": [10, 20, 30],
+            "n": [2, 4, 6],
+            "circuit": ["generic_mzi"],
+            "reservoir": [true],
+            "no_bunching": [true, false]
         }
     },
     "multiple_paths_model": {
         "default": {
-            "scaling": "1",
-            "m": 20,
-            "n": 4,
-            "circuit": "generic_mzi",
-            "reservoir": false,
-            "no_bunching": true,
-            "post_circuit_scaling": "standardize",
-            "numHLayers": 0,
-            "numNeurons": []
+            "scaling": ["1", "1/pi", "pi"],
+            "m": [10, 20, 30],
+            "n": [2, 4, 6],
+            "circuit": ["generic_mzi"],
+            "reservoir": [false],
+            "no_bunching": [true, false],
+            "post_circuit_scaling": ["standardize"],
+            "numNeurons": [
+                [],
+                [8],
+                [8, 8]
+            ]
         }
     },
     "multiple_paths_model_reservoir": {
         "default": {
-            "scaling": "1",
-            "m": 20,
-            "n": 4,
-            "circuit": "generic_mzi",
-            "reservoir": true,
-            "no_bunching": true,
-            "post_circuit_scaling": "standardize",
-            "numHLayers": 0,
-            "numNeurons": []
+            "scaling": ["1", "1/pi", "pi"],
+            "m": [10, 20, 30],
+            "n": [2, 4, 6],
+            "circuit": ["generic_mzi"],
+            "reservoir": [true],
+            "no_bunching": [true, false],
+            "post_circuit_scaling": ["standardize"],
+            "numNeurons": [
+                [],
+                [8],
+                [8, 8]
+            ]
         }
     },
     "data_reuploading": {
         "default": {
-            "scaling": "1/pi",
-            "numLayers": 10,
-            "design": "AA"
-        }
-    },
-    "data_reuploading_reservoir": {
-        "default": {
-            "scaling": "1/pi",
-            "numLayers": 10,
-            "design": "AD"
+            "scaling": ["1", "1/pi", "pi", "1/2pi", "pi/4"],
+            "numLayers": [5, 10, 15],
+            "design": ["AA", "AC", "CA", "CC"]
         }
     },
     "q_kernel_method": {
         "default": {
-            "scaling": "1",
-            "m": 20,
-            "n": 4,
-            "circuit": "generic_mzi",
-            "no_bunching": true,
-            "pre_train": true,
-            "C": 1.0
+            "scaling": ["1", "1/pi", "pi"],
+            "m": [10, 20, 30],
+            "n": [2, 4, 6],
+            "circuit": ["generic_mzi"],
+            "no_bunching": [true, false],
+            "pre_train": [true],
+            "C": [0.25, 1.0, 4.0]
         }
     },
     "q_kernel_method_reservoir": {
         "default": {
-            "scaling": "1",
-            "m": 20,
-            "n": 4,
-            "circuit": "generic_mzi",
-            "no_bunching": true,
-            "pre_train": false,
-            "C": 1.0
+            "scaling": ["1", "1/pi", "pi"],
+            "m": [10, 20, 30],
+            "n": [2, 4, 6],
+            "circuit": ["generic_mzi"],
+            "no_bunching": [true, false],
+            "pre_train": [false],
+            "C": [0.25, 1.0, 4.0]
         }
     },
     "q_rks": {
         "default": {
-            "scaling": "1/pi",
-            "m": 20,
-            "n": 4,
-            "circuit": "generic_mzi",
-            "no_bunching": true,
-            "R": 50,
-            "gamma": 3,
-            "C": 1.0
+            "scaling": ["1", "1/pi", "pi"],
+            "m": [10, 20, 30],
+            "n": [2, 4, 6],
+            "circuit": ["generic_mzi"],
+            "no_bunching": [true, false],
+            "R": [20, 50, 100],
+            "gamma": [1, 3, 5],
+            "C": [0.25, 1.0, 4.0]
         }
     }
 }

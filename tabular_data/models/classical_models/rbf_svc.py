@@ -48,7 +48,8 @@ class RBFSVC:
         return self.model.score(x, y)
 
 
-class HalvingGridRBFSVC(BaseEstimator, ClassifierMixin):
+# Scikit-learn version of the RBFSVC
+class SKRBFSVC(BaseEstimator, ClassifierMixin):
     def __init__(self, data_params=None, model_params=None, training_params=None):
         self.model_class = RBFSVC
         self.model_type = 'sklearn'

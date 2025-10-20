@@ -56,17 +56,6 @@
             "scaling": 1.0
         }
     },
-    "data_reuploading_reservoir": {
-        "default": {
-            "nLayers": 4,
-            "observable_type": "single",
-            "convergence_interval": 200,
-            "max_steps": 10000,
-            "lr": 0.05,
-            "batch_size": 32,
-            "scaling": 1.0
-        }
-    },
     "q_kernel_method": {
         "default": {
             "repeats": 2,

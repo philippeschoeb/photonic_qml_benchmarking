@@ -4,7 +4,7 @@ import os
 import random
 import numpy as np
 import torch
-import sys
+import joblib
 import json
 import wandb
 from time import time
@@ -14,7 +14,6 @@ from sklearn.experimental import enable_halving_search_cv
 from sklearn.model_selection import HalvingGridSearchCV, GridSearchCV
 from skopt import BayesSearchCV
 
-#sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from run_scripts.single_run import get_hyperparams as single_hps
 from run_scripts.hyperparam_search_run import get_hyperparams_halving_grid
 from run_scripts.hyperparam_search_run import get_hyperparams_bayes
@@ -134,6 +133,7 @@ def run_search(dataset, model, architecture, backend, random_state, use_wandb):
         search_type = 'grid_search'
     else:
         raise NotImplementedError(f'Unknown model name for hp search: {model}')
+    logging.warning(f'Hyperparameters search type: {search_type}')
 
     # Save hyperparameter grid to Wandb
     if use_wandb:
@@ -152,26 +152,34 @@ def run_search(dataset, model, architecture, backend, random_state, use_wandb):
     # Fetch model
     sk_model = fetch_sk_model(model, backend)
 
-    # Check device
-    if device == torch.device('cpu'):
+    # Check device / override parallelism if requested
+    if 'n_jobs' in training_hps:
+        n_jobs = training_hps['n_jobs'][0]
+    elif device == torch.device('cpu'):
         n_jobs = -1
     else:
+        n_jobs = 1
+
+    # Merlin-based photonic kernels do not play nicely with multiprocessing
+    if (backend == 'photonic' and n_jobs != 1) and (model == 'q_rks' or model == 'q_kernel_method'):
+        logging.warning('Forcing n_jobs=1 for photonic q_rks to avoid worker crashes during hyperparameter search.')
         n_jobs = 1
 
     # Check model
     if model in halving_grid_list:
         # HalvingGridSearchCV
-        search = HalvingGridSearchCV(sk_model, param_grid=param_grid, cv=3, n_jobs=n_jobs, verbose=1, min_resources=20)
+        search = HalvingGridSearchCV(sk_model, param_grid=param_grid, cv=3, n_jobs=n_jobs, verbose=2, min_resources=20)
     elif model in bayes_list:
         # BayesSearchCV
-        search = BayesSearchCV(sk_model, param_grid, scoring='accuracy', cv=3, n_jobs=n_jobs, verbose=1, n_iter=100)
+        search = BayesSearchCV(sk_model, param_grid, scoring='accuracy', cv=3, n_jobs=n_jobs, verbose=2, n_iter=100)
     elif model in grid_list:
         # GridSearchCV
-        search = GridSearchCV(sk_model, param_grid=param_grid, cv=3, n_jobs=n_jobs, verbose=1)
+        search = GridSearchCV(sk_model, param_grid=param_grid, cv=3, n_jobs=n_jobs, verbose=2)
     else:
         raise NotImplementedError(f'Unknown model name for hp search: {model}')
 
     # Hyperparameter search
+    logging.warning(f'HPs search started')
     search.fit(x_train, y_train)
     logging.warning(f'HPs search completed, best test accuracy reached: {search.best_score_:.4f}')
     # Get best model and final accuracies
@@ -199,6 +207,17 @@ def run_search(dataset, model, architecture, backend, random_state, use_wandb):
     # Save them to Wandb too
     if use_wandb:
         wandb.run.config.update({"best_hps": best_params})
+        # Save all other results too
+        hp_artifact = wandb.Artifact('hyperparam_search_results', type='dataset')
+        with open('cv_results.json', 'w') as f:
+            json.dump(search.cv_results_, f, default=str)
+        hp_artifact.add_file('cv_results.json')
+        wandb.log_artifact(hp_artifact)
+        # Save best model
+        joblib.dump(best_model, 'best_model.pkl')
+        artifact = wandb.Artifact('best_model.pkl', type='model')
+        artifact.add_file('best_model.pkl')
+        wandb.log_artifact(artifact)
     return
 
 

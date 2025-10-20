@@ -1,8 +1,7 @@
 import torch
 import logging
 import json
-
-from prompt_toolkit.utils import to_int
+import copy
 
 
 def get_dataset_hps(dataset_name, model, backend):
@@ -71,7 +70,7 @@ def get_model_hps_halving_grid_photonic(model, architecture):
     # Define model type
     if model in ['dressed_quantum_circuit', 'dressed_quantum_circuit_reservoir', 'multiple_paths_model', 'multiple_paths_model_reservoir']:
         model_hps['type'] = ['torch']
-    elif model in ['data_reuploading', 'data_reuploading_reservoir']:
+    elif model in ['data_reuploading']:
         model_hps['type'] = ['reuploading']
     elif model in ['q_rks']:
         model_hps['type'] = ['sklearn_kernel']
@@ -88,15 +87,13 @@ def get_model_hps_halving_grid_photonic(model, architecture):
 def get_model_hps_bayes_photonic(model, architecture):
     hp_path = "hyperparameters/hyperparam_search/bayes/photonic_model_hps.json"
 
-    #TODO
-
     # Load hps
     with open(hp_path, "r") as f:
         hps = json.load(f)
 
     # Access model hps
     try:
-        model_hps = hps[model]
+        model_hps = copy.deepcopy(hps[model])
     except Exception:
         raise Exception(f'Model {model} not found in hyperparams dictionary.')
     model_hps = model_hps['default']
@@ -126,7 +123,7 @@ def get_model_hps_bayes_photonic(model, architecture):
     if model in ['dressed_quantum_circuit', 'dressed_quantum_circuit_reservoir', 'multiple_paths_model',
                  'multiple_paths_model_reservoir']:
         model_hps['type'] = ['torch']
-    elif model in ['data_reuploading', 'data_reuploading_reservoir']:
+    elif model in ['data_reuploading']:
         model_hps['type'] = ['reuploading']
     elif model in ['q_rks']:
         model_hps['type'] = ['sklearn_kernel']
@@ -194,43 +191,49 @@ def get_model_hps_halving_grid_gate(model, architecture, random_state):
 def get_model_hps_bayes_gate(model, architecture, random_state):
     hp_path = "hyperparameters/hyperparam_search/bayes/gate_model_hps.json"
 
-    #TODO
-
     # Load hps
     with open(hp_path, "r") as f:
         hps = json.load(f)
 
     # Access model hps
     try:
-        model_hps = hps[model]
+        model_hps = copy.deepcopy(hps[model])
     except Exception:
         raise Exception(f'Model {model} not found in hyperparams dictionary.')
     model_hps = model_hps['default']
 
     # Set random state
-    model_hps['random_state'] = random_state
+    model_hps['random_state'] = [random_state]
 
     # Modify some hps based on architecture
     if architecture != 'default':
         architecture_args = architecture.split('_')
         for i in range(0, len(architecture_args), 2):
             hp = architecture_args[i]
-            hp_value = int(architecture_args[i + 1])
+            if hp == 'numNeurons':
+                num_neurons = []
+                num_layers = len(architecture_args[i + 1:])
+                if num_layers == 0:
+                    model_hps['numNeurons'] = [num_neurons]
+                    break
+                for layer in range(num_layers):
+                    num_neurons.append(int(architecture_args[i + 1 + layer]))
+                model_hps['numNeurons'] = [num_neurons]
+                break
 
-            model_hps[hp] = hp_value
-            if hp == 'numClassicalHLayers':
-                model_hps['numNeurons'] = [4] * hp_value
+            hp_value = int(architecture_args[i + 1])
+            model_hps[hp] = [hp_value]
 
     # Define model type
     if model in ['dressed_quantum_circuit', 'dressed_quantum_circuit_reservoir', 'multiple_paths_model', 'multiple_paths_model_reservoir', 'data_reuploading']:
-        model_hps['type'] = 'jax_sklearn_gate'
+        model_hps['type'] = ['jax_sklearn_gate']
     elif model in ['q_rks']:
-        model_hps['type'] = 'gate_rks'
+        model_hps['type'] = ['gate_rks']
     else:
-        model_hps['type'] = 'sklearn_gate'
+        model_hps['type'] = ['sklearn_gate']
 
     # Keep model name
-    model_hps['name'] = model + f'_({architecture})'
+    model_hps['name'] = [model + f'_({architecture})']
     return model_hps
 
 
@@ -290,15 +293,13 @@ def get_model_hps_halving_grid_classical(model, architecture, random_state):
 
 
 def get_model_hps_bayes_classical(model, architecture, random_state):
-    #TODO
-
     # Handle custom mlp architecture
     if model == 'mlp' and architecture != 'default':
         architecture_split = architecture.split('_')
         assert architecture_split[0] == 'numNeurons', 'Wrong formatting for architecture: "numNeurons_i_j_k_l_..." where each index is the number of neurons in its layer.'
         num_neurons = architecture_split[1:]
         num_neurons = [int(num) for num in num_neurons]
-        hps = {'numNeurons': num_neurons}
+        hps = {'numNeurons': [num_neurons]}
         model_hps = hps
 
     # All other cases
@@ -309,7 +310,7 @@ def get_model_hps_bayes_classical(model, architecture, random_state):
 
         # Access model hps
         try:
-            model_hps = hps[model]
+            model_hps = copy.deepcopy(hps[model])
         except Exception:
             raise Exception(f'Model {model} not found in hyperparams dictionary.')
         model_hps = model_hps['default']
@@ -326,23 +327,23 @@ def get_model_hps_bayes_classical(model, architecture, random_state):
                 else:
                     hp_value = int(hp_value)
 
-                model_hps[hp] = hp_value
+                model_hps[hp] = [hp_value]
 
     # Setup random state
-    model_hps['random_state'] = random_state
+    model_hps['random_state'] = [random_state]
 
     # Define model type
     if model == 'mlp':
-        model_hps['type'] = 'torch'
+        model_hps['type'] = ['torch']
     elif model == 'rbf_svc':
-        model_hps['type'] = 'sklearn'
+        model_hps['type'] = ['sklearn']
     elif model == 'rks':
-        model_hps['type'] = 'sklearn_kernel'
+        model_hps['type'] = ['sklearn_kernel']
     else:
         raise Exception(f'Model {model} has no defined type.')
 
     # Keep model name
-    model_hps['name'] = model + f'_({architecture})'
+    model_hps['name'] = [model + f'_({architecture})']
     return model_hps
 
 
@@ -497,7 +498,7 @@ def get_hyperparams_bayes(dataset, model, architecture, backend, sk_random):
     arg1 = args[0] if len(args) >= 1 else None
     arg2 = args[1] if len(args) >= 2 else None
 
-    dataset_hps = get_dataset_hps(dataset_name, arg1, arg2, model, backend)
+    dataset_hps = get_dataset_hps(dataset_name, model, backend)
 
     # Model HPs #####################################################
     if backend == 'photonic':
@@ -524,9 +525,14 @@ def get_hyperparams_bayes(dataset, model, architecture, backend, sk_random):
     except KeyError:
         logging.warning('Training on CPU.')
 
-    param_grid = {**{f"data_params__{k}": v for k, v in dataset_hps.items()},
-                  **{f"model_params__{k}": v for k, v in model_hps.items()},
-                  **{f"training_params__{k}": v for k, v in training_hps.items()},
-                  'model_params__input_size': [int(arg1)]}
-    param_grid['model_params__output_size'] = [int(param_grid['training_params__output_size'][0])]
+    param_grid = {
+        **{f"data_params__{k}": v for k, v in dataset_hps.items()},
+        **{f"model_params__{k}": v for k, v in model_hps.items()},
+        **{f"training_params__{k}": v for k, v in training_hps.items()},
+    }
+    if arg1 is not None:
+        param_grid['model_params__input_size'] = [int(arg1)]
+    if 'training_params__output_size' in param_grid:
+        output_size = param_grid['training_params__output_size'][0]
+        param_grid['model_params__output_size'] = [int(output_size)]
     return param_grid, dataset_hps, model_hps, training_hps

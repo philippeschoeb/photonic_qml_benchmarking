@@ -1,32 +1,59 @@
 import logging
 
-from models.photonic_models.dressed_quantum_circuit import DressedQuantumCircuit as DressedQuantumCircuitPhotonic
-from models.photonic_models.multiple_paths_model import MultiplePathsModel as MultiplePathsModelPhotonic
-from models.photonic_models.data_reuploading import DataReuploading as DataReuploadingPhotonic
-from models.photonic_models.q_kernel_method import QSVC as QSVCPhotonic
-from models.photonic_models.q_rks import QRKS as QRKSPhotonic
+from models.photonic_models.dressed_quantum_circuit import (
+    DressedQuantumCircuit as DressedQuantumCircuitPhotonic,
+    SKDressedQuantumCircuit as SKDressedQuantumCircuitPhotonic,
+)
+from models.photonic_models.multiple_paths_model import (
+    MultiplePathsModel as MultiplePathsModelPhotonic,
+    SKMultiplePathsModel as SKMultiplePathsModelPhotonic,
+)
+from models.photonic_models.data_reuploading import (
+    DataReuploading as DataReuploadingPhotonic,
+    SKDataReuploading as SKDataReuploadingPhotonic,
+)
+from models.photonic_models.q_kernel_method import (
+    QSVC as QSVCPhotonic,
+    SKQKernelMethod as SKQKernelMethodPhotonic,
+    SKQKernelMethodReservoir as SKQKernelMethodReservoirPhotonic,
+)
+from models.photonic_models.q_rks import (
+    QRKS as QRKSPhotonic,
+    SKQRKS as SKQRKSPhotonic,
+)
 
-from models.gate_based_models.dressed_quantum_circuit import DressedQuantumCircuitClassifier as DressedQuantumCircuitGate
-from models.gate_based_models.dressed_quantum_circuit_reservoir import DressedQuantumCircuitClassifier as DressedQuantumCircuitReservoirGate
-from models.gate_based_models.multiple_paths_model import MultiplePathsModelClassifier as MultiplePathsModelGate
-from models.gate_based_models.multiple_paths_model_reservoir import MultiplePathsModelClassifier as MultiplePathsModelReservoirGate
+from models.gate_based_models.dressed_quantum_circuit import (
+    DressedQuantumCircuitClassifier as DressedQuantumCircuitGate,
+)
+from models.gate_based_models.dressed_quantum_circuit_reservoir import (
+    DressedQuantumCircuitClassifier as DressedQuantumCircuitReservoirGate,
+)
+from models.gate_based_models.multiple_paths_model import (
+    MultiplePathsModelClassifier as MultiplePathsModelGate,
+)
+from models.gate_based_models.multiple_paths_model_reservoir import (
+    MultiplePathsModelClassifier as MultiplePathsModelReservoirGate,
+)
 from models.gate_based_models.data_reuploading import DataReuploadingClassifier as DataReuploadingGate
 from models.gate_based_models.iqp_kernel import IQPKernelClassifier as IQPKernelGate
 from models.gate_based_models.quantum_kitchen_sinks import QuantumKitchenSinks as QRKSGate
 
-from models.classical_models.mlp import MLP, HalvingGridMLP
-from models.classical_models.rbf_svc import RBFSVC, HalvingGridRBFSVC
-from models.classical_models.rks import RKS, HalvingGridRKS
+from models.classical_models.mlp import MLP, SKMLP
+from models.classical_models.rbf_svc import RBFSVC, SKRBFSVC
+from models.classical_models.rks import RKS, SKRKS
 
 def fetch_model(model, backend, input_size, output_size, **hyperparams):
+    if model == 'data_reuploading_reservoir':
+        raise ValueError('data_reuploading_reservoir is not supported in this benchmarking study.')
+
     # Photonic based quantum models
     if backend == 'photonic':
         if model == 'dressed_quantum_circuit' or model == 'dressed_quantum_circuit_reservoir':
             return DressedQuantumCircuitPhotonic(scaling=hyperparams['scaling'], input_size=input_size, output_size=output_size, m=hyperparams['m'], n=hyperparams['n'], circuit_type=hyperparams['circuit'], reservoir=hyperparams['reservoir'], no_bunching=hyperparams['no_bunching'])
         elif model == 'multiple_paths_model' or model == 'multiple_paths_model_reservoir':
-            return MultiplePathsModelPhotonic(scaling=hyperparams['scaling'], input_size=input_size, output_size=output_size, m=hyperparams['m'], n=hyperparams['n'], circuit_type=hyperparams['circuit'], reservoir=hyperparams['reservoir'], no_bunching=hyperparams['no_bunching'], post_circuit_scaling=hyperparams['post_circuit_scaling'], num_h_layers=len(hyperparams['numNeurons']), num_neurons=hyperparams['numNeurons'])
+            return MultiplePathsModelPhotonic(scaling=hyperparams['scaling'], input_size=input_size, output_size=output_size, m=hyperparams['m'], n=hyperparams['n'], circuit_type=hyperparams['circuit'], reservoir=hyperparams['reservoir'], no_bunching=hyperparams['no_bunching'], post_circuit_scaling=hyperparams['post_circuit_scaling'], numNeurons=hyperparams['numNeurons'])
         elif model == 'data_reuploading':
-            return DataReuploadingPhotonic(scaling=hyperparams['scaling'], input_size=input_size, num_layers=hyperparams['numLayers'], design=hyperparams['design'])
+            return DataReuploadingPhotonic(scaling=hyperparams['scaling'], input_size=input_size, numLayers=hyperparams['numLayers'], design=hyperparams['design'])
         elif model == 'data_reuploading_reservoir':
             raise NotImplementedError('Data Reuploading not suited for reservoir mode')
         elif model == 'q_kernel_method' or model == 'q_kernel_method_reservoir':
@@ -75,14 +102,34 @@ def fetch_model(model, backend, input_size, output_size, **hyperparams):
 
 
 def fetch_sk_model(model, backend):
+    if model == 'data_reuploading_reservoir':
+        raise ValueError('data_reuploading_reservoir is not supported in this benchmarking study.')
+
+    # Classical models
     if backend == 'classical':
         if model == 'mlp':
-            return HalvingGridMLP()
+            return SKMLP()
         elif model == 'rbf_svc':
-            return HalvingGridRBFSVC()
+            return SKRBFSVC()
         elif model == 'rks':
-            return HalvingGridRKS()
+            return SKRKS()
         else:
             raise NotImplementedError(f'Model {model} not implemented for classical backend.')
+    # Photonic based quantum models
+    elif backend == 'photonic':
+        if model == 'dressed_quantum_circuit' or model == 'dressed_quantum_circuit_reservoir':
+            return SKDressedQuantumCircuitPhotonic()
+        elif model == 'multiple_paths_model' or model == 'multiple_paths_model_reservoir':
+            return SKMultiplePathsModelPhotonic()
+        elif model == 'data_reuploading':
+            return SKDataReuploadingPhotonic()
+        elif model == 'q_kernel_method':
+            return SKQKernelMethodPhotonic()
+        elif model == 'q_kernel_method_reservoir':
+            return SKQKernelMethodReservoirPhotonic()
+        elif model == 'q_rks':
+            return SKQRKSPhotonic()
+        else:
+            raise NotImplementedError(f'Model {model} not implemented for photonic backend.')
     else:
         raise NotImplementedError(f'Backend {backend} not implemented.')

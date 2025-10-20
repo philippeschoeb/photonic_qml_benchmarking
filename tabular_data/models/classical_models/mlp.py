@@ -38,7 +38,8 @@ class MLP(torch.nn.Module):
         return self.mlp(x)
 
 
-class HalvingGridMLP(BaseEstimator, ClassifierMixin):
+# Scikit-learn version of the MLP
+class SKMLP(BaseEstimator, ClassifierMixin):
     def __init__(self, data_params=None, model_params=None, training_params=None):
         self.model_class = MLP
         self.model_type = 'sklearn'
@@ -136,7 +137,7 @@ class HalvingGridMLP(BaseEstimator, ClassifierMixin):
 
         # Count number of parameters
         num_params = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
-        logging.warning(f'Number of parameters: {num_params}')
+        logging.info(f'Number of parameters: {num_params}')
         logging.warning(f'Final Train Accuracy: {train_acc:.4f} out of total train size: {total}')
         self.train_losses = train_losses
         self.train_accuracies = train_accuracies

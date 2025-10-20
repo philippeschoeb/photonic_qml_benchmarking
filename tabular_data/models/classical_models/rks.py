@@ -144,7 +144,8 @@ class RKS:
         return self.model.score(k_test, y)
 
 
-class HalvingGridRKS(BaseEstimator, ClassifierMixin):
+# Scikit-learn version of the RKS
+class SKRKS(BaseEstimator, ClassifierMixin):
     def __init__(self, data_params=None, model_params=None, training_params=None):
         self.model_class = RKS
         self.model_type = 'sklearn'

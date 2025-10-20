@@ -15,10 +15,13 @@ def architecture_help(model, backend):
                         'm is the number of neurons in the third classical hidden layer,\n'
                         'and so on...\n')
             return message
-        elif model == 'data_reuploading' or model == 'data_reuploading_reservoir':
+        elif model == 'data_reuploading':
             message = f'Here is the architecture string formatting of the {model} with backend {backend}:\n\n'
             message += '--architecture numLayers_{i}\n\nWhere i is the number of 2 modes layers to encode data and parameters.\n'
             return message
+        elif model == 'data_reuploading_reservoir':
+            return ('The data_reuploading_reservoir variant is not supported in this benchmarking study.\n'
+                    'Please choose another model.')
         elif model == 'q_kernel_method' or model == 'q_kernel_method_reservoir':
             message = f'Here is the architecture string formatting of the {model} with backend {backend}:\n\n'
             message += '--architecture m_{i}_n_{j}\n\nWhere i is the number of modes,\nand j is the number of photons.\n'
@@ -48,10 +51,13 @@ def architecture_help(model, backend):
                         'l is the number of neurons in the third classical hidden layer,\n'
                         'and so on...\n')
             return message
-        elif model == 'data_reuploading' or model == 'data_reuploading_reservoir':
+        elif model == 'data_reuploading':
             message = f'Here is the architecture string formatting of the {model} with backend {backend}:\n\n'
             message += '--architecture numLayers_{i}\n\nWhere i is the number of blocks used in the trainable embedding.\n'
             return message
+        elif model == 'data_reuploading_reservoir':
+            return ('The data_reuploading_reservoir variant is not supported in this benchmarking study.\n'
+                    'Please choose another model.')
         elif model == 'q_kernel_method' or model == 'q_kernel_method_reservoir':
             message = f'Here is the architecture string formatting of the {model} with backend {backend}:\n\n'
             message += '--architecture repeats_{i}\n\nWhere i is the number of times the IQP structure is repeated in the embedding circuit.\n'

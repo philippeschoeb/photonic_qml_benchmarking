@@ -10,8 +10,7 @@ Bowles, Ahmed and Schuld for their benchmarking implementation
 
 # Reminders
 
-- Set up logging in main function
-- Set up random state in main function
+None
 
 ### Hyperparams
 

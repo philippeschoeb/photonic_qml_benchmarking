@@ -1,0 +1,44 @@
+{
+    "torch": {
+        "criterion": ["CrossEntropyLoss"],
+        "output_size": [2],
+        "optimizer": ["Adam", "AdaGrad"],
+        "lr": [0.001, 0.01, 0.0001],
+        "betas": [
+            [0.9, 0.999],
+            [0.7, 0.9],
+            [0.99, 0.9999]
+        ],
+        "momentum": [0.9, 0.7, 0.99],
+        "weight_decay": [0.0, 0.001, 0.01]
+    },
+    "reuploading": {
+        "track_history": [true],
+        "lr": [0.001, 0.01, 0.0001],
+        "batch_size": [32],
+        "patience": [50],
+        "tau": [1.0, 0.5, 2.0],
+        "convergence_tolerance": [1e-06, 1e-05, 1e-07],
+        "output_size": [2]
+    },
+    "sklearn_q_kernel": {
+        "optimizer": ["Adam", "AdaGrad"],
+        "lr": [0.001, 0.01, 0.0001],
+        "output_size": [2]
+    },
+    "sklearn_kernel": {
+        "output_size": [2]
+    },
+    "sklearn": {
+        "output_size": [2]
+    },
+    "jax_sklearn_gate": {
+        "output_size": [2]
+    },
+    "sklearn_gate": {
+        "output_size": [2]
+    },
+    "gate_rks": {
+        "output_size": [2]
+    }
+}

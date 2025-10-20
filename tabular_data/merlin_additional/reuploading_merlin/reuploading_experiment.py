@@ -517,10 +517,10 @@ class MerlinReuploadingClassifier(BaseEstimator, ClassifierMixin):
         convergence_tolerance: float = 1e-6
     ) -> "MerlinReuploadingClassifier":
 
-        #X_t = torch.tensor(X, dtype=torch.float32, device=self.device)
-        #y_t = torch.tensor(y, dtype=torch.long, device=self.device)
-        X_t = X.clone().detach().to(dtype=torch.float32, device=self.device)
-        y_t = y.clone().detach().to(dtype=torch.long, device=self.device)
+        X_t = torch.tensor(X, dtype=torch.float32, device=self.device)
+        y_t = torch.tensor(y, dtype=torch.long, device=self.device)
+        #X_t = X.clone().detach().to(dtype=torch.float32, device=self.device)
+        #y_t = y.clone().detach().to(dtype=torch.long, device=self.device)
         loader = self._create_loader(X_t, y_t, batch_size=batch_size)
 
         self.training_history_ = {'loss': [], 'epochs': 0} if track_history else None
@@ -569,8 +569,8 @@ class MerlinReuploadingClassifier(BaseEstimator, ClassifierMixin):
     def predict(self, X: np.ndarray) -> np.ndarray:
         if not self.is_fitted_:
             raise ValueError("Call fit() first.")
-        #X_t = torch.tensor(X, dtype=torch.float32, device=self.device)
-        X_t = X.clone().detach().to(dtype=torch.float32, device=self.device)
+        X_t = torch.tensor(X, dtype=torch.float32, device=self.device)
+        #X_t = X.clone().detach().to(dtype=torch.float32, device=self.device)
         with torch.no_grad():
             feats = self.quantum_model(X_t).cpu().numpy().reshape(-1)
         return self.classifier_.predict(feats)

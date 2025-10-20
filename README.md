@@ -1,41 +1,45 @@
 # photonic_qml_benchmarking
 
-## Name
-Choose a self-explaining name for your project.
+## Overview
+Benchmark suite for quantum and classical models. The repository currently focuses on photonic circuits (via MerLin backend), gate-based models implemented with PennyLane/JAX, and baseline classical estimators. This is a work in progress so the benchmarking study is solely on tabular data for now, but it will cover vision data and time series data eventually.
 
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
+## Environment Setup
+- Create a virtual environment (Python 3.10+ recommended) and install the Python dependencies:
+  ```bash
+  python -m venv .venv
+  source .venv/bin/activate  # or .venv\Scripts\activate on Windows
+  pip install --upgrade pip
+  pip install -r requirements.txt
+  ```
+- Install the Merlin photonic simulator that matches your hardware. Merlin is not published on PyPI; follow the internal installation instructions from Xanadu. Place the resulting package on your `PYTHONPATH` so imports like `import merlin as ml` succeed.
+- For GPU acceleration make sure the CUDA toolkit versions used by PyTorch and JAX match the drivers on your machine. Installing the wheels linked from https://pytorch.org and https://jax.readthedocs.io/en/latest/installation.html is recommended.
 
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
+## Data Availability
+The tabular datasets used in this study (`downscaled_mnist_pca`, `hidden_manifold`, `two_curves`) are expected to be present locally. If you already have direct access, no extra download is required. When running in a fresh environment you can optionally obtain them through PennyLane's `qml.data` utilities (`qml.data.load("other", name="hidden-manifold")`, etc.).
 
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
+## Running Benchmarks
+All tabular experiments are launched from `tabular_data/main.py`.
 
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
+Single configuration:
+```bash
+cd tabular_data
+python main.py --dataset {dataset} --model {model} --run_type single
+```
 
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
+Hyperparameter search:
+```bash
+cd tabular_data
+python main.py --dataset {dataset} --model {model} --run_type hyperparam_search --backend {backend}
+```
 
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
+Use `--architecture help` to inspect model-specific architecture strings. Classical models automatically switch to the classical backend.
 
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
+## GPU vs CPU Notes
+- Photonic simulations (MerLin) are CPU-heavy; run with `--backend photonic`. If you encounter worker crashes during large hyperparameter sweeps, prefer serial execution (`n_jobs=1`) or trim the search space.
+- JAX-based gate models can leverage GPU execution when `jaxlib` is installed with CUDA support. Ensure `XLA_PYTHON_CLIENT_PREALLOCATE=false` is set if GPU memory becomes constrained.
 
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
+## Repository Layout
+- `tabular_data/` – core pipelines for datasets, models, training loops, hyperparameter definitions.
+- `time_series_data/`, `vision_data/` – placeholders for future modalities.
+- `tabular_data/results/` – metrics and artifacts written by completed runs.
 
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
-
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
-
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
-
-## License
-For open source projects, say how it is licensed.
-
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.

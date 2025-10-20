@@ -62,6 +62,10 @@ if __name__ == '__main__':
     run_type = args.run_type
     architecture = args.architecture
     backend = args.backend
+
+    if model == 'data_reuploading_reservoir':
+        raise ValueError("data_reuploading_reservoir is not supported in this benchmarking study. Please select a different model.")
+
     use_wandb = args.wandb
     # If classical model, change backend to classical
     if model in ['mlp', 'rbf_svc', 'rks']:

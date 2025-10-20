@@ -1,10 +1,32 @@
 {
-    "complete_list": ["dressed_quantum_circuit", "dressed_quantum_circuit_reservoir", "multiple_paths_model",
-      "multiple_paths_model_reservoir", "data_reuploading", "data_reuploading_reservoir", "q_kernel_method",
-      "q_kernel_method_reservoir", "q_rks", "mlp", "rbf_svc", "rks"],
-    "halving_grid": ["dressed_quantum_circuit", "dressed_quantum_circuit_reservoir", "multiple_paths_model",
-      "multiple_paths_model_reservoir", "data_reuploading", "data_reuploading_reservoir", "q_kernel_method",
-      "q_kernel_method_reservoir", "q_rks", "mlp"],
-    "bayes": [""],
-    "grid": ["rbf_svc", "rks"]
+    "complete_list": [
+        "dressed_quantum_circuit",
+        "dressed_quantum_circuit_reservoir",
+        "multiple_paths_model",
+        "multiple_paths_model_reservoir",
+        "data_reuploading",
+        "q_kernel_method",
+        "q_kernel_method_reservoir",
+        "q_rks",
+        "mlp",
+        "rbf_svc",
+        "rks"
+    ],
+    "halving_grid": [
+        "dressed_quantum_circuit",
+        "dressed_quantum_circuit_reservoir",
+        "multiple_paths_model",
+        "multiple_paths_model_reservoir",
+        "data_reuploading",
+        "mlp"
+    ],
+    "bayes": [
+        "q_kernel_method",
+        "q_kernel_method_reservoir",
+        "q_rks"
+    ],
+    "grid": [
+        "rbf_svc",
+        "rks"
+    ]
 }

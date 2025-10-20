@@ -67,7 +67,7 @@ def get_model_hps_photonic(model, architecture):
     # Define model type
     if model in ['dressed_quantum_circuit', 'dressed_quantum_circuit_reservoir', 'multiple_paths_model', 'multiple_paths_model_reservoir']:
         model_hps['type'] = 'torch'
-    elif model in ['data_reuploading', 'data_reuploading_reservoir']:
+    elif model in ['data_reuploading']:
         model_hps['type'] = 'reuploading'
     elif model in ['q_rks']:
         model_hps['type'] = 'sklearn_kernel'

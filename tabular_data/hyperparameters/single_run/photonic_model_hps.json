@@ -50,13 +50,6 @@
             "design": "AA"
         }
     },
-    "data_reuploading_reservoir": {
-        "default": {
-            "scaling": "1/pi",
-            "numLayers": 10,
-            "design": "AD"
-        }
-    },
     "q_kernel_method": {
         "default": {
             "scaling": "1",
