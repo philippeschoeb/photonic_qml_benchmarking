@@ -318,7 +318,3 @@ class SKIQPKernelGate(BaseEstimator, ClassifierMixin):
     def score(self, X, y):
         preds = self.predict(X)
         return accuracy_score(np.asarray(y), preds)
-
-
-class SKIQPKernelReservoirGate(SKIQPKernelGate):
-    model_name = "q_kernel_method_reservoir"

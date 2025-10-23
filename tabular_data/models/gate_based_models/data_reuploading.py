@@ -194,63 +194,6 @@ class DataReuploadingClassifier(BaseEstimator, ClassifierMixin):
 
         return self.forward
 
-
-class SKDataReuploadingGate(BaseEstimator, ClassifierMixin):
-    """Scikit-learn compatible wrapper for the gate-based data reuploading model."""
-
-    def __init__(self, data_params=None, model_params=None, training_params=None):
-        self.model_class = DataReuploadingClassifier
-        self.model_type = "sklearn_gate"
-        self.model_name = "data_reuploading"
-        self.data_params = data_params or {}
-        self.model_params = model_params or {}
-        self.training_params = training_params or {}
-
-        self.model = None
-        self.train_losses = None
-        self.final_train_acc = None
-
-    def get_params(self, deep=True):
-        params = dict(self.data_params)
-        params.update({f"model_params__{k}": v for k, v in self.model_params.items()})
-        params.update(
-            {f"training_params__{k}": v for k, v in self.training_params.items()}
-        )
-        return params
-
-    def set_params(self, **params):
-        for key, value in params.items():
-            if key.startswith("data_params__"):
-                subkey = key.split("__", 1)[1]
-                self.data_params[subkey] = value
-            elif key.startswith("model_params__"):
-                subkey = key.split("__", 1)[1]
-                self.model_params[subkey] = value
-            elif key.startswith("training_params__"):
-                subkey = key.split("__", 1)[1]
-                self.training_params[subkey] = value
-            else:
-                setattr(self, key, value)
-        return self
-
-    def _prepare_model_kwargs(self):
-        kwargs = dict(self.model_params)
-        kwargs.pop("type", None)
-        kwargs.pop("name", None)
-        kwargs.pop("input_size", None)
-        kwargs.pop("output_size", None)
-        if "numLayers" in kwargs and "nLayers" not in kwargs:
-            kwargs["nLayers"] = kwargs.pop("numLayers")
-        if "lr" in kwargs and "learning_rate" not in kwargs:
-            kwargs["learning_rate"] = kwargs.pop("lr")
-        if kwargs.get("max_vmap") is None:
-            kwargs["max_vmap"] = kwargs.get("batch_size", 32)
-        return kwargs
-
-    def score(self, X, y):
-        preds = self.predict(X)
-        return accuracy_score(np.asarray(y), preds)
-
     def initialize(self, n_features, classes=None):
         """Initialize attributes that depend on the number of features and the class labels.
         Args:
@@ -395,6 +338,87 @@ class SKDataReuploadingGate(BaseEstimator, ClassifierMixin):
         X = X * self.scaling
         X = jnp.pad(X, ((0, 0), (0, (3 - X.shape[1]) % 3)), "constant")
         return X
+
+
+class SKDataReuploadingGate(BaseEstimator, ClassifierMixin):
+    """Scikit-learn compatible wrapper for the gate-based data reuploading model."""
+
+    def __init__(self, data_params=None, model_params=None, training_params=None):
+        self.model_class = DataReuploadingClassifier
+        self.model_type = "sklearn_gate"
+        self.model_name = "data_reuploading"
+        self.data_params = data_params or {}
+        self.model_params = model_params or {}
+        self.training_params = training_params or {}
+
+        self.model = None
+        self.train_losses = None
+        self.final_train_acc = None
+        self._model_kwargs = None
+
+    def get_params(self, deep=True):
+        params = dict(self.data_params)
+        params.update({f"model_params__{k}": v for k, v in self.model_params.items()})
+        params.update(
+            {f"training_params__{k}": v for k, v in self.training_params.items()}
+        )
+        return params
+
+    def set_params(self, **params):
+        for key, value in params.items():
+            if key.startswith("data_params__"):
+                subkey = key.split("__", 1)[1]
+                self.data_params[subkey] = value
+            elif key.startswith("model_params__"):
+                subkey = key.split("__", 1)[1]
+                self.model_params[subkey] = value
+            elif key.startswith("training_params__"):
+                subkey = key.split("__", 1)[1]
+                self.training_params[subkey] = value
+            else:
+                setattr(self, key, value)
+        return self
+
+    def _prepare_model_kwargs(self):
+        kwargs = dict(self.model_params)
+        kwargs.pop("type", None)
+        kwargs.pop("name", None)
+        kwargs.pop("input_size", None)
+        kwargs.pop("output_size", None)
+        if "numLayers" in kwargs and "nLayers" not in kwargs:
+            kwargs["nLayers"] = kwargs.pop("numLayers")
+        if "lr" in kwargs and "learning_rate" not in kwargs:
+            kwargs["learning_rate"] = kwargs.pop("lr")
+        if kwargs.get("max_vmap") is None:
+            kwargs["max_vmap"] = kwargs.get("batch_size", 32)
+        return kwargs
+
+    def fit(self, X, y):
+        X_np = np.asarray(X)
+        y_np = np.asarray(y)
+
+        self._model_kwargs = self._prepare_model_kwargs()
+        self.model = self.model_class(**self._model_kwargs)
+        self.model.fit(X_np, y_np)
+
+        self.train_losses = getattr(self.model, "loss_history_", None)
+        train_predictions = self.model.predict(X_np)
+        self.final_train_acc = accuracy_score(y_np, train_predictions)
+        return self
+
+    def predict(self, X):
+        if self.model is None:
+            raise ValueError("Model has not been fitted yet.")
+        return self.model.predict(np.asarray(X))
+
+    def predict_proba(self, X):
+        if self.model is None:
+            raise ValueError("Model has not been fitted yet.")
+        return self.model.predict_proba(np.asarray(X))
+
+    def score(self, X, y):
+        preds = self.predict(X)
+        return accuracy_score(np.asarray(y), preds)
 
 
 class DataReuploadingClassifierNoScaling(DataReuploadingClassifier):

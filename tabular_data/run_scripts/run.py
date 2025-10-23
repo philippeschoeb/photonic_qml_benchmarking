@@ -1,3 +1,5 @@
+# ruff: noqa: F401
+
 import logging
 from datetime import datetime
 import os
@@ -10,6 +12,7 @@ import wandb
 from time import time
 
 from sklearn.metrics import accuracy_score
+from sklearn.experimental import enable_halving_search_cv
 from sklearn.model_selection import HalvingGridSearchCV, GridSearchCV
 from skopt import BayesSearchCV
 
