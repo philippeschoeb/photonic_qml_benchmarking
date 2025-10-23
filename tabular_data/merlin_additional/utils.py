@@ -1,7 +1,8 @@
 from typing import Generator
 from itertools import combinations
 
-def generate_all_fock_states(m, n, no_bunching = False) -> Generator:
+
+def generate_all_fock_states(m, n, no_bunching=False) -> Generator:
     """Generates all possible Fock states for m modes and n photons."""
     if no_bunching:
         if n > m or n < 0:
@@ -22,5 +23,5 @@ def generate_all_fock_states(m, n, no_bunching = False) -> Generator:
             return
 
         for i in reversed(range(n + 1)):
-            for state in generate_all_fock_states(m-1, n-i):
+            for state in generate_all_fock_states(m - 1, n - i):
                 yield (i,) + state

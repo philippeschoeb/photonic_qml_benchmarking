@@ -3,10 +3,24 @@ import logging
 from sklearn.metrics import accuracy_score
 from merlin_additional.loss import NKernelAlignment
 
-def training_torch(model_dict, train_loader, test_loader, criterion, optimizer, scheduler, epochs, lr, betas, momentum, weight_decay, device=torch.device('cpu')):
-    model_type = model_dict['type']
-    model_name = model_dict['name']
-    model = model_dict['model']
+
+def training_torch(
+    model_dict,
+    train_loader,
+    test_loader,
+    criterion,
+    optimizer,
+    scheduler,
+    epochs,
+    lr,
+    betas,
+    momentum,
+    weight_decay,
+    device=torch.device("cpu"),
+):
+    model_type = model_dict["type"]
+    model_name = model_dict["name"]
+    model = model_dict["model"]
 
     train_losses = []
     train_accuracies = []
@@ -66,26 +80,61 @@ def training_torch(model_dict, train_loader, test_loader, criterion, optimizer, 
         test_losses.append(avg_test_loss)
         test_accuracies.append(test_acc)
 
-        logging.info(f"Epoch {epoch + 1}/{epochs} "
-              f"| Train Loss: {avg_train_loss:.4f}, Acc: {train_acc:.4f} "
-              f"| Test Loss: {avg_test_loss:.4f}, Acc: {test_acc:.4f}")
+        logging.info(
+            f"Epoch {epoch + 1}/{epochs} "
+            f"| Train Loss: {avg_train_loss:.4f}, Acc: {train_acc:.4f} "
+            f"| Test Loss: {avg_test_loss:.4f}, Acc: {test_acc:.4f}"
+        )
 
         # ---- Scheduler Step ----
         if scheduler is not None:
             scheduler.step()  # standard schedulers
 
-    logging.warning(f'Final Train Accuracy: {train_acc:.4f} | Final Test Accuracy: {test_acc:.4f}')
+    logging.warning(
+        f"Final Train Accuracy: {train_acc:.4f} | Final Test Accuracy: {test_acc:.4f}"
+    )
 
-    return {'type': model_type, 'name': model_name, 'model': model, 'train_losses': train_losses, 'train_accs': train_accuracies, 'test_losses': test_losses, 'test_accs': test_accuracies}
+    return {
+        "type": model_type,
+        "name": model_name,
+        "model": model,
+        "train_losses": train_losses,
+        "train_accs": train_accuracies,
+        "test_losses": test_losses,
+        "test_accs": test_accuracies,
+    }
 
 
-def training_reuploading(model_dict, x_train, x_test, y_train, y_test, track_history, max_epochs, learning_rate, batch_size, patience, tau, convergence_tolerance):
-    model_type = model_dict['type']
-    model_name = model_dict['name']
-    model = model_dict['model']
+def training_reuploading(
+    model_dict,
+    x_train,
+    x_test,
+    y_train,
+    y_test,
+    track_history,
+    max_epochs,
+    learning_rate,
+    batch_size,
+    patience,
+    tau,
+    convergence_tolerance,
+):
+    model_type = model_dict["type"]
+    model_name = model_dict["name"]
+    model = model_dict["model"]
 
-    model.fit(x_train, y_train, track_history=track_history, max_epochs=max_epochs, learning_rate=learning_rate, batch_size=batch_size, patience=patience, tau=tau, convergence_tolerance=convergence_tolerance)
-    train_losses = model.training_history_['loss']
+    model.fit(
+        x_train,
+        y_train,
+        track_history=track_history,
+        max_epochs=max_epochs,
+        learning_rate=learning_rate,
+        batch_size=batch_size,
+        patience=patience,
+        tau=tau,
+        convergence_tolerance=convergence_tolerance,
+    )
+    train_losses = model.training_history_["loss"]
 
     y_pred_test = model.predict(x_test)
     test_acc = accuracy_score(y_test, y_pred_test)
@@ -93,14 +142,35 @@ def training_reuploading(model_dict, x_train, x_test, y_train, y_test, track_his
     y_pred_train = model.predict(x_train)
     train_acc = accuracy_score(y_train, y_pred_train)
 
-    logging.warning(f"Final Train Accuracy: {train_acc:.4f} | Final Test Accuracy: {test_acc:.4f}")
-    return {'type': model_type, 'name': model_name, 'model': model, 'train_losses': train_losses, 'final_train_acc': train_acc, 'final_test_acc': test_acc}
+    logging.warning(
+        f"Final Train Accuracy: {train_acc:.4f} | Final Test Accuracy: {test_acc:.4f}"
+    )
+    return {
+        "type": model_type,
+        "name": model_name,
+        "model": model,
+        "train_losses": train_losses,
+        "final_train_acc": train_acc,
+        "final_test_acc": test_acc,
+    }
 
 
-def training_sklearn_q_kernel(model_dict, train_loader, x_train, x_test, y_train, y_test, optimizer, lr, epochs, pre_train, device):
-    model_type = model_dict['type']
-    model_name = model_dict['name']
-    model = model_dict['model']
+def training_sklearn_q_kernel(
+    model_dict,
+    train_loader,
+    x_train,
+    x_test,
+    y_train,
+    y_test,
+    optimizer,
+    lr,
+    epochs,
+    pre_train,
+    device,
+):
+    model_type = model_dict["type"]
+    model_name = model_dict["name"]
+    model = model_dict["model"]
     optimizable_model = model.quantum_kernel
 
     if pre_train:
@@ -148,52 +218,75 @@ def training_sklearn_q_kernel(model_dict, train_loader, x_train, x_test, y_train
     y_pred_train = model.predict(kernel_matrix_train)
     train_acc = accuracy_score(y_train, y_pred_train)
 
-    logging.warning(f"Final Train Accuracy: {train_acc:.4f} | Final Test Accuracy: {test_acc:.4f}")
-    return {'type': model_type, 'name': model_name, 'model': model, 'train_losses': train_losses, 'final_train_acc': train_acc, 'final_test_acc': test_acc}
+    logging.warning(
+        f"Final Train Accuracy: {train_acc:.4f} | Final Test Accuracy: {test_acc:.4f}"
+    )
+    return {
+        "type": model_type,
+        "name": model_name,
+        "model": model,
+        "train_losses": train_losses,
+        "final_train_acc": train_acc,
+        "final_test_acc": test_acc,
+    }
 
 
 def assign_criterion(criterion):
-    if criterion == 'CrossEntropyLoss':
+    if criterion == "CrossEntropyLoss":
         return torch.nn.CrossEntropyLoss()
-    elif criterion == 'MSELoss':
+    elif criterion == "MSELoss":
         return torch.nn.MSELoss()
-    elif criterion == 'BCELoss':
+    elif criterion == "BCELoss":
         return torch.nn.BCELoss()
-    elif criterion == 'BCEWithLogitsLoss':
+    elif criterion == "BCEWithLogitsLoss":
         return torch.nn.BCEWithLogitsLoss()
-    elif criterion == 'L1Loss':
+    elif criterion == "L1Loss":
         return torch.nn.L1Loss()
     else:
-        raise ValueError(f'Unknown criterion {criterion}')
+        raise ValueError(f"Unknown criterion {criterion}")
 
 
-def assign_optimizer(optimizer, model, lr, betas=(0.9, 0.999), momentum=0.9, weight_decay=0):
-    if optimizer == 'SGD':
-        return torch.optim.SGD(model.parameters(), lr=lr, momentum=momentum, weight_decay=weight_decay)
-    elif optimizer == 'Adam':
-        return torch.optim.Adam(model.parameters(), lr=lr, betas=betas, weight_decay=weight_decay)
-    elif optimizer == 'AdamW':
-        return torch.optim.AdamW(model.parameters(), lr=lr, betas=betas, weight_decay=weight_decay)
-    elif optimizer == 'AdaGrad':
+def assign_optimizer(
+    optimizer, model, lr, betas=(0.9, 0.999), momentum=0.9, weight_decay=0
+):
+    if optimizer == "SGD":
+        return torch.optim.SGD(
+            model.parameters(), lr=lr, momentum=momentum, weight_decay=weight_decay
+        )
+    elif optimizer == "Adam":
+        return torch.optim.Adam(
+            model.parameters(), lr=lr, betas=betas, weight_decay=weight_decay
+        )
+    elif optimizer == "AdamW":
+        return torch.optim.AdamW(
+            model.parameters(), lr=lr, betas=betas, weight_decay=weight_decay
+        )
+    elif optimizer == "AdaGrad":
         return torch.optim.Adagrad(model.parameters(), lr=lr, weight_decay=weight_decay)
-    elif optimizer == 'RMSprop':
-        return torch.optim.RMSprop(model.parameters(), lr=lr, momentum=momentum, weight_decay=weight_decay)
-    elif optimizer == 'Rprop':
+    elif optimizer == "RMSprop":
+        return torch.optim.RMSprop(
+            model.parameters(), lr=lr, momentum=momentum, weight_decay=weight_decay
+        )
+    elif optimizer == "Rprop":
         return torch.optim.Rprop(model.parameters(), lr=lr)
     else:
-        raise ValueError(f'Unknown optimizer {optimizer}')
+        raise ValueError(f"Unknown optimizer {optimizer}")
 
 
 def assign_scheduler(scheduler, optimizer, step_size=10, gamma=0.1, T_max=50):
-    if scheduler is None or scheduler == 'None':
+    if scheduler is None or scheduler == "None":
         return None
-    elif scheduler == 'StepLR':
-        return torch.optim.lr_scheduler.StepLR(optimizer, step_size=step_size, gamma=gamma)
-    elif scheduler == 'MultiStepLR':
-        return torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[30, 80], gamma=gamma)
-    elif scheduler == 'ExponentialLR':
+    elif scheduler == "StepLR":
+        return torch.optim.lr_scheduler.StepLR(
+            optimizer, step_size=step_size, gamma=gamma
+        )
+    elif scheduler == "MultiStepLR":
+        return torch.optim.lr_scheduler.MultiStepLR(
+            optimizer, milestones=[30, 80], gamma=gamma
+        )
+    elif scheduler == "ExponentialLR":
         return torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=gamma)
-    elif scheduler == 'CosineAnnealingLR':
+    elif scheduler == "CosineAnnealingLR":
         return torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=T_max)
     else:
-        raise ValueError(f'Unknown scheduler {scheduler}')
+        raise ValueError(f"Unknown scheduler {scheduler}")

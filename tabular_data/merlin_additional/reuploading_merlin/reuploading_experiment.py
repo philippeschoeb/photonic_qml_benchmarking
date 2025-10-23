@@ -42,12 +42,12 @@ For more details about the loss function and the classifier head see the associa
 BACKENDS
 ---------------------------------------------------------------------------------------------------
 
-• Merlin (autograd)  
+• Merlin (autograd)
   The quantum layer is exposed as a PyTorch module producing probabilities \\([p_{01},p_{10}]\\).
   We take \\(x=p_{10}\\) and optimize \\(\\mathcal{L}_{\\text{Fisher}}\\) via Adam using PyTorch
   automatic differentiation end‑to‑end.
 
-• Perceval (simulation)  
+• Perceval (simulation)
   We extract \\(x=p_{10}\\) by sampling the circuit and train with either:
   - COBYLA (gradient‑free), or
   - Adam + Parameter‑Shift Rule (PSR): analytic gradients from shifted parameter evaluations.
@@ -104,12 +104,10 @@ REFERENCES
 ===================================================================================================
 """
 
-
 from __future__ import annotations
 
 import random
 from typing import Optional, Dict, Any, List
-import warnings
 import numpy as np
 from dataclasses import dataclass
 
@@ -122,8 +120,8 @@ from sklearn.base import BaseEstimator, ClassifierMixin
 from sklearn.metrics import accuracy_score
 
 # Quantum backends
-import merlin as ml               # Merlin autograd-compatible backend
-import perceval as pcvl           # Perceval simulator
+import merlin as ml  # Merlin autograd-compatible backend
+import perceval as pcvl  # Perceval simulator
 from perceval.algorithm import Sampler
 
 
@@ -131,16 +129,17 @@ from perceval.algorithm import Sampler
 # Fisher (DeepLDA-style) Loss — 1D-friendly (works for any D, but we use D=1)
 # -------------------------------------------------------------------------------------------------
 
+
 def fisher_logratio_loss(
-    features: torch.Tensor,   # (N, D) — D=1 in our use
-    labels: torch.Tensor,     # (N,)
+    features: torch.Tensor,  # (N, D) — D=1 in our use
+    labels: torch.Tensor,  # (N,)
     tau: float = 1.0,
     eps: float = 1e-12,
-    scheme: str = "macro",    # "macro" (default) or "micro"
+    scheme: str = "macro",  # "macro" (default) or "micro"
 ) -> torch.Tensor:
     """
     Scale-invariant, class-imbalance-robust Fisher/DeepLDA-style loss.
-    
+
       L = -[ log(Sb + eps) - tau * log(Sw + eps) ]
 
     Sw = mean_c Var(X_c)         (unbiased, per class; equal weight per class)
@@ -167,7 +166,11 @@ def fisher_logratio_loss(
         else:
             # no samples for this class in the batch; skip
             continue
-        mu_c = torch.mean(Xc, dim=0) if Xc.shape[0] > 0 else torch.zeros(features.shape[1], device=device, dtype=dtype)
+        mu_c = (
+            torch.mean(Xc, dim=0)
+            if Xc.shape[0] > 0
+            else torch.zeros(features.shape[1], device=device, dtype=dtype)
+        )
         class_vars.append(var_c)
         class_means.append(mu_c)
 
@@ -179,17 +182,18 @@ def fisher_logratio_loss(
     Sw = torch.stack([v.sum() for v in class_vars]).mean()
 
     # Sb = variance of class means (unweighted, across classes)
-    M = torch.stack(class_means, dim=0)              # (C_eff, D)
-    mu_bar = M.mean(dim=0)                           # (D,)
-    Sb = ((M - mu_bar) ** 2).sum(dim=1).mean()       # mean over classes of squared L2 distance
+    M = torch.stack(class_means, dim=0)  # (C_eff, D)
+    mu_bar = M.mean(dim=0)  # (D,)
+    Sb = (
+        ((M - mu_bar) ** 2).sum(dim=1).mean()
+    )  # mean over classes of squared L2 distance
 
     return -(torch.log(Sb + eps) - tau * torch.log(Sw + eps))
 
 
-
 def fisher_logratio_loss_numpy(
-    x: np.ndarray,   # (N, D), use D=1
-    y: np.ndarray,   # (N,)
+    x: np.ndarray,  # (N, D), use D=1
+    y: np.ndarray,  # (N,)
     tau: float = 1.0,
     eps: float = 1e-12,
 ) -> float:
@@ -209,7 +213,7 @@ def fisher_logratio_loss_numpy(
     for c in classes:
         Xc = x[y == c]  # (n_c, D)
         if Xc.shape[0] >= 2:
-            var_c = Xc.var(axis=0, ddof=1)           # unbiased
+            var_c = Xc.var(axis=0, ddof=1)  # unbiased
         elif Xc.shape[0] == 1:
             var_c = np.zeros(x.shape[1], dtype=float)
         else:
@@ -221,18 +225,18 @@ def fisher_logratio_loss_numpy(
     if len(class_means) < 2:
         return 0.0
 
-    Sw = np.mean([v.sum() for v in class_vars])       # mean over classes (sum over dims)
-    M = np.vstack(class_means)                        # (C_eff, D)
+    Sw = np.mean([v.sum() for v in class_vars])  # mean over classes (sum over dims)
+    M = np.vstack(class_means)  # (C_eff, D)
     mu_bar = M.mean(axis=0)
-    Sb = np.mean(np.sum((M - mu_bar) ** 2, axis=1))   # mean over classes
+    Sb = np.mean(np.sum((M - mu_bar) ** 2, axis=1))  # mean over classes
 
     return float(-(np.log(Sb + eps) - tau * np.log(Sw + eps)))
-
 
 
 # -------------------------------------------------------------------------------------------------
 # Paper-Style LDA Head in 1D (no learnable params)
 # -------------------------------------------------------------------------------------------------
+
 
 class LDA1DHead:
     """
@@ -240,6 +244,7 @@ class LDA1DHead:
         d_c(x) = m_c * x - 0.5 * m_c^2
     where m_c is the per-class mean of the training features.
     """
+
     def fit(self, x_train: np.ndarray, y_train: np.ndarray):
         x = np.asarray(x_train).reshape(-1)
         y = np.asarray(y_train)
@@ -248,9 +253,9 @@ class LDA1DHead:
         return self
 
     def scores(self, x: np.ndarray) -> np.ndarray:
-        x = np.asarray(x).reshape(-1, 1)     # (N,1)
-        m = self.means_.reshape(1, -1)       # (1,C)
-        return m * x - 0.5 * (m ** 2)        # (N,C)
+        x = np.asarray(x).reshape(-1, 1)  # (N,1)
+        m = self.means_.reshape(1, -1)  # (1,C)
+        return m * x - 0.5 * (m**2)  # (N,C)
 
     def predict(self, x: np.ndarray) -> np.ndarray:
         d = self.scores(x)
@@ -267,9 +272,10 @@ class LDA1DHead:
 # -------------------------------------------------------------------------------------------------
 
 import math
-from typing import Any, Callable, Dict, List, Tuple
+from typing import Callable, Tuple
 
 # Assume "pcvl" and "np" are already imported in your module
+
 
 class ReUploadCircuitModelTwoMode:
     """
@@ -297,8 +303,14 @@ class ReUploadCircuitModelTwoMode:
             raise ValueError(f"dimension must be positive, got {dimension}")
         if num_layers <= 0:
             raise ValueError(f"num_layers must be positive, got {num_layers}")
-        if not (isinstance(design, str) and len(design) == 2 and all(c in "ABCD" for c in design)):
-            raise ValueError("design must be a two-character string with letters in 'ABC', e.g. 'AA', 'BC'.")
+        if not (
+            isinstance(design, str)
+            and len(design) == 2
+            and all(c in "ABCD" for c in design)
+        ):
+            raise ValueError(
+                "design must be a two-character string with letters in 'ABC', e.g. 'AA', 'BC'."
+            )
 
         self.dimension = dimension
         self.num_layers = num_layers
@@ -310,11 +322,19 @@ class ReUploadCircuitModelTwoMode:
 
         # Parameters
         self.num_data_params = self.dimension
-        self.data_params = [pcvl.Parameter(f"x_{i}") for i in range(self.num_data_params)]
+        self.data_params = [
+            pcvl.Parameter(f"x_{i}") for i in range(self.num_data_params)
+        ]
 
         # 2 trainable params per block, regardless of A|B|C (see patterns below)
-        self.num_var_params = 2 * self.num_rotation_blocks_per_layer * self.num_layers if design[1] != 'D' else 0
-        self.var_params = [pcvl.Parameter(f"var_{i}") for i in range(self.num_var_params)]
+        self.num_var_params = (
+            2 * self.num_rotation_blocks_per_layer * self.num_layers
+            if design[1] != "D"
+            else 0
+        )
+        self.var_params = [
+            pcvl.Parameter(f"var_{i}") for i in range(self.num_var_params)
+        ]
 
         # Build circuit
         self.circuit = self._build_circuit()
@@ -368,7 +388,9 @@ class ReUploadCircuitModelTwoMode:
     def _var_B(self, circuit, data_idx: int, var_idx: int) -> Tuple[int, int]:
         # B: PS_0(θ_k) ; BS_0(φ_k)   (two trainable params)
         circuit.add(0, pcvl.PS(self.var_params[var_idx]), merge=True)
-        circuit.add(0, pcvl.BS(self.var_params[var_idx + 1]), merge=True)  # <--- adjust signature if needed
+        circuit.add(
+            0, pcvl.BS(self.var_params[var_idx + 1]), merge=True
+        )  # <--- adjust signature if needed
         var_idx += 2
         return data_idx, var_idx
 
@@ -394,7 +416,9 @@ class ReUploadCircuitModelTwoMode:
 
     @property
     def _var_block(self) -> Callable:
-        return {"A": self._var_A, "B": self._var_B, "C": self._var_C, "D": self._var_D}[self.design[1]]
+        return {"A": self._var_A, "B": self._var_B, "C": self._var_C, "D": self._var_D}[
+            self.design[1]
+        ]
 
     # ---------- Circuit builder ----------
     def _build_circuit(self) -> Any:
@@ -427,22 +451,26 @@ class ReUploadCircuitModelTwoMode:
     # ---------- Parameter update helpers ----------
     def update_data_params(self, data_vector: np.ndarray) -> None:
         if len(data_vector) != self.dimension:
-            raise ValueError(f"Expected {self.dimension} features, got {len(data_vector)}")
+            raise ValueError(
+                f"Expected {self.dimension} features, got {len(data_vector)}"
+            )
         encoded = data_vector
         for i, p in enumerate(self.data_params):
             p.set_value(float(encoded[i]))
 
     def update_var_params(self, var_vector: np.ndarray) -> None:
         if len(var_vector) != self.num_var_params:
-            raise ValueError(f"Expected {self.num_var_params} parameters, got {len(var_vector)}")
+            raise ValueError(
+                f"Expected {self.num_var_params} parameters, got {len(var_vector)}"
+            )
         for i, p in enumerate(self.var_params):
             p.set_value(float(var_vector[i]))
-
 
 
 # -------------------------------------------------------------------------------------------------
 # Merlin Backend — autograd
 # -------------------------------------------------------------------------------------------------
+
 
 class MerlinReuploadingClassifier(BaseEstimator, ClassifierMixin):
     """
@@ -456,7 +484,10 @@ class MerlinReuploadingClassifier(BaseEstimator, ClassifierMixin):
       Stage 1: train circuit params with Fisher loss on x=p10 (1D)
       Stage 2: freeze circuit, fit 1D LDA head on training features
     """
-    def __init__(self, dimension: int, num_layers: int = 1, design: str = "AA", alpha = np.pi/4):
+
+    def __init__(
+        self, dimension: int, num_layers: int = 1, design: str = "AA", alpha=np.pi / 4
+    ):
         if dimension <= 0 or num_layers <= 0:
             raise ValueError("dimension and num_layers must be positive.")
         self.dimension = dimension
@@ -464,33 +495,36 @@ class MerlinReuploadingClassifier(BaseEstimator, ClassifierMixin):
         self.alpha = alpha
 
         # Build circuit and Merlin quantum layer
-        circuit_model = ReUploadCircuitModelTwoMode(self.dimension, self.num_layers, design)
+        circuit_model = ReUploadCircuitModelTwoMode(
+            self.dimension, self.num_layers, design
+        )
         circuit_model.update_var_params(
             np.random.uniform(0, np.pi, size=circuit_model.num_var_params)
         )
-        trainable_params = ['var'] if design[1] != 'D' else []
+        trainable_params = ["var"] if design[1] != "D" else []
         quantum_layer = ml.QuantumLayer(
             input_size=self.dimension,
-            output_size=2,                   # [p01, p10]
+            output_size=2,  # [p01, p10]
             circuit=circuit_model.circuit,
             trainable_parameters=trainable_params,
             input_parameters=["x"],
             input_state=circuit_model.input_state,
-            output_mapping_strategy=ml.OutputMappingStrategy.NONE
+            output_mapping_strategy=ml.OutputMappingStrategy.NONE,
         )
 
         class QuantumModule(nn.Module):
             def __init__(_self, layer):
                 super().__init__()
                 _self.layer = layer
+
             def forward(_self, x):
                 encoded_x = x * self.alpha
-                probs = _self.layer(encoded_x)          # (N,2)
-                p10 = probs[..., 1]                     # (N,)
-                return p10.unsqueeze(-1)                # (N,1)
+                probs = _self.layer(encoded_x)  # (N,2)
+                p10 = probs[..., 1]  # (N,)
+                return p10.unsqueeze(-1)  # (N,1)
 
         self.quantum_model = QuantumModule(quantum_layer)
-        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.quantum_model.to(self.device)
 
         self.classifier_ = LDA1DHead()
@@ -514,19 +548,18 @@ class MerlinReuploadingClassifier(BaseEstimator, ClassifierMixin):
         batch_size: int = 32,
         patience: int = 50,
         tau: float = 1.0,
-        convergence_tolerance: float = 1e-6
+        convergence_tolerance: float = 1e-6,
     ) -> "MerlinReuploadingClassifier":
-
         X_t = torch.tensor(X, dtype=torch.float32, device=self.device)
         y_t = torch.tensor(y, dtype=torch.long, device=self.device)
-        #X_t = X.clone().detach().to(dtype=torch.float32, device=self.device)
-        #y_t = y.clone().detach().to(dtype=torch.long, device=self.device)
+        # X_t = X.clone().detach().to(dtype=torch.float32, device=self.device)
+        # y_t = y.clone().detach().to(dtype=torch.long, device=self.device)
         loader = self._create_loader(X_t, y_t, batch_size=batch_size)
 
-        self.training_history_ = {'loss': [], 'epochs': 0} if track_history else None
+        self.training_history_ = {"loss": [], "epochs": 0} if track_history else None
         opt = optim.Adam(self.quantum_model.parameters(), lr=learning_rate)
 
-        best_loss = float('inf')
+        best_loss = float("inf")
         patience_ctr = 0
         avg_loss = None
 
@@ -535,7 +568,7 @@ class MerlinReuploadingClassifier(BaseEstimator, ClassifierMixin):
             epoch_losses = []
             for bx, by in loader:
                 opt.zero_grad(set_to_none=True)
-                feats = self.quantum_model(bx)                      # (B,1)
+                feats = self.quantum_model(bx)  # (B,1)
                 loss = fisher_logratio_loss(feats, by, tau=tau)
                 loss.backward()
                 opt.step()
@@ -543,12 +576,14 @@ class MerlinReuploadingClassifier(BaseEstimator, ClassifierMixin):
 
             avg_loss = float(np.mean(epoch_losses))
             if track_history:
-                self.training_history_['loss'].append(avg_loss)
-                self.training_history_['epochs'] = epoch + 1
+                self.training_history_["loss"].append(avg_loss)
+                self.training_history_["epochs"] = epoch + 1
 
             if avg_loss < best_loss - convergence_tolerance:
                 best_loss = avg_loss
-                self.best_params_ = {n: p.clone() for n, p in self.quantum_model.named_parameters()}
+                self.best_params_ = {
+                    n: p.clone() for n, p in self.quantum_model.named_parameters()
+                }
                 patience_ctr = 0
             else:
                 patience_ctr += 1
@@ -570,7 +605,7 @@ class MerlinReuploadingClassifier(BaseEstimator, ClassifierMixin):
         if not self.is_fitted_:
             raise ValueError("Call fit() first.")
         X_t = torch.tensor(X, dtype=torch.float32, device=self.device)
-        #X_t = X.clone().detach().to(dtype=torch.float32, device=self.device)
+        # X_t = X.clone().detach().to(dtype=torch.float32, device=self.device)
         with torch.no_grad():
             feats = self.quantum_model(X_t).cpu().numpy().reshape(-1)
         return self.classifier_.predict(feats)
@@ -595,14 +630,16 @@ class MerlinReuploadingClassifier(BaseEstimator, ClassifierMixin):
 
 
 # ------------------------------------------------------------------------------------------------------------
-# Perceval Backend — Adam (PSR), COBYLA (gradient-free), L‑BFGS‑B (gradient-free), Nelder‑Mead (gradient-free) 
+# Perceval Backend — Adam (PSR), COBYLA (gradient-free), L‑BFGS‑B (gradient-free), Nelder‑Mead (gradient-free)
 # ------------------------------------------------------------------------------------------------------------
+
 
 @dataclass
 class COBYLAConfig:
     tol: float = 1e-6
     rhobeg: float = np.pi / 2
     maxiter: int | None = None
+
 
 @dataclass
 class LBFGSBConfig:
@@ -615,6 +652,7 @@ class LBFGSBConfig:
     maxcor: int = 10
     max_eval: int | None = None
 
+
 @dataclass
 class NelderMeadConfig:
     maxiter: int | None = None
@@ -622,6 +660,7 @@ class NelderMeadConfig:
     xatol: float = 1e-4
     fatol: float = 1e-4
     adaptive: bool = False
+
 
 @dataclass
 class AdamPSRConfig:
@@ -656,7 +695,7 @@ class PercevalReuploadingClassifier(BaseEstimator, ClassifierMixin):
         num_layers: int = 1,
         design: str = "AA",
         *,
-        alpha: float = np.pi/4,
+        alpha: float = np.pi / 4,
         noise_model: Optional[Any] = None,
     ) -> None:
         if dimension <= 0 or num_layers <= 0:
@@ -700,46 +739,56 @@ class PercevalReuploadingClassifier(BaseEstimator, ClassifierMixin):
 
     def _objective(self, theta: np.ndarray, X, y, tau, n_shots):
         self._set_theta(theta)
-        return fisher_logratio_loss_numpy(self._feature_p10(X, n_shots=n_shots), y, tau=tau)
-    
-    
+        return fisher_logratio_loss_numpy(
+            self._feature_p10(X, n_shots=n_shots), y, tau=tau
+        )
 
     # ----- optimizers -----
     def _train_cobyla(self, X, y, *, tau, n_shots, cfg: COBYLAConfig, track):
         P = self.quantum_model.num_var_params
-        init = np.random.uniform(0, 2*np.pi, size=P)
+        init = np.random.uniform(0, 2 * np.pi, size=P)
         self.training_history_["epochs"] = 0
+
         def fun(theta):
             return self._objective(theta, X, y, tau, n_shots)
+
         def cb(xk):
             if track:
                 self.training_history_["loss"].append(fun(xk))
                 self.training_history_["epochs"] += 1
+
         res = minimize(
-            fun, init, method="COBYLA",
+            fun,
+            init,
+            method="COBYLA",
             tol=cfg.tol,
             callback=cb,
             options={
                 "rhobeg": cfg.rhobeg,
                 "maxiter": cfg.maxiter,
                 "disp": False,
-            }
+            },
         )
         self.best_params_ = res.x
         self._set_theta(res.x)
 
     def _train_lbfgsb(self, X, y, *, tau, n_shots, cfg, track):
         P = self.quantum_model.num_var_params
-        init = np.random.uniform(0, 2*np.pi, size=P)
+        init = np.random.uniform(0, 2 * np.pi, size=P)
         self.training_history_["epochs"] = 0
+
         def fun(theta):
             return self._objective(theta, X, y, tau, n_shots)
+
         def cb(xk):
             if track:
                 self.training_history_["loss"].append(fun(xk))
                 self.training_history_["epochs"] += 1
+
         res = minimize(
-            fun, init, method="L-BFGS-B",
+            fun,
+            init,
+            method="L-BFGS-B",
             jac=False,
             callback=cb,
             options={
@@ -751,23 +800,28 @@ class PercevalReuploadingClassifier(BaseEstimator, ClassifierMixin):
                 "gtol": cfg.gtol,
                 "maxcor": cfg.maxcor,
                 "max_eval": cfg.max_eval,
-            }
+            },
         )
         self.best_params_ = res.x
         self._set_theta(res.x)
 
     def _train_nelder(self, X, y, *, tau, n_shots, cfg, track):
         P = self.quantum_model.num_var_params
-        init = np.random.uniform(0, 2*np.pi, size=P)
+        init = np.random.uniform(0, 2 * np.pi, size=P)
         self.training_history_["epochs"] = 0
+
         def fun(theta):
             return self._objective(theta, X, y, tau, n_shots)
+
         def cb(xk):
             if track:
                 self.training_history_["loss"].append(fun(xk))
                 self.training_history_["epochs"] += 1
+
         res = minimize(
-            fun, init, method="Nelder-Mead",
+            fun,
+            init,
+            method="Nelder-Mead",
             callback=cb,
             options={
                 "maxiter": cfg.maxiter,
@@ -775,7 +829,7 @@ class PercevalReuploadingClassifier(BaseEstimator, ClassifierMixin):
                 "xatol": cfg.xatol,
                 "fatol": cfg.fatol,
                 "adaptive": cfg.adaptive,
-            }
+            },
         )
         self.best_params_ = res.x
         self._set_theta(res.x)
@@ -786,12 +840,14 @@ class PercevalReuploadingClassifier(BaseEstimator, ClassifierMixin):
         for i in range(P):
             e = np.zeros(P)
             e[i] = 1.0
-            loss_plus = self._objective(theta + shift*e, X, y, tau, n_shots)
-            loss_minus = self._objective(theta - shift*e, X, y, tau, n_shots)
+            loss_plus = self._objective(theta + shift * e, X, y, tau, n_shots)
+            loss_minus = self._objective(theta - shift * e, X, y, tau, n_shots)
             grad[i] = 0.5 * (loss_plus - loss_minus) / np.sin(shift)
         return grad
 
-    def _train_adam_psr(self, X, y, *, tau, n_shots, max_epochs, cfg: AdamPSRConfig, track):
+    def _train_adam_psr(
+        self, X, y, *, tau, n_shots, max_epochs, cfg: AdamPSRConfig, track
+    ):
         """
         Train the variable parameters with Adam + Parameter-Shift Rule (PSR) **via
         `scipy.optimize.minimize(method="adam")`** instead of a hand-rolled loop.
@@ -806,8 +862,8 @@ class PercevalReuploadingClassifier(BaseEstimator, ClassifierMixin):
         cfg           : AdamPSRConfig with lr, beta1, beta2, eps, shift, batch_size
         track         : if True, record loss history in `self.training_history_`
         """
-        P            = self.quantum_model.num_var_params
-        init_theta   = np.random.uniform(0, 2 * np.pi, size=P)
+        P = self.quantum_model.num_var_params
+        init_theta = np.random.uniform(0, 2 * np.pi, size=P)
 
         # ——— objective and analytic PSR gradient ———
         def fun(theta: np.ndarray) -> float:
@@ -825,6 +881,7 @@ class PercevalReuploadingClassifier(BaseEstimator, ClassifierMixin):
         # ——— callback for loss history ———
         if track:
             self.training_history_["epochs"] = 0
+
             def cb(theta):
                 self.training_history_["loss"].append(float(fun(theta)))
                 self.training_history_["epochs"] += 1
@@ -839,11 +896,11 @@ class PercevalReuploadingClassifier(BaseEstimator, ClassifierMixin):
             jac=grad,
             callback=cb,
             options={
-                "lr":       cfg.lr,
-                "beta1":    cfg.beta1,
-                "beta2":    cfg.beta2,
-                "eps":      cfg.eps,
-                "maxiter":  max_epochs,
+                "lr": cfg.lr,
+                "beta1": cfg.beta1,
+                "beta2": cfg.beta2,
+                "eps": cfg.eps,
+                "maxiter": max_epochs,
             },
         )
 
@@ -857,7 +914,7 @@ class PercevalReuploadingClassifier(BaseEstimator, ClassifierMixin):
         y: np.ndarray,
         *,
         optimizer: str = "cobyla",  # {cobyla|l_bfgs_b|nelder_mead|adam_psr}
-        cfg = COBYLAConfig,
+        cfg=COBYLAConfig,
         tau: float = 1.0,
         n_shots: float | int = 2000,
         track_history: bool = True,
@@ -870,22 +927,32 @@ class PercevalReuploadingClassifier(BaseEstimator, ClassifierMixin):
 
         optim = optimizer.lower()
         if optim == "cobyla":
-            self._train_cobyla(X, y, tau=tau, n_shots=n_shots, cfg=cfg, track=track_history)
+            self._train_cobyla(
+                X, y, tau=tau, n_shots=n_shots, cfg=cfg, track=track_history
+            )
         elif optim in {"l_bfgs_b", "lbfgsb"}:
-            self._train_lbfgsb(X, y, tau=tau, n_shots=n_shots, cfg=cfg, track=track_history)
+            self._train_lbfgsb(
+                X, y, tau=tau, n_shots=n_shots, cfg=cfg, track=track_history
+            )
         elif optim == "nelder_mead":
-            self._train_nelder(X, y, tau=tau, n_shots=n_shots, cfg=cfg, track=track_history)
+            self._train_nelder(
+                X, y, tau=tau, n_shots=n_shots, cfg=cfg, track=track_history
+            )
         elif optim == "adam_psr":
-            self._train_adam_psr(X, y, tau=tau, n_shots=n_shots, cfg=cfg, track=track_history)
+            self._train_adam_psr(
+                X, y, tau=tau, n_shots=n_shots, cfg=cfg, track=track_history
+            )
         else:
-            raise ValueError("optimizer must be one of {'cobyla','l_bfgs_b','nelder_mead','adam_psr'}")
+            raise ValueError(
+                "optimizer must be one of {'cobyla','l_bfgs_b','nelder_mead','adam_psr'}"
+            )
 
         # LDA head
         feats_train = self._feature_p10(X, n_shots=n_shots).reshape(-1)
         self.classifier_.fit(feats_train, y)
         self.is_fitted_ = True
         return self
-    
+
     # Inference
     def _feats(self, X: np.ndarray, n_shots: float | int) -> np.ndarray:
         """Internal: flattened (N,) vector of quantum feature *p10* with given shot budget."""
@@ -897,17 +964,23 @@ class PercevalReuploadingClassifier(BaseEstimator, ClassifierMixin):
             raise RuntimeError("Call fit() first.")
         return self.classifier_.predict(self._feats(X, n_shots))
 
-    def predict_proba(self, X: np.ndarray, *, n_shots: float | int = 2000) -> np.ndarray:
+    def predict_proba(
+        self, X: np.ndarray, *, n_shots: float | int = 2000
+    ) -> np.ndarray:
         """Class probabilities for **X** using the same shot logic as :meth:`predict`."""
         if not self.is_fitted_:
             raise RuntimeError("Call fit() first.")
         return self.classifier_.predict_proba(self._feats(X, n_shots))
 
-    def score(self, X: np.ndarray, y: np.ndarray, *, n_shots: float | int = 2000) -> float:
+    def score(
+        self, X: np.ndarray, y: np.ndarray, *, n_shots: float | int = 2000
+    ) -> float:
         """Accuracy on (X, y) at the specified shot count."""
         return accuracy_score(y, self.predict(X, n_shots=n_shots))
 
-    def get_quantum_features(self, X: np.ndarray, *, n_shots: float | int = 2000) -> np.ndarray:
+    def get_quantum_features(
+        self, X: np.ndarray, *, n_shots: float | int = 2000
+    ) -> np.ndarray:
         """Return the learned 1‑D quantum feature :math:`x = p_{10}` for each sample."""
         if not self.is_fitted_:
             raise RuntimeError("Call fit() first.")

@@ -2,21 +2,24 @@ import os
 import h5py
 import numpy as np
 
+
 def get_dataset(d: int):
     """
     Get downscaled MNIST PCA dataset.
     :param d: int between 2 and 20
     :return: x_train, x_test, y_train, y_test
     """
-    assert type(d) == int and d >= 2 and d <= 20, f"Invalid parameter d: {d}"
+    assert type(d) is int and d >= 2 and d <= 20, f"Invalid parameter d: {d}"
 
-    base_path = os.path.dirname(os.path.abspath(__file__))  # path of the current .py file
-    file_path = os.path.join(base_path, 'downscaled-mnist', 'downscaled-mnist.h5')
+    base_path = os.path.dirname(
+        os.path.abspath(__file__)
+    )  # path of the current .py file
+    file_path = os.path.join(base_path, "downscaled-mnist", "downscaled-mnist.h5")
     with h5py.File(file_path, "r") as f:
-        inputs_train_group = f['train'][str(d)]['inputs']
-        inputs_test_group = f['test'][str(d)]['inputs']
-        labels_train_group = f['train'][str(d)]['labels']
-        labels_test_group = f['test'][str(d)]['labels']
+        inputs_train_group = f["train"][str(d)]["inputs"]
+        inputs_test_group = f["test"][str(d)]["inputs"]
+        labels_train_group = f["train"][str(d)]["labels"]
+        labels_test_group = f["test"][str(d)]["labels"]
 
         def load_data(inputs_group, labels_group):
             x_data = []

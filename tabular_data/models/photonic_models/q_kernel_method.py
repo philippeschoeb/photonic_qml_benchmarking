@@ -11,8 +11,22 @@ from models.photonic_models.scaling_layer import scale_from_string_to_value
 from merlin_additional.loss import NKernelAlignment
 from training.training_torch import assign_optimizer
 
+
 class QSVC:
-    def __init__(self, input_size, m, n, circuit, no_bunching, pre_train=True, C=1.0, probability=False, scaling="1", random_state=None, **kwargs):
+    def __init__(
+        self,
+        input_size,
+        m,
+        n,
+        circuit,
+        no_bunching,
+        pre_train=True,
+        C=1.0,
+        probability=False,
+        scaling="1",
+        random_state=None,
+        **kwargs,
+    ):
         """
         Wrapper for sklearn's SVC with quantum kernel.
 
@@ -28,13 +42,13 @@ class QSVC:
         """
         self.scaling = scale_from_string_to_value(scaling)
         circuit = get_circuit(circuit, m, input_size, reservoir=(not pre_train))
-        input_fock_state = get_input_fock_state('standard', m, n)
-        trainable_parameters = ['theta'] if pre_train else []
+        input_fock_state = get_input_fock_state("standard", m, n)
+        trainable_parameters = ["theta"] if pre_train else []
         self.feature_map = mla.FeatureMap(
             circuit=circuit,
             input_size=input_size,
-            input_parameters='px',
-            trainable_parameters=trainable_parameters
+            input_parameters="px",
+            trainable_parameters=trainable_parameters,
         )
         self.quantum_kernel = mla.FidelityKernel(
             feature_map=self.feature_map,
@@ -63,7 +77,9 @@ class QSVC:
             k_test = self.quantum_kernel(x_test, x_train)
             return k_train, k_test
         else:
-            raise Exception('quantum_kernel has to be pretrained before computing kernels')
+            raise Exception(
+                "quantum_kernel has to be pretrained before computing kernels"
+            )
 
     def fit(self, k_train, y):
         """Fit the QSVC model with the precomputed kernel matrix, k_train. k_train has shape: (n_train, n_train)"""
@@ -91,9 +107,11 @@ class QSVC:
 
 
 class _BaseSKQSVC(BaseEstimator, ClassifierMixin):
-    def __init__(self, model_name, data_params=None, model_params=None, training_params=None):
+    def __init__(
+        self, model_name, data_params=None, model_params=None, training_params=None
+    ):
         self.model_class = QSVC
-        self.model_type = 'sklearn_q_kernel'
+        self.model_type = "sklearn_q_kernel"
         self.model_name = model_name
         self.data_params = data_params or {}
         self.model_params = model_params or {}
@@ -103,25 +121,27 @@ class _BaseSKQSVC(BaseEstimator, ClassifierMixin):
         self.train_losses = None
         self.train_accuracies = None
         self.final_train_acc = None
-        self.device = torch.device('cpu')
+        self.device = torch.device("cpu")
         self._x_train = None
 
     def get_params(self, deep=True):
         params = dict(self.data_params)
         params.update({f"model_params__{k}": v for k, v in self.model_params.items()})
-        params.update({f"training_params__{k}": v for k, v in self.training_params.items()})
+        params.update(
+            {f"training_params__{k}": v for k, v in self.training_params.items()}
+        )
         return params
 
     def set_params(self, **params):
         for key, value in params.items():
-            if key.startswith('data_params__'):
-                subkey = key.split('__', 1)[1]
+            if key.startswith("data_params__"):
+                subkey = key.split("__", 1)[1]
                 self.data_params[subkey] = value
-            elif key.startswith('model_params__'):
-                subkey = key.split('__', 1)[1]
+            elif key.startswith("model_params__"):
+                subkey = key.split("__", 1)[1]
                 self.model_params[subkey] = value
-            elif key.startswith('training_params__'):
-                subkey = key.split('__', 1)[1]
+            elif key.startswith("training_params__"):
+                subkey = key.split("__", 1)[1]
                 self.training_params[subkey] = value
             else:
                 setattr(self, key, value)
@@ -136,21 +156,27 @@ class _BaseSKQSVC(BaseEstimator, ClassifierMixin):
             model_kwargs["circuit"] = model_kwargs.pop("circuit_type")
         self.model = self.model_class(**model_kwargs)
 
-        batch_size = self.data_params.get('batch_size', 32)
-        optimizer_name = self.training_params.get('optimizer', 'Adam')
-        lr = self.training_params.get('lr', 0.001)
-        epochs = self.training_params.get('epochs', 5)
-        pre_train = self.training_params.get('pre_train', True)
+        batch_size = self.data_params.get("batch_size", 32)
+        optimizer_name = self.training_params.get("optimizer", "Adam")
+        lr = self.training_params.get("lr", 0.001)
+        epochs = self.training_params.get("epochs", 5)
+        pre_train = self.training_params.get("pre_train", True)
 
-        device_cfg = self.training_params.get('device', torch.device('cpu'))
+        device_cfg = self.training_params.get("device", torch.device("cpu"))
         if isinstance(device_cfg, list):
             device_cfg = device_cfg[0]
         if isinstance(device_cfg, str):
             device_cfg = torch.device(device_cfg)
-        self.device = device_cfg if isinstance(device_cfg, torch.device) else torch.device(device_cfg)
+        self.device = (
+            device_cfg
+            if isinstance(device_cfg, torch.device)
+            else torch.device(device_cfg)
+        )
 
         x_tensor = torch.tensor(x, dtype=torch.float32)
-        if np.issubdtype(np.asarray(y).dtype, np.floating) or np.array_equal(np.unique(y), np.array([-1, 1])):
+        if np.issubdtype(np.asarray(y).dtype, np.floating) or np.array_equal(
+            np.unique(y), np.array([-1, 1])
+        ):
             y_tensor = torch.tensor(y, dtype=torch.float32)
         else:
             y_tensor = torch.tensor(y, dtype=torch.long)
@@ -189,7 +215,9 @@ class _BaseSKQSVC(BaseEstimator, ClassifierMixin):
 
         self._x_train = self._to_device(x_tensor)
         with torch.no_grad():
-            kernel_matrix_train, _ = self.model.get_q_kernels(self._x_train, self._x_train)
+            kernel_matrix_train, _ = self.model.get_q_kernels(
+                self._x_train, self._x_train
+            )
 
         kernel_matrix_train = kernel_matrix_train.detach().cpu().numpy()
         self.model.fit(kernel_matrix_train, y)
@@ -210,7 +238,9 @@ class _BaseSKQSVC(BaseEstimator, ClassifierMixin):
 
     def _kernel_with_training(self, x):
         if self._x_train is None:
-            raise ValueError("Estimator must be fitted before calling predict or score.")
+            raise ValueError(
+                "Estimator must be fitted before calling predict or score."
+            )
 
         x_tensor = torch.tensor(x, dtype=torch.float32)
         x_tensor = self._to_device(x_tensor)
@@ -242,4 +272,6 @@ class SKQKernelMethod(_BaseSKQSVC):
 
 class SKQKernelMethodReservoir(_BaseSKQSVC):
     def __init__(self, data_params=None, model_params=None, training_params=None):
-        super().__init__("q_kernel_method_reservoir", data_params, model_params, training_params)
+        super().__init__(
+            "q_kernel_method_reservoir", data_params, model_params, training_params
+        )

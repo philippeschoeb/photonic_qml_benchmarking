@@ -21,6 +21,7 @@ import optax
 from sklearn.base import BaseEstimator, ClassifierMixin
 from sklearn.utils.validation import check_is_fitted
 from sklearn.preprocessing import MinMaxScaler
+from sklearn.metrics import accuracy_score
 from training.gate_based_training.model_utils import train
 from training.gate_based_training.model_utils import chunk_vmapped_fn
 
@@ -42,6 +43,7 @@ class DataReuploadingClassifier(BaseEstimator, ClassifierMixin):
         dev_type="default.qubit",
         qnode_kwargs={"interface": "jax-jit"},
         random_state=42,
+        **kwargs,
     ):
         r"""
         Data reuploading classifier from https://arxiv.org/abs/1907.02085. Here we code the 'multi-qubit classifier'.
@@ -149,15 +151,19 @@ class DataReuploadingClassifier(BaseEstimator, ClassifierMixin):
                     qml.Rot(*angles, wires=i)
 
                     x_idx += 3
-                '''if layer % 2 == 0:
+                """if layer % 2 == 0:
                     qml.broadcast(qml.CZ, range(self.n_qubits_), pattern="double")
                 else:
-                    qml.broadcast(qml.CZ, range(self.n_qubits_), pattern="double_odd")'''
+                    qml.broadcast(qml.CZ, range(self.n_qubits_), pattern="double_odd")"""
                 wires = list(range(self.n_qubits_))
                 if layer % 2 == 0:
-                    pairs = [(wires[i], wires[i + 1]) for i in range(0, len(wires) - 1, 2)]
+                    pairs = [
+                        (wires[i], wires[i + 1]) for i in range(0, len(wires) - 1, 2)
+                    ]
                 else:
-                    pairs = [(wires[i], wires[i + 1]) for i in range(1, len(wires) - 1, 2)]
+                    pairs = [
+                        (wires[i], wires[i + 1]) for i in range(1, len(wires) - 1, 2)
+                    ]
 
                 for w1, w2 in pairs:
                     qml.CZ(wires=[w1, w2])
@@ -187,6 +193,63 @@ class DataReuploadingClassifier(BaseEstimator, ClassifierMixin):
         self.chunked_forward = chunk_vmapped_fn(self.forward, 1, self.max_vmap)
 
         return self.forward
+
+
+class SKDataReuploadingGate(BaseEstimator, ClassifierMixin):
+    """Scikit-learn compatible wrapper for the gate-based data reuploading model."""
+
+    def __init__(self, data_params=None, model_params=None, training_params=None):
+        self.model_class = DataReuploadingClassifier
+        self.model_type = "sklearn_gate"
+        self.model_name = "data_reuploading"
+        self.data_params = data_params or {}
+        self.model_params = model_params or {}
+        self.training_params = training_params or {}
+
+        self.model = None
+        self.train_losses = None
+        self.final_train_acc = None
+
+    def get_params(self, deep=True):
+        params = dict(self.data_params)
+        params.update({f"model_params__{k}": v for k, v in self.model_params.items()})
+        params.update(
+            {f"training_params__{k}": v for k, v in self.training_params.items()}
+        )
+        return params
+
+    def set_params(self, **params):
+        for key, value in params.items():
+            if key.startswith("data_params__"):
+                subkey = key.split("__", 1)[1]
+                self.data_params[subkey] = value
+            elif key.startswith("model_params__"):
+                subkey = key.split("__", 1)[1]
+                self.model_params[subkey] = value
+            elif key.startswith("training_params__"):
+                subkey = key.split("__", 1)[1]
+                self.training_params[subkey] = value
+            else:
+                setattr(self, key, value)
+        return self
+
+    def _prepare_model_kwargs(self):
+        kwargs = dict(self.model_params)
+        kwargs.pop("type", None)
+        kwargs.pop("name", None)
+        kwargs.pop("input_size", None)
+        kwargs.pop("output_size", None)
+        if "numLayers" in kwargs and "nLayers" not in kwargs:
+            kwargs["nLayers"] = kwargs.pop("numLayers")
+        if "lr" in kwargs and "learning_rate" not in kwargs:
+            kwargs["learning_rate"] = kwargs.pop("lr")
+        if kwargs.get("max_vmap") is None:
+            kwargs["max_vmap"] = kwargs.get("batch_size", 32)
+        return kwargs
+
+    def score(self, X, y):
+        preds = self.predict(X)
+        return accuracy_score(np.asarray(y), preds)
 
     def initialize(self, n_features, classes=None):
         """Initialize attributes that depend on the number of features and the class labels.
@@ -335,7 +398,6 @@ class DataReuploadingClassifier(BaseEstimator, ClassifierMixin):
 
 
 class DataReuploadingClassifierNoScaling(DataReuploadingClassifier):
-
     def construct_model(self):
         """Construct the quantum circuit used in the model."""
 
@@ -397,7 +459,6 @@ class DataReuploadingClassifierNoScaling(DataReuploadingClassifier):
 
 
 class DataReuploadingClassifierNoTrainableEmbedding(DataReuploadingClassifier):
-
     def construct_model(self):
         """Construct the quantum circuit used in the model."""
 
@@ -469,7 +530,6 @@ class DataReuploadingClassifierNoTrainableEmbedding(DataReuploadingClassifier):
 
 
 class DataReuploadingClassifierNoCost(DataReuploadingClassifier):
-
     def fit(self, X, y):
         """Fit the model to data X and labels y.
 
@@ -508,7 +568,6 @@ class DataReuploadingClassifierNoCost(DataReuploadingClassifier):
 
 
 class DataReuploadingClassifierSeparable(DataReuploadingClassifier):
-
     def construct_model(self):
         """Construct the quantum circuit used in the model."""
 

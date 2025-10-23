@@ -6,5 +6,7 @@ from .reuploading_merlin.reuploading_experiment import MerlinReuploadingClassifi
 __all__ = [
     # Core classes (most common usage)
     "FeatureMap",
-    "FidelityKernel"
+    "FidelityKernel",
+    "MerlinReuploadingClassifier",
+    "NKernelAlignment",
 ]

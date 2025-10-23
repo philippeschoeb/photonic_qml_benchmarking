@@ -114,7 +114,7 @@ def train(
             pbar.update(1)
 
             if np.isnan(loss_val):
-                logging.info(f"nan encountered. Training aborted.")
+                logging.info("nan encountered. Training aborted.")
                 break
 
             # decide convergence

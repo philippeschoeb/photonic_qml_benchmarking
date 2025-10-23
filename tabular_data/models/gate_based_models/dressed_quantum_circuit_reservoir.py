@@ -16,6 +16,7 @@ import pennylane as qml
 import numpy as np
 from sklearn.preprocessing import StandardScaler
 from sklearn.base import BaseEstimator, ClassifierMixin
+from sklearn.metrics import accuracy_score
 import optax
 import jax
 import jax.numpy as jnp
@@ -36,6 +37,7 @@ class DressedQuantumCircuitClassifier(BaseEstimator, ClassifierMixin):
         qnode_kwargs={"interface": "jax-jit"},
         scaling=1.0,
         random_state=42,
+        **kwargs,
     ):
         r"""
         Dressed quantum circuit from https://arxiv.org/abs/1912.08278. The model consists of the following sequence
@@ -79,6 +81,22 @@ class DressedQuantumCircuitClassifier(BaseEstimator, ClassifierMixin):
         else:
             self.max_vmap = max_vmap
 
+        self.data_params = {}
+        self.model_params = {
+            "numLayers": n_layers,
+            "lr": learning_rate,
+            "batch_size": batch_size,
+            "max_vmap": self.max_vmap,
+            "max_steps": max_steps,
+            "convergence_interval": convergence_interval,
+            "dev_type": dev_type,
+            "qnode_kwargs": qnode_kwargs,
+            "scaling": scaling,
+            "random_state": random_state,
+            "jit": jit,
+        }
+        self.training_params = {}
+
         # data-dependant attributes
         # which will be initialised by calling "fit"
         self.params_ = None  # Dictionary containing the trainable parameters
@@ -96,8 +114,8 @@ class DressedQuantumCircuitClassifier(BaseEstimator, ClassifierMixin):
 
         Removed from model for comparison with photonic
         """
-        #x = jnp.matmul(params["input_weights"], x)
-        #x = jnp.tanh(x) * jnp.pi / 2
+        # x = jnp.matmul(params["input_weights"], x)
+        # x = jnp.tanh(x) * jnp.pi / 2
         return x
 
     def output_transform(self, params, x):
@@ -173,24 +191,68 @@ class DressedQuantumCircuitClassifier(BaseEstimator, ClassifierMixin):
                 shape=(self.n_layers, self.n_qubits_), key=self.generate_key()
             )
         )
-        '''input_weights = (
+        """input_weights = (
             jax.random.normal(
                 shape=(self.n_qubits_, self.n_qubits_), key=self.generate_key()
             )
             / self.n_features_
-        )'''
+        )"""
         output_weights = (
             jax.random.normal(shape=(2, self.n_qubits_), key=self.generate_key())
             / self.n_features_
         )
         self.params_ = {
-            #"circuit_weights": circuit_weights,
-            #"input_weights": input_weights,
+            # "circuit_weights": circuit_weights,
+            # "input_weights": input_weights,
             "output_weights": output_weights,
         }
         self.non_train_params_ = {
             "circuit_weights": circuit_weights,
         }
+
+    def get_params(self, deep=True):
+        params = dict(self.data_params)
+        params.update({f"model_params__{k}": v for k, v in self.model_params.items()})
+        params.update(
+            {f"training_params__{k}": v for k, v in self.training_params.items()}
+        )
+        return params
+
+    def set_params(self, **params):
+        attr_map = {
+            "numLayers": "n_layers",
+            "lr": "learning_rate",
+            "batch_size": "batch_size",
+            "max_vmap": "max_vmap",
+            "max_steps": "max_steps",
+            "convergence_interval": "convergence_interval",
+            "dev_type": "dev_type",
+            "qnode_kwargs": "qnode_kwargs",
+            "scaling": "scaling",
+            "random_state": "random_state",
+            "jit": "jit",
+        }
+        for key, value in params.items():
+            if key.startswith("data_params__"):
+                subkey = key.split("__", 1)[1]
+                self.data_params[subkey] = value
+            elif key.startswith("model_params__"):
+                subkey = key.split("__", 1)[1]
+                self.model_params[subkey] = value
+                attr_name = attr_map.get(subkey, subkey)
+                setattr(self, attr_name, value)
+                if attr_name == "max_vmap" and value is None:
+                    self.max_vmap = self.batch_size
+                if attr_name == "random_state":
+                    self.rng = np.random.default_rng(self.random_state)
+            elif key.startswith("training_params__"):
+                subkey = key.split("__", 1)[1]
+                self.training_params[subkey] = value
+            else:
+                setattr(self, key, value)
+                if key in attr_map:
+                    self.model_params[key] = value
+        return self
 
     def fit(self, X, y):
         """Fit the model to data X and labels y.
@@ -270,7 +332,6 @@ class DressedQuantumCircuitClassifier(BaseEstimator, ClassifierMixin):
 
 
 class DressedQuantumCircuitClassifierOnlyNN(DressedQuantumCircuitClassifier):
-
     def construct_model(self):
         def dressed_circuit(params, x):
             x = self.input_transform(params, x)
@@ -293,19 +354,19 @@ class DressedQuantumCircuitClassifierOnlyNN(DressedQuantumCircuitClassifier):
             )
             / self.n_features_
         )
-        '''input_weights = (
+        """input_weights = (
             jax.random.normal(
                 shape=(self.n_qubits_, self.n_qubits_), key=self.generate_key()
             )
             / self.n_features_
-        )'''
+        )"""
         output_weights = (
             jax.random.normal(shape=(2, self.n_qubits_), key=self.generate_key())
             / self.n_features_
         )
         self.params_ = {
             "mid_weights": mid_weights,
-            #"input_weights": input_weights,
+            # "input_weights": input_weights,
             "output_weights": output_weights,
         }
 
@@ -349,3 +410,83 @@ class DressedQuantumCircuitClassifierSeparable(DressedQuantumCircuitClassifier):
         self.chunked_forward = chunk_vmapped_fn(self.forward, 1, self.max_vmap)
 
         return self.forward
+
+
+class SKDressedQuantumCircuitReservoirGate(BaseEstimator, ClassifierMixin):
+    """Scikit-learn compatible wrapper for the reservoir dressed quantum circuit."""
+
+    def __init__(self, data_params=None, model_params=None, training_params=None):
+        self.model_class = DressedQuantumCircuitClassifier
+        self.model_type = "sklearn_gate"
+        self.model_name = "dressed_quantum_circuit_reservoir"
+        self.data_params = data_params or {}
+        self.model_params = model_params or {}
+        self.training_params = training_params or {}
+
+        self.model = None
+        self.train_losses = None
+        self.final_train_acc = None
+
+    def get_params(self, deep=True):
+        params = dict(self.data_params)
+        params.update({f"model_params__{k}": v for k, v in self.model_params.items()})
+        params.update(
+            {f"training_params__{k}": v for k, v in self.training_params.items()}
+        )
+        return params
+
+    def set_params(self, **params):
+        for key, value in params.items():
+            if key.startswith("data_params__"):
+                subkey = key.split("__", 1)[1]
+                self.data_params[subkey] = value
+            elif key.startswith("model_params__"):
+                subkey = key.split("__", 1)[1]
+                self.model_params[subkey] = value
+            elif key.startswith("training_params__"):
+                subkey = key.split("__", 1)[1]
+                self.training_params[subkey] = value
+            else:
+                setattr(self, key, value)
+        return self
+
+    def _prepare_model_kwargs(self):
+        kwargs = dict(self.model_params)
+        kwargs.pop("type", None)
+        kwargs.pop("name", None)
+        kwargs.pop("input_size", None)
+        kwargs.pop("output_size", None)
+        if "numLayers" in kwargs and "n_layers" not in kwargs:
+            kwargs["n_layers"] = kwargs.pop("numLayers")
+        if "lr" in kwargs and "learning_rate" not in kwargs:
+            kwargs["learning_rate"] = kwargs.pop("lr")
+        if kwargs.get("max_vmap") is None:
+            kwargs["max_vmap"] = kwargs.get("batch_size", 32)
+        return kwargs
+
+    def fit(self, X, y):
+        model_kwargs = self._prepare_model_kwargs()
+        self.model = self.model_class(**model_kwargs)
+
+        X_np = np.asarray(X)
+        y_np = np.asarray(y)
+
+        self.model.fit(X_np, y_np)
+        self.train_losses = getattr(self.model, "loss_history_", None)
+        train_predictions = self.model.predict(X_np)
+        self.final_train_acc = accuracy_score(y_np, train_predictions)
+        return self
+
+    def predict(self, X):
+        if self.model is None:
+            raise ValueError("Model has not been fitted yet.")
+        return self.model.predict(np.asarray(X))
+
+    def predict_proba(self, X):
+        if self.model is None:
+            raise ValueError("Model has not been fitted yet.")
+        return self.model.predict_proba(np.asarray(X))
+
+    def score(self, X, y):
+        preds = self.predict(X)
+        return accuracy_score(np.asarray(y), preds)

@@ -5,5 +5,7 @@
 *.txt
 *.idea
 *__pycache__
-./wandb/*
+*/wandb/
+wandb
+*/results/
 !requirements.txt

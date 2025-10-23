@@ -16,6 +16,7 @@ import pennylane as qml
 import numpy as np
 from sklearn.preprocessing import StandardScaler
 from sklearn.base import BaseEstimator, ClassifierMixin
+from sklearn.metrics import accuracy_score
 import optax
 import jax
 import jax.numpy as jnp
@@ -38,6 +39,7 @@ class MultiplePathsModelClassifier(BaseEstimator, ClassifierMixin):
         qnode_kwargs={"interface": "jax-jit"},
         scaling=1.0,
         random_state=42,
+        **kwargs,
     ):
         r"""
         Dressed quantum circuit from https://arxiv.org/abs/1912.08278. The model consists of the following sequence
@@ -51,7 +53,6 @@ class MultiplePathsModelClassifier(BaseEstimator, ClassifierMixin):
 
         Args:
             n_layers (int): number of layers in the variational part of the circuit.
-            #TODO
             learning_rate (float): initial learning rate for gradient descent.
             max_steps (int): Maximum number of training steps. A warning will be raised if training did not converge.
             max_vmap (int or None): The maximum size of a chunk to vectorise over. Lower values use less memory.
@@ -102,7 +103,7 @@ class MultiplePathsModelClassifier(BaseEstimator, ClassifierMixin):
             x = jnp.matmul(params["output_weights"], x)
         else:
             for param_layer in params["output_weights"]:
-                    x = jnp.matmul(param_layer, x)
+                x = jnp.matmul(param_layer, x)
         return x
 
     def construct_model(self):
@@ -121,7 +122,7 @@ class MultiplePathsModelClassifier(BaseEstimator, ClassifierMixin):
             for layer in range(self.n_layers):
                 for i in range(self.n_qubits_):
                     qml.RY(params["circuit_weights"][layer, i], wires=i)
-                #qml.broadcast(qml.CNOT, wires=range(self.n_qubits_), pattern="ring")
+                # qml.broadcast(qml.CNOT, wires=range(self.n_qubits_), pattern="ring")
                 for i in range(self.n_qubits_):
                     qml.CNOT(wires=[i, (i + 1) % self.n_qubits_])
 
@@ -180,30 +181,39 @@ class MultiplePathsModelClassifier(BaseEstimator, ClassifierMixin):
                 shape=(self.n_layers, self.n_qubits_), key=self.generate_key()
             )
         )
-        '''input_weights = (
+        """input_weights = (
             jax.random.normal(
                 shape=(self.n_qubits_, self.n_qubits_), key=self.generate_key()
             )
             / self.n_features_
-        )'''
+        )"""
         if self.n_classical_h_layers == 0:
             output_weights = (
-                jax.random.normal(shape=(2, self.n_qubits_ + self.n_features_), key=self.generate_key())
+                jax.random.normal(
+                    shape=(2, self.n_qubits_ + self.n_features_),
+                    key=self.generate_key(),
+                )
                 / self.n_features_
             )
-            #output_weights = tuple(output_weights)
+            # output_weights = tuple(output_weights)
         else:
             output_weights = []
             previous_size = self.n_qubits_ + self.n_features_
             for i, num in enumerate(self.num_neurons):
-                output_weights.append(jax.random.normal(shape=(num, previous_size), key=self.generate_key()))
+                output_weights.append(
+                    jax.random.normal(
+                        shape=(num, previous_size), key=self.generate_key()
+                    )
+                )
                 previous_size = num
-            output_weights.append(jax.random.normal(shape=(2, previous_size), key=self.generate_key()))
+            output_weights.append(
+                jax.random.normal(shape=(2, previous_size), key=self.generate_key())
+            )
             output_weights = tuple(output_weights)
 
         self.params_ = {
             "circuit_weights": circuit_weights,
-            #"input_weights": input_weights,
+            # "input_weights": input_weights,
             "output_weights": output_weights,
         }
 
@@ -364,3 +374,89 @@ class DressedQuantumCircuitClassifierSeparable(DressedQuantumCircuitClassifier):
         self.chunked_forward = chunk_vmapped_fn(self.forward, 1, self.max_vmap)
 
         return self.forward"""
+
+
+class SKMultiplePathsModelGate(BaseEstimator, ClassifierMixin):
+    """Scikit-learn compatible wrapper for the gate-based multiple paths model."""
+
+    def __init__(self, data_params=None, model_params=None, training_params=None):
+        self.model_class = MultiplePathsModelClassifier
+        self.model_type = "sklearn_gate"
+        self.model_name = "multiple_paths_model"
+        self.data_params = data_params or {}
+        self.model_params = model_params or {}
+        self.training_params = training_params or {}
+
+        self.model = None
+        self.train_losses = None
+        self.train_accuracies = None
+        self.final_train_acc = None
+
+    def get_params(self, deep=True):
+        params = dict(self.data_params)
+        params.update({f"model_params__{k}": v for k, v in self.model_params.items()})
+        params.update(
+            {f"training_params__{k}": v for k, v in self.training_params.items()}
+        )
+        return params
+
+    def set_params(self, **params):
+        for key, value in params.items():
+            if key.startswith("data_params__"):
+                subkey = key.split("__", 1)[1]
+                self.data_params[subkey] = value
+            elif key.startswith("model_params__"):
+                subkey = key.split("__", 1)[1]
+                self.model_params[subkey] = value
+            elif key.startswith("training_params__"):
+                subkey = key.split("__", 1)[1]
+                self.training_params[subkey] = value
+            else:
+                setattr(self, key, value)
+        return self
+
+    def _prepare_model_kwargs(self):
+        kwargs = dict(self.model_params)
+        kwargs.pop("type", None)
+        kwargs.pop("name", None)
+        kwargs.pop("input_size", None)
+        kwargs.pop("output_size", None)
+        if "numLayers" in kwargs and "n_layers" not in kwargs:
+            kwargs["n_layers"] = kwargs.pop("numLayers")
+        if "lr" in kwargs and "learning_rate" not in kwargs:
+            kwargs["learning_rate"] = kwargs.pop("lr")
+        if "numNeurons" in kwargs and "num_neurons" not in kwargs:
+            kwargs["num_neurons"] = kwargs.pop("numNeurons")
+        num_neurons = kwargs.get("num_neurons", [])
+        if "n_classical_h_layers" not in kwargs:
+            kwargs["n_classical_h_layers"] = len(num_neurons) if num_neurons else 0
+        if kwargs.get("max_vmap") is None:
+            kwargs["max_vmap"] = kwargs.get("batch_size", 32)
+        return kwargs
+
+    def fit(self, X, y):
+        model_kwargs = self._prepare_model_kwargs()
+        self.model = self.model_class(**model_kwargs)
+
+        X_np = np.asarray(X)
+        y_np = np.asarray(y)
+
+        self.model.fit(X_np, y_np)
+        self.train_losses = getattr(self.model, "loss_history_", None)
+        train_predictions = self.model.predict(X_np)
+        self.final_train_acc = accuracy_score(y_np, train_predictions)
+        return self
+
+    def predict(self, X):
+        if self.model is None:
+            raise ValueError("Model has not been fitted yet.")
+        return self.model.predict(np.asarray(X))
+
+    def predict_proba(self, X):
+        if self.model is None:
+            raise ValueError("Model has not been fitted yet.")
+        return self.model.predict_proba(np.asarray(X))
+
+    def score(self, X, y):
+        preds = self.predict(X)
+        return accuracy_score(np.asarray(y), preds)

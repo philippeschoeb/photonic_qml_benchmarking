@@ -309,7 +309,7 @@ def save_sk_final_test_acc(final_test_acc, save_dir, use_wandb):
     return
 
 
-def save_search_hyperparams(hps, best_hps, save_dir):
+def save_search_hyperparams(hps, best_hps, save_dir, use_wandb):
     """Save dataset, model, and training hyperparameters as JSON."""
     os.makedirs(save_dir, exist_ok=True)
 
@@ -342,5 +342,14 @@ def save_search_hyperparams(hps, best_hps, save_dir):
     save_path = os.path.join(save_dir, "best_hps.json")
     with open(save_path, "w") as f:
         json.dump(best_hps, f, indent=4, default=str)
+
+    if use_wandb:
+        hp_artifact = wandb.Artifact('search_hps', type='dataset')
+        hp_artifact.add_file(os.path.join(save_dir, "search_hps.json"))
+        wandb.log_artifact(hp_artifact)
+
+        hp_artifact = wandb.Artifact('best_hps', type='dataset')
+        hp_artifact.add_file(os.path.join(save_dir, "best_hps.json"))
+        wandb.log_artifact(hp_artifact)
 
     return

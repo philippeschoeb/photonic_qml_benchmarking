@@ -8,6 +8,7 @@ from models.photonic_models.scaling_layer import scale_from_string_to_value
 import merlin as ml
 import torch
 
+
 def get_random_w_b(r, input_size):
     """
     Generate random weights and biases for random Fourier features.
@@ -76,21 +77,36 @@ class QRKS:
     """
     Quantum random kitchen sinks model. The quantum circuit is not trained
     """
-    def __init__(self, R, gamma, input_size, m, n, circuit, no_bunching, scaling='1/pi', C=1.0, probability=False, random_state=None, **kwargs):
+
+    def __init__(
+        self,
+        R,
+        gamma,
+        input_size,
+        m,
+        n,
+        circuit,
+        no_bunching,
+        scaling="1/pi",
+        C=1.0,
+        probability=False,
+        random_state=None,
+        **kwargs,
+    ):
         self.scaling = scale_from_string_to_value(scaling)
         self.input_size = input_size
 
         circuit = get_circuit(circuit, m, 1, True)
-        input_fock_state = get_input_fock_state('standard', m, n)
+        input_fock_state = get_input_fock_state("standard", m, n)
         self.pqc = ml.QuantumLayer(
-        input_size=1,
-        output_size=1,
-        circuit=circuit,
-        trainable_parameters=[],
-        input_parameters=["px"],
-        input_state=input_fock_state,
-        no_bunching=no_bunching,
-        output_mapping_strategy=ml.OutputMappingStrategy.LINEAR,
+            input_size=1,
+            output_size=1,
+            circuit=circuit,
+            trainable_parameters=[],
+            input_parameters=["px"],
+            input_state=input_fock_state,
+            no_bunching=no_bunching,
+            output_mapping_strategy=ml.OutputMappingStrategy.LINEAR,
         )
 
         self.model = SVC(
@@ -111,8 +127,18 @@ class QRKS:
         x_r_i_s_test = get_x_r_i_s(x_test, w, b, self.R, self.gamma)
 
         self.pqc.eval()
-        train_input = torch.tensor(x_r_i_s_train, dtype=torch.float32).view(len(x_r_i_s_train) * self.R, -1) * self.scaling
-        test_input = torch.tensor(x_r_i_s_test, dtype=torch.float32).view(len(x_r_i_s_test) * self.R, -1) * self.scaling
+        train_input = (
+            torch.tensor(x_r_i_s_train, dtype=torch.float32).view(
+                len(x_r_i_s_train) * self.R, -1
+            )
+            * self.scaling
+        )
+        test_input = (
+            torch.tensor(x_r_i_s_test, dtype=torch.float32).view(
+                len(x_r_i_s_test) * self.R, -1
+            )
+            * self.scaling
+        )
         with torch.no_grad():
             z_s_train = self.pqc(train_input).view(len(x_r_i_s_train), self.R) * 10
             z_s_test = self.pqc(test_input).view(len(x_r_i_s_test), self.R) * 10
@@ -131,18 +157,22 @@ class QRKS:
 
     def _ensure_random_features(self):
         if self._w is None or self._b is None or self._train_features is None:
-            raise RuntimeError("Random features not initialized. Call get_kernels before computing derived kernels.")
+            raise RuntimeError(
+                "Random features not initialized. Call get_kernels before computing derived kernels."
+            )
 
     def compute_features(self, x):
         self._ensure_random_features()
         x_r_i_s = get_x_r_i_s(x, self._w, self._b, self.R, self.gamma)
         num_points = x_r_i_s.shape[0]
         self.pqc.eval()
-        inputs = torch.tensor(x_r_i_s, dtype=torch.float32).view(num_points * self.R, -1) * self.scaling
+        inputs = (
+            torch.tensor(x_r_i_s, dtype=torch.float32).view(num_points * self.R, -1)
+            * self.scaling
+        )
         with torch.no_grad():
             outputs = self.pqc(inputs).view(num_points, self.R) * 10
         return outputs.cpu().numpy()
-
 
     def fit(self, k_train, y):
         """Fit the QSVC model with the precomputed kernel matrix, k_train. k_train has shape: (n_train, n_train)"""
@@ -169,8 +199,8 @@ class QRKS:
 class SKQRKS(BaseEstimator, ClassifierMixin):
     def __init__(self, data_params=None, model_params=None, training_params=None):
         self.model_class = QRKS
-        self.model_type = 'sklearn_kernel'
-        self.model_name = 'q_rks'
+        self.model_type = "sklearn_kernel"
+        self.model_name = "q_rks"
         self.data_params = data_params or {}
         self.model_params = model_params or {}
         self.training_params = training_params or {}
@@ -184,19 +214,21 @@ class SKQRKS(BaseEstimator, ClassifierMixin):
     def get_params(self, deep=True):
         params = dict(self.data_params)
         params.update({f"model_params__{k}": v for k, v in self.model_params.items()})
-        params.update({f"training_params__{k}": v for k, v in self.training_params.items()})
+        params.update(
+            {f"training_params__{k}": v for k, v in self.training_params.items()}
+        )
         return params
 
     def set_params(self, **params):
         for key, value in params.items():
-            if key.startswith('data_params__'):
-                subkey = key.split('__', 1)[1]
+            if key.startswith("data_params__"):
+                subkey = key.split("__", 1)[1]
                 self.data_params[subkey] = value
-            elif key.startswith('model_params__'):
-                subkey = key.split('__', 1)[1]
+            elif key.startswith("model_params__"):
+                subkey = key.split("__", 1)[1]
                 self.model_params[subkey] = value
-            elif key.startswith('training_params__'):
-                subkey = key.split('__', 1)[1]
+            elif key.startswith("training_params__"):
+                subkey = key.split("__", 1)[1]
                 self.training_params[subkey] = value
             else:
                 setattr(self, key, value)
@@ -223,9 +255,13 @@ class SKQRKS(BaseEstimator, ClassifierMixin):
 
     def _kernel_with_training(self, x):
         if self._x_train is None:
-            raise ValueError("Estimator must be fitted before calling predict or score.")
+            raise ValueError(
+                "Estimator must be fitted before calling predict or score."
+            )
         features_test = self.model.compute_features(x)
-        kernel_matrix = get_approx_kernel_predict(features_test, self.model._train_features)
+        kernel_matrix = get_approx_kernel_predict(
+            features_test, self.model._train_features
+        )
         return kernel_matrix
 
     def predict(self, x):

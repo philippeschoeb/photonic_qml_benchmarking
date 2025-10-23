@@ -19,6 +19,7 @@ import jax
 
 jax.config.update("jax_enable_x64", True)
 from sklearn.base import BaseEstimator, ClassifierMixin
+from sklearn.metrics import accuracy_score
 from sklearn.utils.extmath import softmax
 from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import StandardScaler
@@ -39,6 +40,7 @@ class QuantumKitchenSinks(BaseEstimator, ClassifierMixin):
         qnode_kwargs={"interface": "jax", "diff_method": None},
         scaling=1.0,
         random_state=42,
+        **kwargs,
     ):
         r"""
         Quantum kitchen sinks model classical data classification.
@@ -129,13 +131,12 @@ class QuantumKitchenSinks(BaseEstimator, ClassifierMixin):
 
         @qml.qnode(dev, **self.qnode_kwargs)
         def circuit(Q):
-
             for i, q in enumerate(Q):
                 qml.RX(q, wires=i)
-            #qml.broadcast(qml.CNOT, wires=range(self.n_qubits_), pattern="double")
+            # qml.broadcast(qml.CNOT, wires=range(self.n_qubits_), pattern="double")
             for i in range(0, self.n_qubits_ - 1, 2):
                 qml.CNOT(wires=[i, i + 1])
-            #qml.broadcast(qml.CNOT, wires=range(self.n_qubits_), pattern=pattern)
+            # qml.broadcast(qml.CNOT, wires=range(self.n_qubits_), pattern=pattern)
             for pair in pattern:
                 qml.CNOT(wires=pair)
 
@@ -277,3 +278,83 @@ class QuantumKitchenSinks(BaseEstimator, ClassifierMixin):
             self.scaler2 = StandardScaler().fit(features)
 
         return features
+
+
+class SKQuantumKitchenSinksGate(BaseEstimator, ClassifierMixin):
+    """Scikit-learn compatible wrapper for gate-based quantum kitchen sinks."""
+
+    model_name = "q_rks"
+    model_type = "sklearn_gate"
+
+    def __init__(self, data_params=None, model_params=None, training_params=None):
+        self.model_class = QuantumKitchenSinks
+        self.model_name = self.__class__.model_name
+        self.data_params = data_params or {}
+        self.model_params = model_params or {}
+        self.training_params = training_params or {}
+
+        self.model = None
+        self.final_train_acc = None
+
+    def get_params(self, deep=True):
+        params = dict(self.data_params)
+        params.update({f"model_params__{k}": v for k, v in self.model_params.items()})
+        params.update(
+            {f"training_params__{k}": v for k, v in self.training_params.items()}
+        )
+        return params
+
+    def set_params(self, **params):
+        for key, value in params.items():
+            if key.startswith("data_params__"):
+                subkey = key.split("__", 1)[1]
+                self.data_params[subkey] = value
+            elif key.startswith("model_params__"):
+                subkey = key.split("__", 1)[1]
+                self.model_params[subkey] = value
+            elif key.startswith("training_params__"):
+                subkey = key.split("__", 1)[1]
+                self.training_params[subkey] = value
+            else:
+                setattr(self, key, value)
+        return self
+
+    def _prepare_model_kwargs(self):
+        kwargs = dict(self.model_params)
+        kwargs.pop("type", None)
+        kwargs.pop("name", None)
+        kwargs.pop("input_size", None)
+        kwargs.pop("output_size", None)
+        if "R" in kwargs and "n_episodes" not in kwargs:
+            kwargs["n_episodes"] = kwargs.pop("R")
+        if "gamma" in kwargs and "var" not in kwargs:
+            gamma = kwargs.pop("gamma")
+            kwargs["var"] = float(gamma) ** 2
+        if kwargs.get("max_vmap") is None:
+            kwargs["max_vmap"] = None
+        return kwargs
+
+    def fit(self, X, y):
+        model_kwargs = self._prepare_model_kwargs()
+        self.model = self.model_class(**model_kwargs)
+
+        X_np = np.asarray(X)
+        y_np = np.asarray(y)
+
+        self.model.fit(X_np, y_np)
+        self.final_train_acc = accuracy_score(y_np, self.model.predict(X_np))
+        return self
+
+    def predict(self, X):
+        if self.model is None:
+            raise ValueError("Model has not been fitted yet.")
+        return self.model.predict(np.asarray(X))
+
+    def predict_proba(self, X):
+        if self.model is None:
+            raise ValueError("Model has not been fitted yet.")
+        return self.model.predict_proba(np.asarray(X))
+
+    def score(self, X, y):
+        preds = self.predict(X)
+        return accuracy_score(np.asarray(y), preds)

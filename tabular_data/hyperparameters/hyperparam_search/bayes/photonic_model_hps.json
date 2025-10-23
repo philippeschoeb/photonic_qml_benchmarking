@@ -2,8 +2,8 @@
     "dressed_quantum_circuit": {
         "default": {
             "scaling": ["1", "1/pi", "pi"],
-            "m": [10, 20, 30],
-            "n": [2, 4, 6],
+            "m": {"type": "Integer", "low": 10, "high": 30},
+            "n": {"type": "Integer", "low": 2, "high": 6},
             "circuit": ["generic_mzi"],
             "reservoir": [false],
             "no_bunching": [true, false]
@@ -12,8 +12,8 @@
     "dressed_quantum_circuit_reservoir": {
         "default": {
             "scaling": ["1", "1/pi", "pi"],
-            "m": [10, 20, 30],
-            "n": [2, 4, 6],
+            "m": {"type": "Integer", "low": 10, "high": 30},
+            "n": {"type": "Integer", "low": 2, "high": 6},
             "circuit": ["generic_mzi"],
             "reservoir": [true],
             "no_bunching": [true, false]
@@ -54,42 +54,42 @@
     "data_reuploading": {
         "default": {
             "scaling": ["1", "1/pi", "pi", "1/2pi", "pi/4"],
-            "numLayers": [5, 10, 15],
+            "numLayers": {"type": "Integer", "low": 4, "high": 20},
             "design": ["AA", "AC", "CA", "CC"]
         }
     },
     "q_kernel_method": {
         "default": {
             "scaling": ["1", "1/pi", "pi"],
-            "m": [10, 20, 30],
-            "n": [2, 4, 6],
+            "m": {"type": "Integer", "low": 10, "high": 30},
+            "n": {"type": "Integer", "low": 2, "high": 6},
             "circuit": ["generic_mzi"],
             "no_bunching": [true, false],
             "pre_train": [true],
-            "C": [0.25, 1.0, 4.0]
+            "C": {"type": "Real", "low": 0.1, "high": 5.0, "prior": "log-uniform"}
         }
     },
     "q_kernel_method_reservoir": {
         "default": {
             "scaling": ["1", "1/pi", "pi"],
-            "m": [10, 20, 30],
-            "n": [2, 4, 6],
+            "m": {"type": "Integer", "low": 10, "high": 30},
+            "n": {"type": "Integer", "low": 2, "high": 6},
             "circuit": ["generic_mzi"],
             "no_bunching": [true, false],
             "pre_train": [false],
-            "C": [0.25, 1.0, 4.0]
+            "C": {"type": "Real", "low": 0.1, "high": 5.0, "prior": "log-uniform"}
         }
     },
     "q_rks": {
         "default": {
             "scaling": ["1", "1/pi", "pi"],
-            "m": [10, 20, 30],
-            "n": [2, 4, 6],
+            "m": {"type": "Integer", "low": 10, "high": 30},
+            "n": {"type": "Integer", "low": 2, "high": 6},
             "circuit": ["generic_mzi"],
             "no_bunching": [true, false],
-            "R": [20, 50, 100],
-            "gamma": [1, 3, 5],
-            "C": [0.25, 1.0, 4.0]
+            "R": {"type": "Integer", "low": 20, "high": 120},
+            "gamma": {"type": "Real", "low": 0.5, "high": 6.0, "prior": "log-uniform"},
+            "C": {"type": "Real", "low": 0.1, "high": 5.0, "prior": "log-uniform"}
         }
     }
 }

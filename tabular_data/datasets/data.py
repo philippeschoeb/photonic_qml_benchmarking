@@ -20,7 +20,7 @@ import os
 
 def download_datasets():
     print("Downloading datasets...")
-    qml.data.load('other', name='downscaled-mnist')
+    qml.data.load("other", name="downscaled-mnist")
     qml.data.load("other", name="hidden-manifold")
     qml.data.load("other", name="two-curves")
     print("Done.")
@@ -44,7 +44,9 @@ def get_data(data: str, loading="fetch", arg1=None, arg2=None, random_state=42):
             return x_train, x_test, y_train.astype(np.int64), y_test.astype(np.int64)
         elif loading == "build":
             x, y = generate_hidden_manifold_model(300, arg1, arg2)
-            return train_test_split(x, y, test_size=60, train_size=240, random_state=random_state)
+            return train_test_split(
+                x, y, test_size=60, train_size=240, random_state=random_state
+            )
         else:
             raise ValueError(f"Unknown loading {loading}")
 
@@ -53,8 +55,10 @@ def get_data(data: str, loading="fetch", arg1=None, arg2=None, random_state=42):
             x_train, x_test, y_train, y_test = get_two_curves(arg1, arg2)
             return x_train, x_test, y_train.astype(np.int64), y_test.astype(np.int64)
         elif loading == "build":
-            x, y = generate_two_curves(300, arg1, arg2, 1/(2*arg2), 0.01)
-            return train_test_split(x, y, test_size=60, train_size=240, random_state=random_state)
+            x, y = generate_two_curves(300, arg1, arg2, 1 / (2 * arg2), 0.01)
+            return train_test_split(
+                x, y, test_size=60, train_size=240, random_state=random_state
+            )
         else:
             raise ValueError(f"Unknown loading {loading}")
     else:
@@ -90,10 +94,10 @@ def get_summary(x_train, x_test, y_train, y_test, path, dataset):
 
     # Feature statistics
     lines.append("=== x_train statistics ===")
-    lines.append(str(x_train_df.describe(include='all')) + "\n")
+    lines.append(str(x_train_df.describe(include="all")) + "\n")
 
     lines.append("=== x_test statistics ===")
-    lines.append(str(x_test_df.describe(include='all')) + "\n")
+    lines.append(str(x_test_df.describe(include="all")) + "\n")
 
     # Label statistics
     lines.append("=== y_train statistics ===")
@@ -140,7 +144,9 @@ def preprocess_data(x_train, x_test, scaling):
         tuple: Scaled feature matrices (x_train, x_test) and label vectors (y_train, y_test).
     """
     # Assert valid scaling method
-    assert scaling in ["standardize", "minmax", "arctan", "none", None], f"Invalid scaling method: {scaling}"
+    assert scaling in ["standardize", "minmax", "arctan", "none", None], (
+        f"Invalid scaling method: {scaling}"
+    )
 
     # Standardization (zero mean, unit variance)
     if scaling == "standardize":
@@ -162,25 +168,27 @@ def preprocess_data(x_train, x_test, scaling):
     return x_train, x_test
 
 
-def preprocess_labels(y_train, y_test, treatment='0_1'):
-    if treatment == '0_1':
+def preprocess_labels(y_train, y_test, treatment="0_1"):
+    if treatment == "0_1":
         # Only apply conversion if necessary
         if set(np.unique(y_train)) <= {-1, 1}:
             y_train = (y_train + 1) // 2
         if set(np.unique(y_test)) <= {-1, 1}:
             y_test = (y_test + 1) // 2
-    elif treatment == 'none' or treatment is None or treatment == 'None':
+    elif treatment == "none" or treatment is None or treatment == "None":
         y_train = y_train
         y_test = y_test
-    elif treatment == '-1_1':
+    elif treatment == "-1_1":
         y_train = y_train
         y_test = y_test
     else:
-        raise NotImplementedError(f'Invalid labels treatment: {treatment}')
+        raise NotImplementedError(f"Invalid labels treatment: {treatment}")
     return y_train, y_test
 
 
-def convert_array_to_tensor(x_train, x_test, y_train, y_test, dtype=torch.float32, labels_treatment='0_1'):
+def convert_array_to_tensor(
+    x_train, x_test, y_train, y_test, dtype=torch.float32, labels_treatment="0_1"
+):
     """
     Converts train/test features and labels to PyTorch tensors.
     Args:
@@ -195,7 +203,7 @@ def convert_array_to_tensor(x_train, x_test, y_train, y_test, dtype=torch.float3
     x_test_t = torch.tensor(x_test, dtype=dtype)
 
     # For labels, use float for regression, long for classification
-    if np.issubdtype(y_train.dtype, np.floating) or labels_treatment == '-1_1':
+    if np.issubdtype(y_train.dtype, np.floating) or labels_treatment == "-1_1":
         y_dtype = torch.float32
     else:
         y_dtype = torch.long

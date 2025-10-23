@@ -9,27 +9,40 @@ from models.photonic_models.scaling_layer import ScalingLayer
 from models.photonic_models.circuits import get_circuit
 from models.photonic_models.input_fock_state import get_input_fock_state
 
+
 class DressedQuantumCircuit(torch.nn.Module):
     """
     Assuming angle encoding (for now)
     """
-    def __init__(self, scaling, input_size, output_size, m, n, circuit_type, reservoir, no_bunching, **kwargs):
+
+    def __init__(
+        self,
+        scaling,
+        input_size,
+        output_size,
+        m,
+        n,
+        circuit_type,
+        reservoir,
+        no_bunching,
+        **kwargs,
+    ):
         super().__init__()
         self.scaling = ScalingLayer(scaling)
 
         circuit = get_circuit(circuit_type, m, input_size, reservoir)
-        input_fock_state = get_input_fock_state('standard', m, n)
-        trainable_params = [] if reservoir else ['theta']
+        input_fock_state = get_input_fock_state("standard", m, n)
+        trainable_params = [] if reservoir else ["theta"]
         self.pqc = ml.QuantumLayer(
             input_size=input_size,
             output_size=output_size,
             circuit=circuit,
             input_state=input_fock_state,
             trainable_parameters=trainable_params,
-            input_parameters=['px'],
+            input_parameters=["px"],
             output_mapping_strategy=ml.OutputMappingStrategy.LINEAR,
             no_bunching=no_bunching,
-            )
+        )
 
     def forward(self, x):
         x = self.scaling(x)
@@ -41,8 +54,8 @@ class DressedQuantumCircuit(torch.nn.Module):
 class SKDressedQuantumCircuit(BaseEstimator, ClassifierMixin):
     def __init__(self, data_params=None, model_params=None, training_params=None):
         self.model_class = DressedQuantumCircuit
-        self.model_type = 'sklearn'
-        self.model_name = 'dressed_quantum_circuit'
+        self.model_type = "sklearn"
+        self.model_name = "dressed_quantum_circuit"
         self.data_params = data_params or {}
         self.model_params = model_params or {}
         self.training_params = training_params or {}
@@ -55,20 +68,22 @@ class SKDressedQuantumCircuit(BaseEstimator, ClassifierMixin):
     def get_params(self, deep=True):
         params = dict(self.data_params)
         params.update({f"model_params__{k}": v for k, v in self.model_params.items()})
-        params.update({f"training_params__{k}": v for k, v in self.training_params.items()})
+        params.update(
+            {f"training_params__{k}": v for k, v in self.training_params.items()}
+        )
         return params
 
     # Override set_params to handle nested dict keys
     def set_params(self, **params):
         for key, value in params.items():
-            if key.startswith('data_params__'):
-                subkey = key.split('__', 1)[1]
+            if key.startswith("data_params__"):
+                subkey = key.split("__", 1)[1]
                 self.data_params[subkey] = value
-            elif key.startswith('model_params__'):
-                subkey = key.split('__', 1)[1]
+            elif key.startswith("model_params__"):
+                subkey = key.split("__", 1)[1]
                 self.model_params[subkey] = value
-            elif key.startswith('training_params__'):
-                subkey = key.split('__', 1)[1]
+            elif key.startswith("training_params__"):
+                subkey = key.split("__", 1)[1]
                 self.training_params[subkey] = value
             else:
                 setattr(self, key, value)
@@ -78,27 +93,29 @@ class SKDressedQuantumCircuit(BaseEstimator, ClassifierMixin):
         self.model = self.model_class(**self.model_params)
 
         # Get hyperparams
-        criterion = self.training_params.get('criterion', 'CrossEntropyLoss')
-        optimizer = self.training_params.get('optimizer', 'Adam')
-        scheduler = self.training_params.get('scheduler', 'None')
-        epochs = self.training_params.get('epochs', 50)
-        lr = self.training_params.get('lr', 0.001)
-        betas = self.training_params.get('betas', (0.9, 0.999))
-        momentum = self.training_params.get('momentum', 0.9)
-        weight_decay = self.training_params.get('weight_decay', 0)
-        device = self.training_params.get('device', 'cpu')
+        criterion = self.training_params.get("criterion", "CrossEntropyLoss")
+        optimizer = self.training_params.get("optimizer", "Adam")
+        scheduler = self.training_params.get("scheduler", "None")
+        epochs = self.training_params.get("epochs", 50)
+        lr = self.training_params.get("lr", 0.001)
+        betas = self.training_params.get("betas", (0.9, 0.999))
+        momentum = self.training_params.get("momentum", 0.9)
+        weight_decay = self.training_params.get("weight_decay", 0)
+        device = self.training_params.get("device", "cpu")
 
         # Prepare data
         x = torch.tensor(x, dtype=torch.float32)
         y = torch.tensor(y, dtype=torch.long)
         dataset = TensorDataset(x, y)
-        loader = DataLoader(dataset, self.data_params['batch_size'], shuffle=True)
+        loader = DataLoader(dataset, self.data_params["batch_size"], shuffle=True)
 
         train_losses = []
         train_accuracies = []
 
         criterion = assign_criterion(criterion)
-        optimizer = assign_optimizer(optimizer, self.model, lr, betas, momentum, weight_decay)
+        optimizer = assign_optimizer(
+            optimizer, self.model, lr, betas, momentum, weight_decay
+        )
         scheduler = assign_scheduler(scheduler, optimizer)
 
         self.model.to(device)
@@ -128,7 +145,9 @@ class SKDressedQuantumCircuit(BaseEstimator, ClassifierMixin):
             train_losses.append(avg_train_loss)
             train_accuracies.append(train_acc)
 
-            logging.info(f"Epoch {epoch + 1}/{epochs} | Train Loss: {avg_train_loss:.4f}, Acc: {train_acc:.4f}")
+            logging.info(
+                f"Epoch {epoch + 1}/{epochs} | Train Loss: {avg_train_loss:.4f}, Acc: {train_acc:.4f}"
+            )
 
             # ---- Scheduler Step ----
             if scheduler is not None:
@@ -136,8 +155,10 @@ class SKDressedQuantumCircuit(BaseEstimator, ClassifierMixin):
 
         # Count number of parameters
         num_params = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
-        logging.info(f'Number of parameters: {num_params}')
-        logging.warning(f'Final Train Accuracy: {train_acc:.4f} out of total train size: {total}')
+        logging.info(f"Number of parameters: {num_params}")
+        logging.warning(
+            f"Final Train Accuracy: {train_acc:.4f} out of total train size: {total}"
+        )
         self.train_losses = train_losses
         self.train_accuracies = train_accuracies
         return self

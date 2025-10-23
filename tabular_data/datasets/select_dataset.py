@@ -1,7 +1,7 @@
 # How to select a dataset:
 
 # Step 1: Choose dataset
-datasets = ['downscaled_mnist_pca', 'hidden_manifold', 'two_curves']
+datasets = ["downscaled_mnist_pca", "hidden_manifold", "two_curves"]
 
 # Step 2: Choose args
 args1 = list(range(2, 21))
@@ -23,4 +23,4 @@ args1 = list(range(2, 21))
 args2 = list(range(2, 21))
 
 # Step 3: Choose preprocessing scaling
-scalings = ['standardize', 'minmax', 'arctan']
+scalings = ["standardize", "minmax", "arctan"]

@@ -2,8 +2,11 @@ from sklearn.svm import SVC
 from sklearn.metrics import accuracy_score
 from sklearn.base import BaseEstimator, ClassifierMixin
 
+
 class RBFSVC:
-    def __init__(self, C=1.0, gamma="scale", probability=False, random_state=None, **kwargs):
+    def __init__(
+        self, C=1.0, gamma="scale", probability=False, random_state=None, **kwargs
+    ):
         """
         Wrapper for sklearn's SVC with RBF kernel.
 
@@ -52,8 +55,8 @@ class RBFSVC:
 class SKRBFSVC(BaseEstimator, ClassifierMixin):
     def __init__(self, data_params=None, model_params=None, training_params=None):
         self.model_class = RBFSVC
-        self.model_type = 'sklearn'
-        self.model_name = 'rbf_svc'
+        self.model_type = "sklearn"
+        self.model_name = "rbf_svc"
         self.data_params = data_params or {}
         self.model_params = model_params or {}
         self.training_params = training_params or {}
@@ -66,20 +69,22 @@ class SKRBFSVC(BaseEstimator, ClassifierMixin):
     def get_params(self, deep=True):
         params = dict(self.data_params)
         params.update({f"model_params__{k}": v for k, v in self.model_params.items()})
-        params.update({f"training_params__{k}": v for k, v in self.training_params.items()})
+        params.update(
+            {f"training_params__{k}": v for k, v in self.training_params.items()}
+        )
         return params
 
     # Override set_params to handle nested dict keys
     def set_params(self, **params):
         for key, value in params.items():
-            if key.startswith('data_params__'):
-                subkey = key.split('__', 1)[1]
+            if key.startswith("data_params__"):
+                subkey = key.split("__", 1)[1]
                 self.data_params[subkey] = value
-            elif key.startswith('model_params__'):
-                subkey = key.split('__', 1)[1]
+            elif key.startswith("model_params__"):
+                subkey = key.split("__", 1)[1]
                 self.model_params[subkey] = value
-            elif key.startswith('training_params__'):
-                subkey = key.split('__', 1)[1]
+            elif key.startswith("training_params__"):
+                subkey = key.split("__", 1)[1]
                 self.training_params[subkey] = value
             else:
                 setattr(self, key, value)
