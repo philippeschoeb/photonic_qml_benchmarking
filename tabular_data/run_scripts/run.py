@@ -336,6 +336,8 @@ def run_search(dataset, model, architecture, backend, random_state, use_wandb):
         save_final_accs(final_train_acc, final_test_acc, save_dir, use_wandb)
     elif model_type == "sklearn_kernel":
         save_final_accs(final_train_acc, final_test_acc, save_dir, use_wandb)
+    elif model_type == "jax_sklearn_gate":
+        save_final_accs(final_train_acc, final_test_acc, save_dir, use_wandb)
     else:
         raise NotImplementedError(f"Unknown model type: {model_type}")
     logging.warning(f"Metrics saved at {save_dir}\n\n")
@@ -352,11 +354,11 @@ def run_search(dataset, model, architecture, backend, random_state, use_wandb):
             json.dump(search.cv_results_, f, default=str)
         hp_artifact.add_file(save_dir + "/cv_results.json")
         wandb.log_artifact(hp_artifact)
-        # Save best model
-        joblib.dump(best_model, save_dir + "/best_model.pkl")
-        artifact = wandb.Artifact("best_model.pkl", type="model")
-        artifact.add_file(save_dir + "/best_model.pkl")
-        wandb.log_artifact(artifact)
+        # Skip saving best model, for now (because it is problematic for some models)
+        #joblib.dump(best_model, save_dir + "/best_model.pkl")
+        #artifact = wandb.Artifact("best_model.pkl", type="model")
+        #artifact.add_file(save_dir + "/best_model.pkl")
+        #wandb.log_artifact(artifact)
     return
 
 
