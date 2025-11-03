@@ -44,7 +44,7 @@ from models.gate_based_models.data_reuploading import (
 )
 from models.gate_based_models.iqp_kernel import (
     IQPKernelClassifier as IQPKernelGate,
-    SKIQPKernelReservoirGate,
+    SKIQPKernelGate,
 )
 from models.gate_based_models.quantum_kitchen_sinks import (
     QuantumKitchenSinks as QRKSGate,
@@ -289,9 +289,9 @@ def fetch_sk_model(model, backend):
                 "q_kernel_method with gate based backend is only available in reservoir mode"
             )
             logging.warning("Returning q_kernel_method_reservoir")
-            return SKIQPKernelReservoirGate()
+            return SKIQPKernelGate()
         elif model == "q_kernel_method_reservoir":
-            return SKIQPKernelReservoirGate()
+            return SKIQPKernelGate()
         elif model == "q_rks":
             return SKQuantumKitchenSinksGate()
         else:

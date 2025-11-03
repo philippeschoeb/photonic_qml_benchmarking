@@ -230,12 +230,8 @@ def run_search(dataset, model, architecture, backend, random_state, use_wandb):
     sk_model = fetch_sk_model(model, backend)
 
     # Check device / override parallelism if requested
-    if "n_jobs" in training_hps:
-        n_jobs = training_hps["n_jobs"][0]
-    elif device == torch.device("cpu"):
-        n_jobs = -1
-    else:
-        n_jobs = 1
+    # For safety and avoid crashes, n_jobs=1
+    n_jobs = 1
 
     # Merlin-based photonic kernels do not play nicely with multiprocessing
     if (backend == "photonic" and n_jobs != 1) and (
