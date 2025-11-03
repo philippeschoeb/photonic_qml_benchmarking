@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Runs hyperparameter searches for all supported models/backends/datasets.
+# Runs hyperparameter searches for all supported models/backends on downscaled_mnist_pca_2, downscaled_mnist_pca_10 and downscaled_mnist_pca_20.
 # Applies safeguards on runtime (skip after 1h) and suggests heavier search
 # if searches finish suspiciously fast (<2 minutes for non-grid strategies).
 
