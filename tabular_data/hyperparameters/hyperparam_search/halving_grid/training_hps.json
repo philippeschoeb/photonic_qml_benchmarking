@@ -2,15 +2,12 @@
     "torch": {
         "criterion": ["CrossEntropyLoss"],
         "output_size": [2],
-        "optimizer": ["Adam", "AdaGrad"],
-        "scheduler": ["None", "StepLR", "CosineAnnealingLR"],
+        "optimizer": ["Adam"],
+        "scheduler": ["None", "StepLR"],
         "lr": [0.001, 0.01, 0.0001],
-        "betas": [
-          [0.9, 0.999],
-          [0.7, 0.9],
-          [0.99, 0.9999]],
-        "momentum": [0.9, 0.7, 0.99],
-        "weight_decay": [0.0, 0.001, 0.01]
+        "betas": [[0.9, 0.999]],
+        "momentum": [0.9],
+        "weight_decay": [0.0, 0.001]
     },
     "reuploading": {
         "track_history": [true],

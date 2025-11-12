@@ -103,6 +103,17 @@ class SKDressedQuantumCircuit(BaseEstimator, ClassifierMixin):
         weight_decay = self.training_params.get("weight_decay", 0)
         device = self.training_params.get("device", "cpu")
 
+        # Check if betas is a string
+        if type(betas) is str:
+            if betas == "0.9, 0.999":
+                betas = (0.9, 0.999)
+            elif betas == "0.7, 0.9":
+                betas = (0.7, 0.9)
+            elif betas == "0.99, 0.9999":
+                betas = (0.99, 0.9999)
+            else:
+                raise ValueError(f"Unknown betas string: {betas}")
+
         # Prepare data
         x = torch.tensor(x, dtype=torch.float32)
         y = torch.tensor(y, dtype=torch.long)

@@ -4,7 +4,7 @@
             "scaling": ["1", "1/pi", "pi"],
             "m": {"type": "Integer", "low": 10, "high": 30},
             "n": {"type": "Integer", "low": 2, "high": 6},
-            "circuit": ["generic_mzi"],
+            "circuit_type": ["generic_mzi"],
             "reservoir": [false],
             "no_bunching": [true, false]
         }
@@ -14,7 +14,7 @@
             "scaling": ["1", "1/pi", "pi"],
             "m": {"type": "Integer", "low": 10, "high": 30},
             "n": {"type": "Integer", "low": 2, "high": 6},
-            "circuit": ["generic_mzi"],
+            "circuit_type": ["generic_mzi"],
             "reservoir": [true],
             "no_bunching": [true, false]
         }
@@ -60,22 +60,22 @@
     },
     "q_kernel_method": {
         "default": {
-            "scaling": ["1", "1/pi", "pi"],
-            "m": {"type": "Integer", "low": 10, "high": 30},
-            "n": {"type": "Integer", "low": 2, "high": 6},
+            "scaling": ["1", "pi"],
+            "m": {"type": "Integer", "low": 10, "high": 12},
+            "n": {"type": "Integer", "low": 2, "high": 3},
             "circuit": ["generic_mzi"],
-            "no_bunching": [true, false],
+            "no_bunching": [true],
             "pre_train": [true],
             "C": {"type": "Real", "low": 0.1, "high": 5.0, "prior": "log-uniform"}
         }
     },
     "q_kernel_method_reservoir": {
         "default": {
-            "scaling": ["1", "1/pi", "pi"],
-            "m": {"type": "Integer", "low": 10, "high": 30},
-            "n": {"type": "Integer", "low": 2, "high": 6},
+            "scaling": ["1", "pi"],
+            "m": {"type": "Integer", "low": 10, "high": 15},
+            "n": {"type": "Integer", "low": 2, "high": 3},
             "circuit": ["generic_mzi"],
-            "no_bunching": [true, false],
+            "no_bunching": [true],
             "pre_train": [false],
             "C": {"type": "Real", "low": 0.1, "high": 5.0, "prior": "log-uniform"}
         }
@@ -83,11 +83,11 @@
     "q_rks": {
         "default": {
             "scaling": ["1", "1/pi", "pi"],
-            "m": {"type": "Integer", "low": 10, "high": 30},
-            "n": {"type": "Integer", "low": 2, "high": 6},
+            "m": {"type": "Integer", "low": 10, "high": 15},
+            "n": {"type": "Integer", "low": 2, "high": 4},
             "circuit": ["generic_mzi"],
             "no_bunching": [true, false],
-            "R": {"type": "Integer", "low": 20, "high": 120},
+            "R": {"type": "Integer", "low": 20, "high": 100},
             "gamma": {"type": "Real", "low": 0.5, "high": 6.0, "prior": "log-uniform"},
             "C": {"type": "Real", "low": 0.1, "high": 5.0, "prior": "log-uniform"}
         }

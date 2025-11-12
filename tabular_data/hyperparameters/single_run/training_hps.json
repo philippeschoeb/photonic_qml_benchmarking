@@ -4,7 +4,7 @@
         "output_size": 2,
         "optimizer": "Adam",
         "scheduler": "None",
-        "lr": 0.001,
+        "lr": 0.01,
         "betas": [
             0.9,
             0.999
@@ -14,11 +14,11 @@
     },
     "reuploading": {
         "track_history": true,
-        "lr": 0.001,
+        "lr": 0.01,
         "batch_size": 32,
         "patience": 50,
         "tau": 1.0,
-        "convergence_tolerance": 1e-06,
+        "convergence_tolerance": 1e-07,
         "output_size": 2
     },
     "sklearn_q_kernel": {

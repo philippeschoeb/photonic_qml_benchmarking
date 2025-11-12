@@ -4,11 +4,7 @@
         "output_size": [2],
         "optimizer": ["Adam", "AdaGrad"],
         "lr": {"type": "Real", "low": 0.0001, "high": 0.05, "prior": "log-uniform"},
-        "betas": [
-          [0.9, 0.999],
-          [0.7, 0.9],
-          [0.99, 0.9999]
-        ],
+        "betas": [[0.9, 0.999]],
         "momentum": {"type": "Real", "low": 0.5, "high": 0.99},
         "weight_decay": {"type": "Real", "low": 0.0, "high": 0.02}
     },
@@ -22,7 +18,7 @@
         "output_size": [2]
     },
     "sklearn_q_kernel": {
-        "optimizer": ["Adam", "AdaGrad"],
+        "optimizer": ["Adam"],
         "lr": {"type": "Real", "low": 0.0001, "high": 0.05, "prior": "log-uniform"},
         "output_size": [2]
     },

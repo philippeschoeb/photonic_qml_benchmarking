@@ -8,13 +8,11 @@
             ],
             "m": [
                 20,
-                10,
-                30
+                10
             ],
             "n": [
                 4,
-                2,
-                6
+                2
             ],
             "circuit_type": [
                 "generic_mzi"
@@ -37,13 +35,11 @@
             ],
             "m": [
                 20,
-                10,
-                30
+                10
             ],
             "n": [
                 4,
-                2,
-                6
+                2
             ],
             "circuit_type": [
                 "generic_mzi"
@@ -66,13 +62,11 @@
             ],
             "m": [
                 20,
-                10,
-                30
+                10
             ],
             "n": [
                 4,
-                2,
-                6
+                2
             ],
             "circuit_type": [
                 "generic_mzi"
@@ -101,13 +95,11 @@
             ],
             "m": [
                 20,
-                10,
-                30
+                10
             ],
             "n": [
                 4,
-                2,
-                6
+                2
             ],
             "circuit_type": [
                 "generic_mzi"
@@ -132,9 +124,7 @@
             "scaling": [
                 "1",
                 "1/pi",
-                "pi",
-                "1/2pi",
-                "pi/4"
+                "pi"
             ],
             "numLayers": [
                 10,
@@ -144,8 +134,7 @@
             "design": [
                 "AA",
                 "AC",
-                "CA",
-                "CC"
+                "CA"
             ]
         }
     },
@@ -153,33 +142,27 @@
         "default": {
             "scaling": [
                 "1",
-                "1/pi",
                 "pi"
             ],
             "m": [
-                20,
-                10,
-                30
+                15,
+                10
             ],
             "n": [
-                4,
-                2,
-                6
+                3,
+                2
             ],
             "circuit_type": [
                 "generic_mzi"
             ],
             "no_bunching": [
-                true,
-                false
+                true
             ],
             "pre_train": [
                 true
             ],
             "C": [
-                1.0,
-                0.25,
-                4.0
+                1.0
             ]
         }
     },
@@ -187,33 +170,27 @@
         "default": {
             "scaling": [
                 "1",
-                "1/pi",
                 "pi"
             ],
             "m": [
-                20,
-                10,
-                30
+                15,
+                10
             ],
             "n": [
-                4,
-                2,
-                6
+                3,
+                2
             ],
             "circuit_type": [
                 "generic_mzi"
             ],
             "no_bunching": [
-                true,
-                false
+                true
             ],
             "pre_train": [
                 false
             ],
             "C": [
-                1.0,
-                0.25,
-                4.0
+                1.0
             ]
         }
     },
@@ -225,26 +202,22 @@
                 "pi"
             ],
             "m": [
-                20,
-                10,
-                30
+                15,
+                10
             ],
             "n": [
-                4,
-                2,
-                6
+                3,
+                2
             ],
             "circuit_type": [
                 "generic_mzi"
             ],
             "no_bunching": [
-                true,
-                false
+                true
             ],
             "R": [
                 50,
-                20,
-                100
+                20
             ],
             "gamma": [
                 3,

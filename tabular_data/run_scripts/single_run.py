@@ -10,14 +10,11 @@ def get_dataset_hps(dataset_name, model, backend):
     else:
         labels_treatment = "0_1"
 
-    # Only keep 250 training samples and 250 test samples if utilizing a kernel method and if using the
-    # downscaled_mnist_pca dataset, because the two others already have a low amount of data points.
+    # Only keep 250 training samples and 250 test samples if utilizing a quantum kernel method and if using the
+    # downscaled_mnist_pca dataset, because these models do not function with many datapoints
     if dataset_name == "downscaled_mnist_pca" and model in [
         "q_kernel_method",
         "q_kernel_method_reservoir",
-        "q_rks",
-        "rbf_svc",
-        "rks",
     ]:
         num_train = 250
         num_test = 250

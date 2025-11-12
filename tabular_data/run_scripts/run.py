@@ -332,6 +332,8 @@ def run_search(dataset, model, architecture, backend, random_state, use_wandb):
             save_dir,
             use_wandb,
         )
+    elif model_type == "reuploading":
+        save_final_accs(final_train_acc, final_test_acc, save_dir, use_wandb)
     elif model_type == "sklearn":
         save_final_accs(final_train_acc, final_test_acc, save_dir, use_wandb)
     elif model_type == "sklearn_kernel":
