@@ -25,6 +25,7 @@ class QSVC:
         probability=False,
         scaling="1",
         random_state=None,
+        input_state_type="standard",
         **kwargs,
     ):
         """
@@ -42,7 +43,7 @@ class QSVC:
         """
         self.scaling = scale_from_string_to_value(scaling)
         circuit = get_circuit(circuit, m, input_size, reservoir=(not pre_train))
-        input_fock_state = get_input_fock_state("standard", m, n)
+        input_fock_state = get_input_fock_state(input_state_type, m, n)
         trainable_parameters = ["theta"] if pre_train else []
         self.feature_map = mla.FeatureMap(
             circuit=circuit,
@@ -154,6 +155,9 @@ class _BaseSKQSVC(BaseEstimator, ClassifierMixin):
         model_kwargs = dict(self.model_params)
         if "circuit_type" in model_kwargs and "circuit" not in model_kwargs:
             model_kwargs["circuit"] = model_kwargs.pop("circuit_type")
+        input_size = x.shape[1]
+        model_kwargs["m"] = 2 * input_size
+        model_kwargs["n"] = input_size
         self.model = self.model_class(**model_kwargs)
 
         batch_size = self.data_params.get("batch_size", 32)

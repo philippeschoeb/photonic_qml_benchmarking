@@ -91,13 +91,14 @@ class QRKS:
         C=1.0,
         probability=False,
         random_state=None,
+        input_state_type="standard",
         **kwargs,
     ):
         self.scaling = scale_from_string_to_value(scaling)
         self.input_size = input_size
 
         circuit = get_circuit(circuit, m, 1, True)
-        input_fock_state = get_input_fock_state("standard", m, n)
+        input_fock_state = get_input_fock_state(input_state_type, m, n)
         self.pqc = ml.QuantumLayer(
             input_size=1,
             output_size=1,
@@ -238,6 +239,9 @@ class SKQRKS(BaseEstimator, ClassifierMixin):
         model_kwargs = dict(self.model_params)
         if "circuit_type" in model_kwargs and "circuit" not in model_kwargs:
             model_kwargs["circuit"] = model_kwargs.pop("circuit_type")
+        input_size = x.shape[1]
+        model_kwargs["m"] = 2 * input_size
+        model_kwargs["n"] = input_size
         self.model = self.model_class(**model_kwargs)
         kernel_matrix_train, _ = self.model.get_kernels(x, x)
         self._x_train = np.array(x)

@@ -1,0 +1,196 @@
+{
+    "dressed_quantum_circuit": {
+        "default": {
+            "numLayers": [
+                3
+            ],
+            "lr": [
+                0.1,
+                0.01,
+                0.001,
+                0.0001
+            ],
+            "batch_size": [
+                32
+            ],
+            "max_vmap": [
+                1
+            ],
+            "max_steps": [
+                100000
+            ],
+            "convergence_interval": [
+                200
+            ],
+            "scaling": [
+                3.1416
+            ]
+        }
+    },
+    "dressed_quantum_circuit_reservoir": {
+        "default": {
+            "numLayers": [
+                3
+            ],
+            "lr": [
+                0.1,
+                0.01,
+                0.001,
+                0.0001
+            ],
+            "batch_size": [
+                32
+            ],
+            "max_vmap": [
+                1
+            ],
+            "max_steps": [
+                100000
+            ],
+            "convergence_interval": [
+                200
+            ],
+            "scaling": [
+                3.1416
+            ]
+        }
+    },
+    "multiple_paths_model": {
+        "default": {
+            "numLayers": [
+                3
+            ],
+            "numNeurons": [
+                []
+            ],
+            "lr": [
+                0.1,
+                0.01,
+                0.001,
+                0.0001
+            ],
+            "batch_size": [
+                32
+            ],
+            "max_vmap": [
+                1
+            ],
+            "max_steps": [
+                100000
+            ],
+            "convergence_interval": [
+                200
+            ],
+            "scaling": [
+                3.1416
+            ]
+        }
+    },
+    "multiple_paths_model_reservoir": {
+        "default": {
+            "numLayers": [
+                3
+            ],
+            "numNeurons": [
+                []
+            ],
+            "lr": [
+                0.1,
+                0.01,
+                0.001,
+                0.0001
+            ],
+            "batch_size": [
+                32
+            ],
+            "max_vmap": [
+                1
+            ],
+            "max_steps": [
+                100000
+            ],
+            "convergence_interval": [
+                200
+            ],
+            "scaling": [
+                3.1416
+            ]
+        }
+    },
+    "data_reuploading": {
+        "default": {
+            "numLayers": [
+                4
+            ],
+            "observable_type": [
+                "single"
+            ],
+            "convergence_interval": [
+                200
+            ],
+            "max_steps": [
+                10000
+            ],
+            "lr": [
+                0.1,
+                0.01,
+                0.001,
+                0.0001
+            ],
+            "batch_size": [
+                32
+            ],
+            "scaling": [
+                3.1416
+            ]
+        }
+    },
+    "q_kernel_method": {
+        "default": {
+            "repeats": [
+                2
+            ],
+            "C": [
+                1.0
+            ],
+            "scaling": [
+                3.1416
+            ],
+            "max_vmap": [
+                250
+            ]
+        }
+    },
+    "q_kernel_method_reservoir": {
+        "default": {
+            "repeats": [
+                2
+            ],
+            "C": [
+                1.0
+            ],
+            "scaling": [
+                3.1416
+            ],
+            "max_vmap": [
+                250
+            ]
+        }
+    },
+    "q_rks": {
+        "default": {
+            "R": [
+                50
+            ],
+            "n_qfeatures": [
+                "full"
+            ],
+            "gamma": [
+                3
+            ],
+            "scaling": [
+                3.1416
+            ]
+        }
+    }
+}

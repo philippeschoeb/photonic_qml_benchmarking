@@ -1,87 +1,80 @@
 {
     "dressed_quantum_circuit": {
         "default": {
-            "scaling": "1",
-            "m": 20,
-            "n": 2,
+            "scaling": "pi",
             "circuit": "generic_mzi",
             "reservoir": false,
-            "no_bunching": true
+            "no_bunching": true,
+            "input_state_type": "spaced"
         }
     },
     "dressed_quantum_circuit_reservoir": {
         "default": {
-            "scaling": "1",
-            "m": 20,
-            "n": 2,
+            "scaling": "pi",
             "circuit": "generic_mzi",
             "reservoir": true,
-            "no_bunching": true
+            "no_bunching": true,
+            "input_state_type": "spaced"
         }
     },
     "multiple_paths_model": {
         "default": {
-            "scaling": "1",
-            "m": 20,
-            "n": 4,
+            "scaling": "pi",
             "circuit": "generic_mzi",
             "reservoir": false,
             "no_bunching": false,
             "post_circuit_scaling": "standardize",
-            "numNeurons": []
+            "numNeurons": [],
+            "input_state_type": "spaced"
         }
     },
     "multiple_paths_model_reservoir": {
         "default": {
-            "scaling": "1",
-            "m": 20,
-            "n": 4,
+            "scaling": "pi",
             "circuit": "generic_mzi",
             "reservoir": true,
             "no_bunching": false,
             "post_circuit_scaling": "standardize",
-            "numNeurons": []
+            "numNeurons": [],
+            "input_state_type": "spaced"
         }
     },
     "data_reuploading": {
         "default": {
-            "scaling": "1/pi",
+            "scaling": "pi",
             "numLayers": 10,
             "design": "AA"
         }
     },
     "q_kernel_method": {
         "default": {
-            "scaling": "1",
-            "m": 20,
-            "n": 4,
+            "scaling": "pi",
             "circuit": "generic_mzi",
             "no_bunching": true,
             "pre_train": true,
-            "C": 1.0
+            "C": 1.0,
+            "input_state_type": "spaced"
         }
     },
     "q_kernel_method_reservoir": {
         "default": {
-            "scaling": "1",
-            "m": 15,
-            "n": 4,
+            "scaling": "pi",
             "circuit": "generic_mzi",
             "no_bunching": true,
             "pre_train": false,
-            "C": 1.0
+            "C": 1.0,
+            "input_state_type": "spaced"
         }
     },
     "q_rks": {
         "default": {
-            "scaling": "1",
-            "m": 2,
-            "n": 2,
+            "scaling": "pi",
             "circuit": "generic_mzi",
             "no_bunching": false,
             "R": 100,
             "gamma": 1.0,
-            "C": 3.0
+            "C": 3.0,
+            "input_state_type": "spaced"
         }
     }
 }

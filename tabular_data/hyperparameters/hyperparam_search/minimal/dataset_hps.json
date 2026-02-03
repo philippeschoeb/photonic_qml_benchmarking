@@ -1,0 +1,14 @@
+{
+    "downscaled_mnist_pca": {
+        "scaling": ["minmax"],
+        "batch_size": [32]
+    },
+    "hidden_manifold": {
+        "scaling": ["minmax"],
+        "batch_size": [32]
+    },
+    "two_curves": {
+        "scaling": ["minmax"],
+        "batch_size": [32]
+    }
+}

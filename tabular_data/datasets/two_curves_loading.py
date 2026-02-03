@@ -1,3 +1,5 @@
+"""HDF5 loader for two-curves dataset."""
+
 import os
 import h5py
 import numpy as np
@@ -5,10 +7,14 @@ import numpy as np
 
 def get_dataset(d: int, degree: int):
     """
-    Get Hidden Manifold dataset.
-    :param d: int between 2 and 20
-    :param degree: int between 2 and 20
-    :return: x_train, x_test, y_train, y_test
+    Load two-curves dataset from disk.
+
+    Args:
+        d: Input dimension (2..20).
+        degree: Fourier series degree (2..20).
+
+    Returns:
+        x_train, x_test, y_train, y_test arrays.
     """
     assert type(d) is int and d >= 2 and d <= 20, f"Invalid parameter d: {d}"
     assert type(degree) is int and degree >= 2 and degree <= 20, (

@@ -1,3 +1,5 @@
+"""Dataset package initialization and download checks."""
+
 import os
 from datasets.data import download_datasets
 

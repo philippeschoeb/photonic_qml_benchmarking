@@ -1,70 +1,87 @@
-# Special thanks to:
+# Tabular Benchmarking
 
-Anthony Walsh for the Quantum Kernel Method implementation
-
-Hugo Izadi for the Data Re-uploading model implementation
-
-Bowles, Ahmed and Schuld for their benchmarking implementation
-
-...
-
-# Reminders
-
-None
-
-### Hyperparams
-
--Batch_size to consider
+This folder contains the tabular benchmarking pipeline (datasets, models, training, and result logging).
 
 # Usage
-Minimal usage (for photonic based models):
+Minimal usage (photonic backend by default):
 ```bash
 python main.py --dataset {dataset_name} --model {model_name} --run_type {run_type}
 ```
-Running a gate based model:
+
+Run a gate-based model:
 ```bash
 python main.py --dataset {dataset_name} --model {model_name} --run_type {run_type} --backend gate
 ```
-You can specify an architecture:
+
+Specify an architecture:
 ```bash
 python main.py --dataset {dataset_name} --model {model_name} --architecture {architecture} --run_type {run_type}
 ```
 
-Different model names:
-1. Quantum models
-- dressed_quantum_circuit
-- dressed_quantum_circuit_reservoir
-- multiple_paths_model
-- multiple_paths_model_reservoir
-- data_reuploading
-- q_kernel_method
-- q_rks
+List supported values (datasets/models/run types/profiles):
+```bash
+python main.py --list
+```
 
-2. Classical models
-- mlp
-- rbf_svc
-- rks
+Reduce HP search size (default is minimal) or expand to full:
+```bash
+python main.py --dataset {dataset_name} --model {model_name} --run_type hyperparam_search --hp_profile minimal
+python main.py --dataset {dataset_name} --model {model_name} --run_type hyperparam_search --hp_profile full
+```
 
-Different datasets:
-1. downscaled_mnist_pca_{d}
-2. hidden_manifold_{d}_{m}
-3. two_curves_{d}_{D}
+# Datasets
+Dataset names follow:
+1. `downscaled_mnist_pca_{d}`
+2. `hidden_manifold_{d}_{m}`
+3. `two_curves_{d}_{D}`
 
-with d in [2, 3, ... , 20]; m in [2, 3, ... , 20]; D in [2, 3, ... , 20]
+With `d`, `m`, `D` in `[2, 3, ... , 20]`.
 
-Two run types:
-1. single
-2. hyperparam_search
+# Models
+Quantum models:
+- `dressed_quantum_circuit`
+- `dressed_quantum_circuit_reservoir`
+- `multiple_paths_model`
+- `multiple_paths_model_reservoir`
+- `data_reuploading`
+- `q_kernel_method`
+- `q_kernel_method_reservoir`
+- `q_rks`
 
-Backend:
-1. photonic
-2. gate
-3. {empty}
+Classical models:
+- `mlp`
+- `rbf_svc`
+- `rks`
 
-Architectures depend on the model chosen.
+# Run Types
+1. `single`
+2. `hyperparam_search`
 
-For help with the architecture string formatting of your chosen model and backend, simply insert "help" after the "--architecture" argument as such:
+# Backend
+1. `photonic`
+2. `gate`
+3. (implicit) `classical` for classical models
 
+# Architectures
+Architectures depend on the model/backend.
+Use the built-in help:
 ```bash
 python main.py --dataset {dataset_name} --model {model_name} --architecture help --run_type {run_type}
 ```
+
+# Photonic Defaults
+- Data scaling: `minmax`
+- Scaling layer: `pi`
+- Photonic input state (for m/n-based models): `spaced`, which yields `[1,0,1,0,1,0,1,0,1,0]` when `m=10`, `n=5`
+- Modes/photons: `m=10`, `n=5` for all photonic models that accept `m`/`n`
+
+# Results Layout
+All runs write to:
+```
+tabular_data/results/{dataset}/{model}_{backend}/{architecture}/{timestamp}
+```
+
+# Special Thanks
+Anthony Walsh for the Quantum Kernel Method implementation
+Hugo Izadi for the Data Re-uploading model implementation
+Bowles, Ahmed and Schuld for their benchmarking implementation

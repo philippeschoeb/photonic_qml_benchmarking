@@ -4,8 +4,18 @@ import json
 import copy
 from skopt.space import Real, Integer, Categorical
 
+from registry import DATASET_BASE_NAMES
+
 
 _SKOPT_DIMENSIONS = (Real, Integer, Categorical)
+
+
+def _hp_search_root(hp_profile):
+    if hp_profile == "full":
+        return "hyperparameters/hyperparam_search"
+    if hp_profile == "minimal":
+        return "hyperparameters/hyperparam_search/minimal"
+    raise ValueError(f"Unknown hp_profile: {hp_profile}")
 
 
 def _dimension_from_config(value):
@@ -67,7 +77,7 @@ def serialize_param_grid(param_grid):
     return serialized
 
 
-def get_dataset_hps(dataset_name, model, backend):
+def get_dataset_hps(dataset_name, model, backend, hp_profile):
     # Need labels -1 vs 1 for q_kernel_method and for gate_based models
     if model == "q_kernel_method" or backend == "gate":
         labels_treatment = ["-1_1"]
@@ -87,7 +97,8 @@ def get_dataset_hps(dataset_name, model, backend):
         num_test = None
 
     # Load other hps
-    with open("hyperparameters/hyperparam_search/dataset_hps.json", "r") as f:
+    hp_root = _hp_search_root(hp_profile)
+    with open(f"{hp_root}/dataset_hps.json", "r") as f:
         hps = json.load(f)
 
     dataset_hps = hps[dataset_name]
@@ -98,8 +109,9 @@ def get_dataset_hps(dataset_name, model, backend):
     return dataset_hps
 
 
-def get_model_hps_halving_grid_photonic(model, architecture):
-    hp_path = "hyperparameters/hyperparam_search/halving_grid/photonic_model_hps.json"
+def get_model_hps_halving_grid_photonic(model, architecture, hp_profile):
+    hp_root = _hp_search_root(hp_profile)
+    hp_path = f"{hp_root}/halving_grid/photonic_model_hps.json"
 
     # Load hps
     with open(hp_path, "r") as f:
@@ -155,8 +167,9 @@ def get_model_hps_halving_grid_photonic(model, architecture):
     return model_hps
 
 
-def get_model_hps_bayes_photonic(model, architecture):
-    hp_path = "hyperparameters/hyperparam_search/bayes/photonic_model_hps.json"
+def get_model_hps_bayes_photonic(model, architecture, hp_profile):
+    hp_root = _hp_search_root(hp_profile)
+    hp_path = f"{hp_root}/bayes/photonic_model_hps.json"
 
     # Load hps
     with open(hp_path, "r") as f:
@@ -212,8 +225,9 @@ def get_model_hps_bayes_photonic(model, architecture):
     return model_hps
 
 
-def get_model_hps_halving_grid_gate(model, architecture, random_state):
-    hp_path = "hyperparameters/hyperparam_search/halving_grid/gate_model_hps.json"
+def get_model_hps_halving_grid_gate(model, architecture, random_state, hp_profile):
+    hp_root = _hp_search_root(hp_profile)
+    hp_path = f"{hp_root}/halving_grid/gate_model_hps.json"
 
     # Load hps
     with open(hp_path, "r") as f:
@@ -269,8 +283,9 @@ def get_model_hps_halving_grid_gate(model, architecture, random_state):
     return model_hps
 
 
-def get_model_hps_bayes_gate(model, architecture, random_state):
-    hp_path = "hyperparameters/hyperparam_search/bayes/gate_model_hps.json"
+def get_model_hps_bayes_gate(model, architecture, random_state, hp_profile):
+    hp_root = _hp_search_root(hp_profile)
+    hp_path = f"{hp_root}/bayes/gate_model_hps.json"
 
     # Load hps
     with open(hp_path, "r") as f:
@@ -324,7 +339,9 @@ def get_model_hps_bayes_gate(model, architecture, random_state):
     return model_hps
 
 
-def get_model_hps_halving_grid_classical(model, architecture, random_state):
+def get_model_hps_halving_grid_classical(
+    model, architecture, random_state, hp_profile
+):
     # Handle custom mlp architecture
     if model == "mlp" and architecture != "default":
         architecture_split = architecture.split("_")
@@ -339,10 +356,8 @@ def get_model_hps_halving_grid_classical(model, architecture, random_state):
     # All other cases
     else:
         # Load hps
-        with open(
-            "hyperparameters/hyperparam_search/halving_grid/classical_model_hps.json",
-            "r",
-        ) as f:
+        hp_root = _hp_search_root(hp_profile)
+        with open(f"{hp_root}/halving_grid/classical_model_hps.json", "r") as f:
             hps = json.load(f)
 
         # Access model hps
@@ -384,7 +399,7 @@ def get_model_hps_halving_grid_classical(model, architecture, random_state):
     return model_hps
 
 
-def get_model_hps_bayes_classical(model, architecture, random_state):
+def get_model_hps_bayes_classical(model, architecture, random_state, hp_profile):
     # Handle custom mlp architecture
     if model == "mlp" and architecture != "default":
         architecture_split = architecture.split("_")
@@ -399,9 +414,8 @@ def get_model_hps_bayes_classical(model, architecture, random_state):
     # All other cases
     else:
         # Load hps
-        with open(
-            "hyperparameters/hyperparam_search/bayes/classical_model_hps.json", "r"
-        ) as f:
+        hp_root = _hp_search_root(hp_profile)
+        with open(f"{hp_root}/bayes/classical_model_hps.json", "r") as f:
             hps = json.load(f)
 
         # Access model hps
@@ -443,7 +457,7 @@ def get_model_hps_bayes_classical(model, architecture, random_state):
     return model_hps
 
 
-def get_training_hps_halving_grid(model_type, dataset_name, model):
+def get_training_hps_halving_grid(model_type, dataset_name, model, hp_profile):
     # Determine number of epochs for training
     if dataset_name == "downscaled_mnist_pca":
         epochs = 5
@@ -467,9 +481,8 @@ def get_training_hps_halving_grid(model_type, dataset_name, model):
         pre_train = True
 
     # Load hps
-    with open(
-        "hyperparameters/hyperparam_search/halving_grid/training_hps.json", "r"
-    ) as f:
+    hp_root = _hp_search_root(hp_profile)
+    with open(f"{hp_root}/halving_grid/training_hps.json", "r") as f:
         hps = json.load(f)
 
     # Access training hps
@@ -490,7 +503,7 @@ def get_training_hps_halving_grid(model_type, dataset_name, model):
     return training_hps
 
 
-def get_training_hps_bayes(model_type, dataset_name, model):
+def get_training_hps_bayes(model_type, dataset_name, model, hp_profile):
     # Determine number of epochs for training
     if dataset_name == "downscaled_mnist_pca":
         epochs = 5
@@ -514,7 +527,8 @@ def get_training_hps_bayes(model_type, dataset_name, model):
         pre_train = True
 
     # Load hps
-    with open("hyperparameters/hyperparam_search/bayes/training_hps.json", "r") as f:
+    hp_root = _hp_search_root(hp_profile)
+    with open(f"{hp_root}/bayes/training_hps.json", "r") as f:
         hps = json.load(f)
 
     # Access training hps
@@ -535,13 +549,13 @@ def get_training_hps_bayes(model_type, dataset_name, model):
     return training_hps
 
 
-def get_hyperparams_halving_grid(dataset, model, architecture, backend, sk_random):
+def get_hyperparams_halving_grid(
+    dataset, model, architecture, backend, sk_random, hp_profile
+):
     # Dataset HPs #####################################################
     # List of allowed dataset names
-    dataset_names = ["downscaled_mnist_pca", "hidden_manifold", "two_curves"]
-
     # Find which dataset_name matches the start of the string
-    dataset_name = next(name for name in dataset_names if dataset.startswith(name))
+    dataset_name = next(name for name in DATASET_BASE_NAMES if dataset.startswith(name))
 
     # Remove dataset_name + underscore and split the rest
     args_part = dataset[len(dataset_name) + 1 :]  # skip underscore
@@ -550,21 +564,35 @@ def get_hyperparams_halving_grid(dataset, model, architecture, backend, sk_rando
     arg1 = args[0] if len(args) >= 1 else None
     args[1] if len(args) >= 2 else None
 
-    dataset_hps = get_dataset_hps(dataset_name, model, backend)
+    dataset_hps = get_dataset_hps(dataset_name, model, backend, hp_profile)
 
     # Model HPs #####################################################
     if backend == "photonic":
-        model_hps = get_model_hps_halving_grid_photonic(model, architecture)
+        model_hps = get_model_hps_halving_grid_photonic(
+            model, architecture, hp_profile
+        )
     elif backend == "gate":
-        model_hps = get_model_hps_halving_grid_gate(model, architecture, sk_random)
+        model_hps = get_model_hps_halving_grid_gate(
+            model, architecture, sk_random, hp_profile
+        )
     elif backend == "classical":
-        model_hps = get_model_hps_halving_grid_classical(model, architecture, sk_random)
+        model_hps = get_model_hps_halving_grid_classical(
+            model, architecture, sk_random, hp_profile
+        )
     else:
         raise ValueError(f"Unknown backend: {backend}")
 
+    # Align photonic modes/photons with feature count for gate-based parity
+    if backend == "photonic" and model != "data_reuploading" and arg1 is not None:
+        input_size = int(arg1)
+        model_hps["m"] = [2 * input_size]
+        model_hps["n"] = [input_size]
+
     # Training HPs #####################################################
     model_type = model_hps["type"][0]
-    training_hps = get_training_hps_halving_grid(model_type, dataset_name, model)
+    training_hps = get_training_hps_halving_grid(
+        model_type, dataset_name, model, hp_profile
+    )
 
     try:
         device = training_hps["device"][0]
@@ -589,13 +617,11 @@ def get_hyperparams_halving_grid(dataset, model, architecture, backend, sk_rando
     return param_grid, dataset_hps, model_hps, training_hps
 
 
-def get_hyperparams_bayes(dataset, model, architecture, backend, sk_random):
+def get_hyperparams_bayes(dataset, model, architecture, backend, sk_random, hp_profile):
     # Dataset HPs #####################################################
     # List of allowed dataset names
-    dataset_names = ["downscaled_mnist_pca", "hidden_manifold", "two_curves"]
-
     # Find which dataset_name matches the start of the string
-    dataset_name = next(name for name in dataset_names if dataset.startswith(name))
+    dataset_name = next(name for name in DATASET_BASE_NAMES if dataset.startswith(name))
 
     # Remove dataset_name + underscore and split the rest
     args_part = dataset[len(dataset_name) + 1 :]  # skip underscore
@@ -604,21 +630,33 @@ def get_hyperparams_bayes(dataset, model, architecture, backend, sk_random):
     arg1 = args[0] if len(args) >= 1 else None
     args[1] if len(args) >= 2 else None
 
-    dataset_hps = get_dataset_hps(dataset_name, model, backend)
+    dataset_hps = get_dataset_hps(dataset_name, model, backend, hp_profile)
 
     # Model HPs #####################################################
     if backend == "photonic":
-        model_hps = get_model_hps_bayes_photonic(model, architecture)
+        model_hps = get_model_hps_bayes_photonic(model, architecture, hp_profile)
     elif backend == "gate":
-        model_hps = get_model_hps_bayes_gate(model, architecture, sk_random)
+        model_hps = get_model_hps_bayes_gate(
+            model, architecture, sk_random, hp_profile
+        )
     elif backend == "classical":
-        model_hps = get_model_hps_bayes_classical(model, architecture, sk_random)
+        model_hps = get_model_hps_bayes_classical(
+            model, architecture, sk_random, hp_profile
+        )
     else:
         raise ValueError(f"Unknown backend: {backend}")
 
+    # Align photonic modes/photons with feature count for gate-based parity
+    if backend == "photonic" and model != "data_reuploading" and arg1 is not None:
+        input_size = int(arg1)
+        model_hps["m"] = [2 * input_size]
+        model_hps["n"] = [input_size]
+
     # Training HPs #####################################################
     model_type = model_hps["type"][0]
-    training_hps = get_training_hps_bayes(model_type, dataset_name, model)
+    training_hps = get_training_hps_bayes(
+        model_type, dataset_name, model, hp_profile
+    )
 
     try:
         device = training_hps["device"][0]

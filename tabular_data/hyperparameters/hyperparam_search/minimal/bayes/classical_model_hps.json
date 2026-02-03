@@ -1,0 +1,22 @@
+{
+    "mlp": {
+        "default": {
+            "numNeurons": [
+                [128]
+            ]
+        }
+    },
+    "rbf_svc": {
+        "default": {
+            "C": {"type": "Real", "low": 0.01, "high": 10.0, "prior": "log-uniform"},
+            "gamma": {"type": "Real", "low": 0.001, "high": 1.0, "prior": "log-uniform"}
+        }
+    },
+    "rks": {
+        "default": {
+            "R": {"type": "Integer", "low": 100, "high": 800},
+            "gamma": {"type": "Real", "low": 0.001, "high": 1.0, "prior": "log-uniform"},
+            "C": {"type": "Real", "low": 0.01, "high": 10.0, "prior": "log-uniform"}
+        }
+    }
+}

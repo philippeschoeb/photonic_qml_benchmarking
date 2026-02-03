@@ -1,5 +1,10 @@
 """
-Main data handling file: Tabular data fetching and preparation
+Tabular data fetching and preprocessing utilities.
+
+This module provides:
+- dataset loading (cached/fetched vs. generated)
+- preprocessing (scaling + label treatment)
+- conversion utilities for torch
 """
 
 from datasets.downscaled_mnist_pca_loading import get_dataset as get_mnist_pca
@@ -19,6 +24,7 @@ import os
 
 
 def download_datasets():
+    """Download dataset HDF5 files if they are not present locally."""
     print("Downloading datasets...")
     qml.data.load("other", name="downscaled-mnist")
     qml.data.load("other", name="hidden-manifold")
@@ -27,7 +33,26 @@ def download_datasets():
     return
 
 
-def get_data(data: str, loading="fetch", arg1=None, arg2=None, random_state=42):
+def get_data(
+    data: str,
+    loading: str = "fetch",
+    arg1: int | None = None,
+    arg2: int | None = None,
+    random_state: int | None = None,
+):
+    """
+    Load dataset arrays.
+
+    Args:
+        data: Dataset base name ("downscaled_mnist_pca", "hidden_manifold", "two_curves").
+        loading: "fetch" to read prebuilt HDF5, "build" to generate on the fly.
+        arg1: Dataset-specific parameter (e.g., input dimension).
+        arg2: Dataset-specific parameter (e.g., manifold dimension).
+        random_state: Optional seed for train/test split when loading="build".
+
+    Returns:
+        x_train, x_test, y_train, y_test arrays.
+    """
     if data == "downscaled_mnist_pca":
         if loading == "fetch":
             x_train, x_test, y_train, y_test = get_mnist_pca(arg1)
@@ -141,7 +166,7 @@ def preprocess_data(x_train, x_test, scaling):
             - "arctan": Apply arctangent scaling to features.
 
     Returns:
-        tuple: Scaled feature matrices (x_train, x_test) and label vectors (y_train, y_test).
+        tuple: Scaled feature matrices (x_train, x_test).
     """
     # Assert valid scaling method
     assert scaling in ["standardize", "minmax", "arctan", "none", None], (
@@ -169,6 +194,14 @@ def preprocess_data(x_train, x_test, scaling):
 
 
 def preprocess_labels(y_train, y_test, treatment="0_1"):
+    """
+    Apply label treatment to ensure consistent class encoding.
+
+    Args:
+        y_train: Training labels.
+        y_test: Test labels.
+        treatment: "0_1", "-1_1", or "none".
+    """
     if treatment == "0_1":
         # Only apply conversion if necessary
         if set(np.unique(y_train)) <= {-1, 1}:
@@ -232,10 +265,19 @@ def convert_tensor_to_loader(x, y, batch_size=32, shuffle=True):
     return loader
 
 
-def subsample(x_train, x_test, y_train, y_test, num_train, num_test):
-    # pick random indices
-    train_idx = np.random.choice(len(x_train), num_train, replace=False)
-    test_idx = np.random.choice(len(x_test), num_test, replace=False)
+def subsample(x_train, x_test, y_train, y_test, num_train, num_test, random_state=None):
+    """
+    Subsample train/test sets without altering global RNG state.
+
+    Args:
+        random_state: Optional seed to make subsampling deterministic.
+    """
+    if random_state is None:
+        rng = np.random
+    else:
+        rng = np.random.RandomState(random_state)
+    train_idx = rng.choice(len(x_train), num_train, replace=False)
+    test_idx = rng.choice(len(x_test), num_test, replace=False)
 
     # subset
     x_train = x_train[train_idx]

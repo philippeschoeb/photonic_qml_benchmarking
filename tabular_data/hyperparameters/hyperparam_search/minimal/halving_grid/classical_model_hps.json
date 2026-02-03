@@ -1,0 +1,22 @@
+{
+    "mlp": {
+        "default": {
+            "numNeurons": [
+                [16, 32, 32, 16]
+            ]
+        }
+    },
+    "rbf_svc": {
+        "default": {
+            "C": [1.0],
+            "gamma": ["scale"]
+        }
+    },
+    "rks": {
+        "default": {
+            "R": [50],
+            "gamma": [1.0],
+            "C": [1.0]
+        }
+    }
+}

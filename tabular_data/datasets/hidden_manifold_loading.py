@@ -1,3 +1,5 @@
+"""HDF5 loader for hidden manifold dataset."""
+
 import os
 import h5py
 import numpy as np
@@ -5,10 +7,14 @@ import numpy as np
 
 def get_dataset(d: int, m: int):
     """
-    Get Hidden Manifold dataset.
-    :param d: int between 2 and 20
-    :param m: int between 2 and 20
-    :return: x_train, x_test, y_train, y_test
+    Load hidden manifold dataset from disk.
+
+    Args:
+        d: Input dimension (2..20).
+        m: Manifold dimension (2..20).
+
+    Returns:
+        x_train, x_test, y_train, y_test arrays.
     """
     assert type(d) is int and d >= 2 and d <= 20, f"Invalid parameter d: {d}"
     assert type(m) is int and m >= 2 and m <= 20, f"Invalid parameter m: {m}"

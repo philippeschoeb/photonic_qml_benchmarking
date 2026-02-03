@@ -4,7 +4,7 @@
         "output_size": 2,
         "optimizer": "Adam",
         "scheduler": "None",
-        "lr": 0.01,
+        "lr": 0.001,
         "betas": [
             0.9,
             0.999

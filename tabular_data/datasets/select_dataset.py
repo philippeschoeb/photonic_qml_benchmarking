@@ -1,4 +1,4 @@
-# How to select a dataset:
+"""Reference guide for dataset selection parameters."""
 
 # Step 1: Choose dataset
 datasets = ["downscaled_mnist_pca", "hidden_manifold", "two_curves"]

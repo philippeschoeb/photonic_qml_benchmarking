@@ -32,13 +32,14 @@ class MultiplePathsModel(torch.nn.Module):
         no_bunching,
         post_circuit_scaling,
         numNeurons,
+        input_state_type="standard",
         **kwargs,
     ):
         super().__init__()
         self.scaling = ScalingLayer(scaling)
 
         circuit = get_circuit(circuit_type, m, input_size, reservoir)
-        input_fock_state = get_input_fock_state("standard", m, n)
+        input_fock_state = get_input_fock_state(input_state_type, m, n)
         trainable_params = [] if reservoir else ["theta"]
         self.pqc = ml.QuantumLayer(
             input_size=input_size,
@@ -116,6 +117,9 @@ class SKMultiplePathsModel(BaseEstimator, ClassifierMixin):
         return self
 
     def fit(self, x, y):
+        input_size = x.shape[1]
+        self.model_params["m"] = 2 * input_size
+        self.model_params["n"] = input_size
         self.model = self.model_class(**self.model_params)
 
         # Get hyperparams

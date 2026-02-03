@@ -23,7 +23,7 @@ from run_scripts.hyperparam_search_run import serialize_param_grid
 from datasets.fetch_data import fetch_data, fetch_sk_data
 from models.fetch_model import fetch_model, fetch_sk_model
 from training.distribute_training import distribute_training
-from results.save_metrics import (
+from utils.save_metrics import (
     save_train_losses_accs,
     save_train_loss_final_accs,
     save_final_accs,
@@ -62,6 +62,11 @@ def run_single(dataset, model, architecture, backend, random_state, use_wandb):
     input_size = x_train.shape[1]
     # Get model type
     model_type = model_hps["type"]
+
+    # Align photonic modes/photons with feature count for gate-based parity
+    if backend == "photonic" and model != "data_reuploading":
+        model_hps["m"] = 2 * input_size
+        model_hps["n"] = input_size
 
     # Fetch model
     model = fetch_model(
@@ -169,7 +174,9 @@ def run_single(dataset, model, architecture, backend, random_state, use_wandb):
     return
 
 
-def run_search(dataset, model, architecture, backend, random_state, use_wandb):
+def run_search(
+    dataset, model, architecture, backend, random_state, use_wandb, hp_profile
+):
     # Setup logging and return save directory
     save_dir = set_up_logging(dataset, model, architecture, backend)
     # Setup random state across torch, numpy and random
@@ -191,24 +198,31 @@ def run_search(dataset, model, architecture, backend, random_state, use_wandb):
     grid_list = model_search_assignment["grid"]
 
     # Fetch hyperparameter grid for hyperparameter search
-    if model in halving_grid_list:
+    force_full_grid = hp_profile == "minimal"
+    if force_full_grid:
         param_grid, dataset_hps, model_hps, training_hps = get_hyperparams_halving_grid(
-            dataset, model, architecture, backend, random_state
+            dataset, model, architecture, backend, random_state, hp_profile
+        )
+        search_type = "grid_search"
+    elif model in halving_grid_list:
+        param_grid, dataset_hps, model_hps, training_hps = get_hyperparams_halving_grid(
+            dataset, model, architecture, backend, random_state, hp_profile
         )
         search_type = "halving_grid_search"
     elif model in bayes_list:
         param_grid, dataset_hps, model_hps, training_hps = get_hyperparams_bayes(
-            dataset, model, architecture, backend, random_state
+            dataset, model, architecture, backend, random_state, hp_profile
         )
         search_type = "bayes_search"
     elif model in grid_list:
         param_grid, dataset_hps, model_hps, training_hps = get_hyperparams_halving_grid(
-            dataset, model, architecture, backend, random_state
+            dataset, model, architecture, backend, random_state, hp_profile
         )
         search_type = "grid_search"
     else:
         raise NotImplementedError(f"Unknown model name for hp search: {model}")
     logging.warning(f"Hyperparameters search type: {search_type}")
+    logging.warning(f"Hyperparameters profile: {hp_profile}")
 
     param_grid_serializable = serialize_param_grid(param_grid)
 
@@ -216,7 +230,9 @@ def run_search(dataset, model, architecture, backend, random_state, use_wandb):
     if use_wandb:
         wandb.run.config.update(param_grid_serializable)
         wandb.config.update({"hp_search_type": search_type})
+        wandb.config.update({"hp_profile": hp_profile})
         wandb.run.summary["hp_search_type"] = search_type
+        wandb.run.summary["hp_profile"] = hp_profile
 
     # Get device
     device = training_hps["device"][0]
@@ -243,7 +259,12 @@ def run_search(dataset, model, architecture, backend, random_state, use_wandb):
         n_jobs = 1
 
     # Check model
-    if model in halving_grid_list:
+    if force_full_grid:
+        # GridSearchCV (forced for minimal profile)
+        search = GridSearchCV(
+            sk_model, param_grid=param_grid, cv=3, n_jobs=n_jobs, verbose=2
+        )
+    elif model in halving_grid_list:
         # HalvingGridSearchCV
         search = HalvingGridSearchCV(
             sk_model,

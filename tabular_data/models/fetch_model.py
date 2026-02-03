@@ -64,6 +64,9 @@ def fetch_model(model, backend, input_size, output_size, **hyperparams):
 
     # Photonic based quantum models
     if backend == "photonic":
+        if model != "data_reuploading":
+            hyperparams["m"] = 2 * input_size
+            hyperparams["n"] = input_size
         if (
             model == "dressed_quantum_circuit"
             or model == "dressed_quantum_circuit_reservoir"
@@ -77,6 +80,7 @@ def fetch_model(model, backend, input_size, output_size, **hyperparams):
                 circuit_type=hyperparams["circuit"],
                 reservoir=hyperparams["reservoir"],
                 no_bunching=hyperparams["no_bunching"],
+                input_state_type=hyperparams.get("input_state_type", "standard"),
             )
         elif (
             model == "multiple_paths_model" or model == "multiple_paths_model_reservoir"
@@ -92,6 +96,7 @@ def fetch_model(model, backend, input_size, output_size, **hyperparams):
                 no_bunching=hyperparams["no_bunching"],
                 post_circuit_scaling=hyperparams["post_circuit_scaling"],
                 numNeurons=hyperparams["numNeurons"],
+                input_state_type=hyperparams.get("input_state_type", "standard"),
             )
         elif model == "data_reuploading":
             return DataReuploadingPhotonic(
@@ -112,6 +117,7 @@ def fetch_model(model, backend, input_size, output_size, **hyperparams):
                 no_bunching=hyperparams["no_bunching"],
                 pre_train=hyperparams["pre_train"],
                 C=hyperparams["C"],
+                input_state_type=hyperparams.get("input_state_type", "standard"),
             )
         elif model == "q_rks":
             return QRKSPhotonic(
@@ -124,6 +130,7 @@ def fetch_model(model, backend, input_size, output_size, **hyperparams):
                 C=hyperparams["C"],
                 R=hyperparams["R"],
                 gamma=hyperparams["gamma"],
+                input_state_type=hyperparams.get("input_state_type", "standard"),
             )
         else:
             raise NotImplementedError(

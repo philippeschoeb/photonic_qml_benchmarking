@@ -1,3 +1,5 @@
+"""Dataset fetching helpers for torch and sklearn pipelines."""
+
 from datasets.data import (
     get_data,
     preprocess_data,
@@ -7,14 +9,29 @@ from datasets.data import (
     subsample,
 )
 import logging
+from registry import DATASET_BASE_NAMES
 
 
-def fetch_data(dataset, random_state, **hyperparams):
+def fetch_data(dataset, random_state=None, **hyperparams):
+    """
+    Fetch and preprocess a dataset for torch training.
+
+    Args:
+        dataset: Dataset name with optional args (e.g., "two_curves_2_5").
+        random_state: Optional seed used only for subsampling.
+        **hyperparams: Preprocessing options:
+            - num_train (int): Number of training samples to subsample.
+            - num_test (int): Number of testing samples to subsample.
+            - scaling (str): Scaling method ("standardize", "minmax", "arctan", "none").
+            - batch_size (int): Batch size for DataLoaders.
+            - labels_treatment (str): Label treatment ("0_1", "-1_1", "none").
+
+    Returns:
+        train_loader, test_loader, x_train, x_test, y_train, y_test (tensors).
+    """
     # List of allowed dataset names
-    dataset_names = ["downscaled_mnist_pca", "hidden_manifold", "two_curves"]
-
     # Find which dataset_name matches the start of the string
-    dataset_name = next(name for name in dataset_names if dataset.startswith(name))
+    dataset_name = next(name for name in DATASET_BASE_NAMES if dataset.startswith(name))
 
     # Remove dataset_name + underscore and split the rest
     args_part = dataset[len(dataset_name) + 1 :]  # skip underscore
@@ -32,7 +49,7 @@ def fetch_data(dataset, random_state, **hyperparams):
     num_test = hyperparams.get("num_test", None)
     if num_train is not None and num_test is not None:
         x_train, x_test, y_train, y_test = subsample(
-            x_train, x_test, y_train, y_test, num_train, num_test
+            x_train, x_test, y_train, y_test, num_train, num_test, random_state
         )
         logging.warning(f"Subsample {num_train} training and {num_test} testing data")
 
@@ -52,12 +69,25 @@ def fetch_data(dataset, random_state, **hyperparams):
     return train_loader, test_loader, x_train, x_test, y_train, y_test
 
 
-def fetch_sk_data(dataset, **hyperparams):
-    # List of allowed dataset names
-    dataset_names = ["downscaled_mnist_pca", "hidden_manifold", "two_curves"]
+def fetch_sk_data(dataset, random_state=None, **hyperparams):
+    """
+    Fetch and preprocess a dataset for sklearn-based models.
 
+    Args:
+        dataset: Dataset name with optional args (e.g., "two_curves_2_5").
+        random_state: Optional seed used only for subsampling.
+        **hyperparams: Preprocessing options (lists, as used by search):
+            - num_train (list[int|None])
+            - num_test (list[int|None])
+            - scaling (list[str])
+            - labels_treatment (list[str])
+
+    Returns:
+        x_train, x_test, y_train, y_test arrays.
+    """
+    # List of allowed dataset names
     # Find which dataset_name matches the start of the string
-    dataset_name = next(name for name in dataset_names if dataset.startswith(name))
+    dataset_name = next(name for name in DATASET_BASE_NAMES if dataset.startswith(name))
 
     # Remove dataset_name + underscore and split the rest
     args_part = dataset[len(dataset_name) + 1 :]  # skip underscore
@@ -79,7 +109,7 @@ def fetch_sk_data(dataset, **hyperparams):
         num_test = num_test[0]
     if num_train != [None] and num_test != [None]:
         x_train, x_test, y_train, y_test = subsample(
-            x_train, x_test, y_train, y_test, num_train, num_test
+            x_train, x_test, y_train, y_test, num_train, num_test, random_state
         )
         logging.info(f"Subsample {num_train} training and {num_test} testing data")
 

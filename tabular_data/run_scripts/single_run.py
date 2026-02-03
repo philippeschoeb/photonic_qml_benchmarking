@@ -2,6 +2,8 @@ import torch
 import logging
 import json
 
+from registry import DATASET_BASE_NAMES
+
 
 def get_dataset_hps(dataset_name, model, backend):
     # Need labels -1 vs 1 for q_kernel_method and for gate_based models
@@ -249,10 +251,8 @@ def get_training_hps(model_type, dataset_name, model):
 def get_hyperparams(dataset, model, architecture, backend, sk_random):
     # Dataset HPs #####################################################
     # List of allowed dataset names
-    dataset_names = ["downscaled_mnist_pca", "hidden_manifold", "two_curves"]
-
     # Find which dataset_name matches the start of the string
-    dataset_name = next(name for name in dataset_names if dataset.startswith(name))
+    dataset_name = next(name for name in DATASET_BASE_NAMES if dataset.startswith(name))
 
     dataset_hps = get_dataset_hps(dataset_name, model, backend)
 

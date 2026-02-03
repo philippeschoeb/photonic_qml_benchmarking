@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Two-curves synthetic dataset generation."""
+
 import numpy as np
 from sklearn.preprocessing import StandardScaler
 

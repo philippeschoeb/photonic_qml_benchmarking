@@ -1,0 +1,26 @@
+{
+    "q_kernel_method": {
+        "default": {
+            "repeats": {"type": "Integer", "low": 1, "high": 4},
+            "C": {"type": "Real", "low": 0.1, "high": 5.0, "prior": "log-uniform"},
+            "scaling": {"type": "Real", "low": 0.25, "high": 3.5, "prior": "log-uniform"},
+            "max_vmap": [250]
+        }
+    },
+    "q_kernel_method_reservoir": {
+        "default": {
+            "repeats": {"type": "Integer", "low": 1, "high": 4},
+            "C": {"type": "Real", "low": 0.1, "high": 5.0, "prior": "log-uniform"},
+            "scaling": {"type": "Real", "low": 0.25, "high": 3.5, "prior": "log-uniform"},
+            "max_vmap": [250]
+        }
+    },
+    "q_rks": {
+        "default": {
+            "R": {"type": "Integer", "low": 20, "high": 120},
+            "n_qfeatures": ["full", "half"],
+            "gamma": {"type": "Real", "low": 0.5, "high": 6.0, "prior": "log-uniform"},
+            "scaling": {"type": "Real", "low": 0.25, "high": 3.5, "prior": "log-uniform"}
+        }
+    }
+}
