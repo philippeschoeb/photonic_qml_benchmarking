@@ -1,5 +1,6 @@
 from sklearn.metrics import accuracy_score
 import logging
+from tqdm import tqdm
 
 
 def training_sklearn_gate(model_dict, x_train, x_test, y_train, y_test):
@@ -13,7 +14,9 @@ def training_sklearn_gate(model_dict, x_train, x_test, y_train, y_test):
     y_train = y_train.detach().cpu().numpy()
     y_test = y_test.detach().cpu().numpy()
 
-    model.fit(x_train, y_train)
+    with tqdm(total=1, desc="Fitting sklearn gate model", unit="fit") as pbar:
+        model.fit(x_train, y_train)
+        pbar.update(1)
     y_pred_test = model.predict(x_test)
     test_accuracy = accuracy_score(y_test, y_pred_test)
 

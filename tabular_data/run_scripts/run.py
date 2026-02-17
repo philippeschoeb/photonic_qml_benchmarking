@@ -4,6 +4,7 @@ import logging
 from datetime import datetime
 import os
 import random
+from typing import Optional
 import numpy as np
 import torch
 import joblib
@@ -33,9 +34,23 @@ from utils.save_metrics import (
 )
 
 
-def run_single(dataset, model, architecture, backend, random_state, use_wandb):
+def run_single(
+    dataset,
+    model,
+    architecture,
+    backend,
+    random_state,
+    use_wandb,
+    big_script_name=None,
+):
     # Setup logging and return save directory
-    save_dir = set_up_logging(dataset, model, architecture, backend)
+    save_dir = set_up_logging(
+        dataset=dataset,
+        model=model,
+        backend=backend,
+        run_type="single",
+        big_script_name=big_script_name,
+    )
     # Setup random state across torch, numpy and random
     random_state = set_up_random_state(random_state)
 
@@ -50,14 +65,18 @@ def run_single(dataset, model, architecture, backend, random_state, use_wandb):
     dataset_hps = hyperparams["dataset"]
     model_hps = hyperparams["model"]
     training_hps = hyperparams["training"]
-    # Setup hyperparameters in wandb
-    if use_wandb:
-        wandb.run.config.update(hyperparams)
-
     # Fetch data
     train_loader, test_loader, x_train, x_test, y_train, y_test = fetch_data(
         dataset, random_state, **dataset_hps
     )
+    # Fill default counts if None so wandb shows actual sizes
+    if dataset_hps.get("num_train") is None:
+        dataset_hps["num_train"] = len(x_train)
+    if dataset_hps.get("num_test") is None:
+        dataset_hps["num_test"] = len(x_test)
+    # Setup hyperparameters in wandb
+    if use_wandb:
+        wandb.run.config.update(hyperparams)
     # Get input size
     input_size = x_train.shape[1]
     # Get model type
@@ -175,10 +194,23 @@ def run_single(dataset, model, architecture, backend, random_state, use_wandb):
 
 
 def run_search(
-    dataset, model, architecture, backend, random_state, use_wandb, hp_profile
+    dataset,
+    model,
+    architecture,
+    backend,
+    random_state,
+    use_wandb,
+    hp_profile,
+    big_script_name=None,
 ):
     # Setup logging and return save directory
-    save_dir = set_up_logging(dataset, model, architecture, backend)
+    save_dir = set_up_logging(
+        dataset=dataset,
+        model=model,
+        backend=backend,
+        run_type="hyperparam_search",
+        big_script_name=big_script_name,
+    )
     # Setup random state across torch, numpy and random
     random_state = set_up_random_state(random_state)
 
@@ -226,14 +258,6 @@ def run_search(
 
     param_grid_serializable = serialize_param_grid(param_grid)
 
-    # Save hyperparameter grid to Wandb
-    if use_wandb:
-        wandb.run.config.update(param_grid_serializable)
-        wandb.config.update({"hp_search_type": search_type})
-        wandb.config.update({"hp_profile": hp_profile})
-        wandb.run.summary["hp_search_type"] = search_type
-        wandb.run.summary["hp_profile"] = hp_profile
-
     # Get device
     device = training_hps["device"][0]
     # Get model type
@@ -241,6 +265,18 @@ def run_search(
 
     # Fetch data
     x_train, x_test, y_train, y_test = fetch_sk_data(dataset, **dataset_hps)
+    # Fill default counts if None so wandb shows actual sizes
+    if dataset_hps.get("num_train") in (None, [None]):
+        dataset_hps["num_train"] = [len(x_train)]
+    if dataset_hps.get("num_test") in (None, [None]):
+        dataset_hps["num_test"] = [len(x_test)]
+    # Save hyperparameter grid to Wandb
+    if use_wandb:
+        wandb.run.config.update(param_grid_serializable)
+        wandb.config.update({"hp_search_type": search_type})
+        wandb.config.update({"hp_profile": hp_profile})
+        wandb.run.summary["hp_search_type"] = search_type
+        wandb.run.summary["hp_profile"] = hp_profile
 
     # Fetch model
     sk_model = fetch_sk_model(model, backend)
@@ -385,21 +421,31 @@ def run_search(
     return
 
 
-def set_up_logging(dataset: str, model: str, architecture: str, backend: str):
+def set_up_logging(
+    dataset: str,
+    model: str,
+    backend: str,
+    run_type: str,
+    big_script_name: Optional[str] = None,
+):
     # Create folder path
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    if run_type == "single":
+        run_type_label = "single_run"
+    elif run_type == "hyperparam_search":
+        run_type_label = "hp_search"
+    else:
+        raise ValueError(f"Unknown run_type: {run_type}")
+    run_folder = f"{run_type_label}_{timestamp}"
+    model_backend_dataset = f"{model}_{backend}_{dataset}"
     repo_root = os.path.dirname(
         os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     )
-    log_dir = os.path.join(
-        repo_root,
-        "tabular_data",
-        "results",
-        dataset,
-        model + "_" + backend,
-        architecture,
-        timestamp,
-    )
+    path_parts = [repo_root, "tabular_data", "results"]
+    if big_script_name:
+        path_parts.append(big_script_name)
+    path_parts.extend([run_folder, model_backend_dataset])
+    log_dir = os.path.join(*path_parts)
     os.makedirs(log_dir, exist_ok=True)
     log_file = os.path.join(log_dir, "logs.txt")
 

@@ -183,17 +183,15 @@ class EnergyBasedModel(BaseGenerator):
         is therefore only suitable for small models
         """
 
-        print("computing partition fn...")
+        print('computing partition fn...')
 
         def increment_partition_fn(i, val):
             x = all_bitstrings[i]
             return val + jnp.exp(-self.energy(self.params_, x)[0])
 
-        all_bitstrings = jnp.array(list(itertools.product([0, 1], repeat=self.dim)))
+        all_bitstrings = jnp.array(list(itertools.product([0, 1], repeat=self.dim )))
 
-        self.partition_function = jax.lax.fori_loop(
-            0, all_bitstrings.shape[0], increment_partition_fn, 0
-        )
+        self.partition_function = jax.lax.fori_loop(0, all_bitstrings.shape[0], increment_partition_fn, 0)
 
         return self.partition_function
 
@@ -215,7 +213,6 @@ class EnergyBasedModel(BaseGenerator):
         Compute all probabilities. Requires computation of partition function and is
         therefore only suitable for small models.
         """
-
         @jax.jit
         def prob(x):
             return self.probability(x)

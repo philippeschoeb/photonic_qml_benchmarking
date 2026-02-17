@@ -2,6 +2,7 @@ import torch
 import logging
 from sklearn.metrics import accuracy_score
 from merlin_additional.loss import NKernelAlignment
+from tqdm import tqdm
 
 
 def training_torch(
@@ -33,7 +34,7 @@ def training_torch(
 
     model.to(device)
 
-    for epoch in range(epochs):
+    for epoch in tqdm(range(epochs), desc="Torch Training", unit="epoch"):
         # --- Training ---
         model.train()
         train_loss, correct, total = 0, 0, 0
@@ -180,7 +181,7 @@ def training_sklearn_q_kernel(
         optimizer = assign_optimizer(optimizer, optimizable_model, lr)
 
         train_losses = []
-        for epoch in range(epochs):
+        for epoch in tqdm(range(epochs), desc="Kernel Pretraining", unit="epoch"):
             train_loss = 0
             total = 0
             for batch_idx, (x_batch, y_batch) in enumerate(train_loader):

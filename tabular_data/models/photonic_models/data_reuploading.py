@@ -1,7 +1,7 @@
 import logging
 from sklearn.base import BaseEstimator, ClassifierMixin
 from sklearn.metrics import accuracy_score
-from models.photonic_models.scaling_layer import scale_from_string_to_value
+from models.photonic_based_utils import scale_from_string_to_value
 from merlin_additional.reuploading_merlin.reuploading_experiment import (
     MerlinReuploadingClassifier,
 )

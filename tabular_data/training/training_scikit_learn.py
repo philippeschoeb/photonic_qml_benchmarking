@@ -1,5 +1,6 @@
 from sklearn.metrics import accuracy_score
 import logging
+from tqdm import tqdm
 
 
 def training_sklearn(model_dict, x_train, x_test, y_train, y_test):
@@ -9,7 +10,9 @@ def training_sklearn(model_dict, x_train, x_test, y_train, y_test):
 
     # Convert tensors to numpy arrays ?
 
-    model.fit(x_train, y_train)
+    with tqdm(total=1, desc="Fitting sklearn model", unit="fit") as pbar:
+        model.fit(x_train, y_train)
+        pbar.update(1)
     y_pred_test = model.predict(x_test)
     test_accuracy = accuracy_score(y_test, y_pred_test)
 
@@ -33,7 +36,9 @@ def training_sklearn_kernel(model_dict, x_train, x_test, y_train, y_test):
     model = model_dict["model"]
 
     kernel_matrix_training, kernel_matrix_test = model.get_kernels(x_train, x_test)
-    model.fit(kernel_matrix_training, y_train)
+    with tqdm(total=1, desc="Fitting sklearn kernel", unit="fit") as pbar:
+        model.fit(kernel_matrix_training, y_train)
+        pbar.update(1)
     y_pred_test = model.predict(kernel_matrix_test)
     test_accuracy = accuracy_score(y_test, y_pred_test)
 

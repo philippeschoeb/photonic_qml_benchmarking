@@ -1,9 +1,7 @@
 import torch
 import math
-from circuits import get_reuploading_circuit
-from input_fock_state import get_input_fock_state
 import merlin as ml
-from scaling_layer import ScalingLayer
+from models.photonic_based_utils import get_computation_space, get_reuploading_circuit, get_input_fock_state, ScalingLayer
 
 
 class DataReuploading(torch.nn.Module):
@@ -34,18 +32,18 @@ class DataReuploading(torch.nn.Module):
         )
         input_fock_state = get_input_fock_state("standard", m, n)
         trainable_params = [] if reservoir else ["theta"]
-        self.pqc = ml.QuantumLayer(
+        computation_space = get_computation_space(no_bunching)
+        q_layer = ml.QuantumLayer(
             input_size=input_size,
-            output_size=output_size,
             circuit=circuit,
             input_state=input_fock_state,
             trainable_parameters=trainable_params,
             input_parameters=["px"],
-            output_mapping_strategy=ml.OutputMappingStrategy.LINEAR,
-            no_bunching=no_bunching,
+            measurement_strategy=ml.MeasurementStrategy.probs(computation_space=computation_space),
         )
+        self.drm = torch.nn.Sequential(q_layer, torch.nn.Linear(q_layer.output_size, output_size))
 
     def forward(self, x):
         x = self.scaling(x)
-        output = self.pqc(x)
+        output = self.drm(x)
         return output

@@ -4,10 +4,8 @@ from torch.utils.data import DataLoader, TensorDataset
 from sklearn.base import BaseEstimator, ClassifierMixin
 from sklearn.metrics import accuracy_score
 from sklearn.svm import SVC
-import merlin_additional as mla
-from models.photonic_models.input_fock_state import get_input_fock_state
-from models.photonic_models.circuits import get_circuit
-from models.photonic_models.scaling_layer import scale_from_string_to_value
+import merlin as ml
+from models.photonic_based_utils import get_circuit, get_input_fock_state, scale_from_string_to_value, get_computation_space
 from merlin_additional.loss import NKernelAlignment
 from training.training_torch import assign_optimizer
 
@@ -45,16 +43,17 @@ class QSVC:
         circuit = get_circuit(circuit, m, input_size, reservoir=(not pre_train))
         input_fock_state = get_input_fock_state(input_state_type, m, n)
         trainable_parameters = ["theta"] if pre_train else []
-        self.feature_map = mla.FeatureMap(
+        self.feature_map = ml.FeatureMap(
             circuit=circuit,
             input_size=input_size,
             input_parameters="px",
             trainable_parameters=trainable_parameters,
         )
-        self.quantum_kernel = mla.FidelityKernel(
+        computation_space = get_computation_space(no_bunching)
+        self.quantum_kernel = ml.FidelityKernel(
             feature_map=self.feature_map,
             input_state=input_fock_state,
-            no_bunching=no_bunching,
+            computation_space=computation_space,
         )
         self.model = SVC(
             kernel="precomputed",

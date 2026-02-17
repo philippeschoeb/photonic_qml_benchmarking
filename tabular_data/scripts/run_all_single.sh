@@ -1,11 +1,16 @@
 #!/usr/bin/env bash
 
+if [ -z "${BASH_VERSION:-}" ]; then
+  exec bash "$0" "$@"
+fi
+
 # Run single runs for all supported models/backends on one dataset.
 
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "${ROOT_DIR}"
+SCRIPT_NAME="$(basename "$0" .sh)"
 
 DATASET="downscaled_mnist_pca_10"
 
@@ -50,7 +55,7 @@ for model in "${MODELS[@]}"; do
   backends="${MODEL_BACKENDS["$model"]}"
   for backend in ${backends}; do
     echo "-> Model: ${model}, Backend: ${backend}"
-    python main.py --dataset "${DATASET}" --model "${model}" --backend "${backend}" --run_type single
+    python main.py --dataset "${DATASET}" --model "${model}" --backend "${backend}" --run_type single --big_script_name "${SCRIPT_NAME}"
   done
 done
 

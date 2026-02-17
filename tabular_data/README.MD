@@ -78,8 +78,15 @@ python main.py --dataset {dataset_name} --model {model_name} --architecture help
 # Results Layout
 All runs write to:
 ```
-tabular_data/results/{dataset}/{model}_{backend}/{architecture}/{timestamp}
+tabular_data/results/{run_type}_{timestamp}/{model}_{backend}_{dataset}
 ```
+For bulk scripts (for example `tabular_data/scripts/run_all_single.sh`), runs write to:
+```
+tabular_data/results/{big_script_name}/{run_type}_{timestamp}/{model}_{backend}_{dataset}
+```
+Where:
+- `run_type` is `single_run` or `hp_search`
+- `backend` is `photonic`, `gate`, or `classical`
 
 # Special Thanks
 Anthony Walsh for the Quantum Kernel Method implementation

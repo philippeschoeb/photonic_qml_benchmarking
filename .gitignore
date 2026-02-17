@@ -8,5 +8,8 @@
 */wandb/
 wandb
 */results/
+*/datasets/downloaded/*
+!*/datasets/downloaded/all_combined/
+!*/datasets/downloaded/all_combined/**
 !requirements.txt
 .vscode

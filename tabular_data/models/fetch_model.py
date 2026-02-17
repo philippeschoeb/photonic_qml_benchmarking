@@ -26,17 +26,9 @@ from models.gate_based_models.dressed_quantum_circuit import (
     DressedQuantumCircuitClassifier as DressedQuantumCircuitGate,
     SKDressedQuantumCircuitGate,
 )
-from models.gate_based_models.dressed_quantum_circuit_reservoir import (
-    DressedQuantumCircuitClassifier as DressedQuantumCircuitReservoirGate,
-    SKDressedQuantumCircuitReservoirGate,
-)
 from models.gate_based_models.multiple_paths_model import (
     MultiplePathsModelClassifier as MultiplePathsModelGate,
     SKMultiplePathsModelGate,
-)
-from models.gate_based_models.multiple_paths_model_reservoir import (
-    MultiplePathsModelClassifier as MultiplePathsModelReservoirGate,
-    SKMultiplePathsModelReservoirGate,
 )
 from models.gate_based_models.data_reuploading import (
     DataReuploadingClassifier as DataReuploadingGate,
@@ -151,7 +143,7 @@ def fetch_model(model, backend, input_size, output_size, **hyperparams):
                 random_state=hyperparams["random_state"],
             )
         elif model == "dressed_quantum_circuit_reservoir":
-            return DressedQuantumCircuitReservoirGate(
+            return DressedQuantumCircuitGate(
                 n_layers=hyperparams["nLayers"],
                 learning_rate=hyperparams["lr"],
                 batch_size=hyperparams["batch_size"],
@@ -160,6 +152,7 @@ def fetch_model(model, backend, input_size, output_size, **hyperparams):
                 convergence_interval=hyperparams["convergence_interval"],
                 scaling=hyperparams["scaling"],
                 random_state=hyperparams["random_state"],
+                reservoir=True,
             )
         elif model == "multiple_paths_model":
             return MultiplePathsModelGate(
@@ -175,7 +168,7 @@ def fetch_model(model, backend, input_size, output_size, **hyperparams):
                 random_state=hyperparams["random_state"],
             )
         elif model == "multiple_paths_model_reservoir":
-            return MultiplePathsModelReservoirGate(
+            return MultiplePathsModelGate(
                 n_layers=hyperparams["nLayers"],
                 n_classical_h_layers=len(hyperparams["numNeurons"]),
                 num_neurons=hyperparams["numNeurons"],
@@ -186,6 +179,7 @@ def fetch_model(model, backend, input_size, output_size, **hyperparams):
                 convergence_interval=hyperparams["convergence_interval"],
                 scaling=hyperparams["scaling"],
                 random_state=hyperparams["random_state"],
+                reservoir=True,
             )
         elif model == "data_reuploading":
             return DataReuploadingGate(
@@ -284,11 +278,11 @@ def fetch_sk_model(model, backend):
         if model == "dressed_quantum_circuit":
             return SKDressedQuantumCircuitGate()
         elif model == "dressed_quantum_circuit_reservoir":
-            return SKDressedQuantumCircuitReservoirGate()
+            return SKDressedQuantumCircuitGate(reservoir=True)
         elif model == "multiple_paths_model":
             return SKMultiplePathsModelGate()
         elif model == "multiple_paths_model_reservoir":
-            return SKMultiplePathsModelReservoirGate()
+            return SKMultiplePathsModelGate(reservoir=True)
         elif model == "data_reuploading":
             return SKDataReuploadingGate()
         elif model == "q_kernel_method":

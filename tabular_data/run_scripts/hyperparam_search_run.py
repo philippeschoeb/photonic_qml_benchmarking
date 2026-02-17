@@ -585,7 +585,7 @@ def get_hyperparams_halving_grid(
     # Align photonic modes/photons with feature count for gate-based parity
     if backend == "photonic" and model != "data_reuploading" and arg1 is not None:
         input_size = int(arg1)
-        model_hps["m"] = [2 * input_size]
+        model_hps["m"] = [input_size * 2]
         model_hps["n"] = [input_size]
 
     # Training HPs #####################################################

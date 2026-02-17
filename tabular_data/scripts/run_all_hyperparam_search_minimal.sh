@@ -6,8 +6,9 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "${ROOT_DIR}"
+SCRIPT_NAME="$(basename "$0" .sh)"
 
-DATASET="downscaled_mnist_pca_10"
+DATASET="downscaled_mnist_pca_2"
 USE_WANDB=0
 WANDB_FLAG="--no-wandb"
 if [[ "${USE_WANDB}" == "1" ]]; then
@@ -55,7 +56,7 @@ for model in "${MODELS[@]}"; do
   backends="${MODEL_BACKENDS["$model"]}"
   for backend in ${backends}; do
     echo "-> Model: ${model}, Backend: ${backend}"
-    python main.py --dataset "${DATASET}" --model "${model}" --backend "${backend}" --run_type hyperparam_search --hp_profile minimal ${WANDB_FLAG}
+    python main.py --dataset "${DATASET}" --model "${model}" --backend "${backend}" --run_type hyperparam_search --hp_profile minimal --big_script_name "${SCRIPT_NAME}" ${WANDB_FLAG}
   done
 done
 

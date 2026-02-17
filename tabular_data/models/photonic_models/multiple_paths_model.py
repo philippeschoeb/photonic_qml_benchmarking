@@ -5,13 +5,7 @@ import merlin as ml
 from sklearn.base import BaseEstimator, ClassifierMixin
 from sklearn.metrics import accuracy_score
 from training.training_torch import assign_criterion, assign_optimizer, assign_scheduler
-from models.photonic_models.scaling_layer import (
-    ScalingLayer,
-    StandardizationLayer,
-    MinMaxScalingLayer,
-)
-from models.photonic_models.circuits import get_circuit
-from models.photonic_models.input_fock_state import get_input_fock_state
+from models.photonic_based_utils import ScalingLayer, StandardizationLayer, MinMaxScalingLayer, get_circuit, get_input_fock_state, get_computation_space
 from models.classical_models.mlp import MLP
 
 
@@ -41,14 +35,14 @@ class MultiplePathsModel(torch.nn.Module):
         circuit = get_circuit(circuit_type, m, input_size, reservoir)
         input_fock_state = get_input_fock_state(input_state_type, m, n)
         trainable_params = [] if reservoir else ["theta"]
+        computation_space = get_computation_space(no_bunching)
         self.pqc = ml.QuantumLayer(
             input_size=input_size,
             circuit=circuit,
             input_state=input_fock_state,
             trainable_parameters=trainable_params,
             input_parameters=["px"],
-            output_mapping_strategy=ml.OutputMappingStrategy.NONE,
-            no_bunching=no_bunching,
+            measurement_strategy=ml.MeasurementStrategy.probs(computation_space=computation_space),
         )
         quantum_output_size = self.pqc.output_size
         self.post_circuit = self.set_up_post_circuit_scaling(post_circuit_scaling)

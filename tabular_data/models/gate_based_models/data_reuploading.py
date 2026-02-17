@@ -13,6 +13,7 @@
 # limitations under the License.
 
 from math import ceil
+from tracemalloc import start
 import pennylane as qml
 import numpy as np
 import jax
@@ -22,8 +23,7 @@ from sklearn.base import BaseEstimator, ClassifierMixin
 from sklearn.utils.validation import check_is_fitted
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.metrics import accuracy_score
-from training.gate_based_training.model_utils import train
-from training.gate_based_training.model_utils import chunk_vmapped_fn
+from models.gate_based_utils import train, chunk_vmapped_fn
 
 jax.config.update("jax_enable_x64", True)
 
@@ -43,7 +43,6 @@ class DataReuploadingClassifier(BaseEstimator, ClassifierMixin):
         dev_type="default.qubit",
         qnode_kwargs={"interface": "jax-jit"},
         random_state=42,
-        **kwargs,
     ):
         r"""
         Data reuploading classifier from https://arxiv.org/abs/1907.02085. Here we code the 'multi-qubit classifier'.
@@ -77,7 +76,7 @@ class DataReuploadingClassifier(BaseEstimator, ClassifierMixin):
             n_layers (int): Number of blocks used in the trainable embedding. The data is uploaded n_layers+1 times.
             observable_type (str): Defines the number of qubits used to evaluate the weighed cost fucntion,
                 either 'single', 'half' or 'full'.
-            max_steps (int): Maximum number of training steps. A warning will be raised if training did not
+                 max_steps (int): Maximum number of training steps. A warning will be raised if training did not
                     converge.
             learning_rate (float): Initial learning rate for training.
             convergence_interval (int): The number of loss values to consider to decide convergence.
@@ -151,22 +150,13 @@ class DataReuploadingClassifier(BaseEstimator, ClassifierMixin):
                     qml.Rot(*angles, wires=i)
 
                     x_idx += 3
+                start = 0 if (layer % 2 == 0) else 1
+                for i in range(start, self.n_qubits_ - 1, 2):
+                    qml.CZ(wires=[i, i + 1])
                 """if layer % 2 == 0:
                     qml.broadcast(qml.CZ, range(self.n_qubits_), pattern="double")
                 else:
                     qml.broadcast(qml.CZ, range(self.n_qubits_), pattern="double_odd")"""
-                wires = list(range(self.n_qubits_))
-                if layer % 2 == 0:
-                    pairs = [
-                        (wires[i], wires[i + 1]) for i in range(0, len(wires) - 1, 2)
-                    ]
-                else:
-                    pairs = [
-                        (wires[i], wires[i + 1]) for i in range(1, len(wires) - 1, 2)
-                    ]
-
-                for w1, w2 in pairs:
-                    qml.CZ(wires=[w1, w2])
 
             # final reupload without CZs
             x_idx = 0
@@ -340,88 +330,8 @@ class DataReuploadingClassifier(BaseEstimator, ClassifierMixin):
         return X
 
 
-class SKDataReuploadingGate(BaseEstimator, ClassifierMixin):
-    """Scikit-learn compatible wrapper for the gate-based data reuploading model."""
-
-    def __init__(self, data_params=None, model_params=None, training_params=None):
-        self.model_class = DataReuploadingClassifier
-        self.model_type = "sklearn_gate"
-        self.model_name = "data_reuploading"
-        self.data_params = data_params or {}
-        self.model_params = model_params or {}
-        self.training_params = training_params or {}
-
-        self.model = None
-        self.train_losses = None
-        self.final_train_acc = None
-        self._model_kwargs = None
-
-    def get_params(self, deep=True):
-        params = dict(self.data_params)
-        params.update({f"model_params__{k}": v for k, v in self.model_params.items()})
-        params.update(
-            {f"training_params__{k}": v for k, v in self.training_params.items()}
-        )
-        return params
-
-    def set_params(self, **params):
-        for key, value in params.items():
-            if key.startswith("data_params__"):
-                subkey = key.split("__", 1)[1]
-                self.data_params[subkey] = value
-            elif key.startswith("model_params__"):
-                subkey = key.split("__", 1)[1]
-                self.model_params[subkey] = value
-            elif key.startswith("training_params__"):
-                subkey = key.split("__", 1)[1]
-                self.training_params[subkey] = value
-            else:
-                setattr(self, key, value)
-        return self
-
-    def _prepare_model_kwargs(self):
-        kwargs = dict(self.model_params)
-        kwargs.pop("type", None)
-        kwargs.pop("name", None)
-        kwargs.pop("input_size", None)
-        kwargs.pop("output_size", None)
-        if "numLayers" in kwargs and "nLayers" not in kwargs:
-            kwargs["nLayers"] = kwargs.pop("numLayers")
-        if "lr" in kwargs and "learning_rate" not in kwargs:
-            kwargs["learning_rate"] = kwargs.pop("lr")
-        if kwargs.get("max_vmap") is None:
-            kwargs["max_vmap"] = kwargs.get("batch_size", 32)
-        return kwargs
-
-    def fit(self, X, y):
-        X_np = np.asarray(X)
-        y_np = np.asarray(y)
-
-        self._model_kwargs = self._prepare_model_kwargs()
-        self.model = self.model_class(**self._model_kwargs)
-        self.model.fit(X_np, y_np)
-
-        self.train_losses = getattr(self.model, "loss_history_", None)
-        train_predictions = self.model.predict(X_np)
-        self.final_train_acc = accuracy_score(y_np, train_predictions)
-        return self
-
-    def predict(self, X):
-        if self.model is None:
-            raise ValueError("Model has not been fitted yet.")
-        return self.model.predict(np.asarray(X))
-
-    def predict_proba(self, X):
-        if self.model is None:
-            raise ValueError("Model has not been fitted yet.")
-        return self.model.predict_proba(np.asarray(X))
-
-    def score(self, X, y):
-        preds = self.predict(X)
-        return accuracy_score(np.asarray(y), preds)
-
-
 class DataReuploadingClassifierNoScaling(DataReuploadingClassifier):
+
     def construct_model(self):
         """Construct the quantum circuit used in the model."""
 
@@ -483,6 +393,7 @@ class DataReuploadingClassifierNoScaling(DataReuploadingClassifier):
 
 
 class DataReuploadingClassifierNoTrainableEmbedding(DataReuploadingClassifier):
+
     def construct_model(self):
         """Construct the quantum circuit used in the model."""
 
@@ -554,6 +465,7 @@ class DataReuploadingClassifierNoTrainableEmbedding(DataReuploadingClassifier):
 
 
 class DataReuploadingClassifierNoCost(DataReuploadingClassifier):
+
     def fit(self, X, y):
         """Fit the model to data X and labels y.
 
@@ -592,6 +504,7 @@ class DataReuploadingClassifierNoCost(DataReuploadingClassifier):
 
 
 class DataReuploadingClassifierSeparable(DataReuploadingClassifier):
+
     def construct_model(self):
         """Construct the quantum circuit used in the model."""
 
@@ -644,3 +557,84 @@ class DataReuploadingClassifierSeparable(DataReuploadingClassifier):
         self.chunked_forward = chunk_vmapped_fn(self.forward, 1, self.max_vmap)
 
         return self.forward
+
+
+class SKDataReuploadingGate(BaseEstimator, ClassifierMixin):
+    """Scikit-learn compatible wrapper for the gate-based data reuploading model."""
+
+    def __init__(self, data_params=None, model_params=None, training_params=None):
+        self.model_class = DataReuploadingClassifier
+        self.model_type = "sklearn_gate"
+        self.model_name = "data_reuploading"
+        self.data_params = data_params or {}
+        self.model_params = model_params or {}
+        self.training_params = training_params or {}
+
+        self.model = None
+        self.train_losses = None
+        self.train_accuracies = None
+        self.final_train_acc = None
+
+    def get_params(self, deep=True):
+        params = dict(self.data_params)
+        params.update({f"model_params__{k}": v for k, v in self.model_params.items()})
+        params.update(
+            {f"training_params__{k}": v for k, v in self.training_params.items()}
+        )
+        return params
+
+    def set_params(self, **params):
+        for key, value in params.items():
+            if key.startswith("data_params__"):
+                subkey = key.split("__", 1)[1]
+                self.data_params[subkey] = value
+            elif key.startswith("model_params__"):
+                subkey = key.split("__", 1)[1]
+                self.model_params[subkey] = value
+            elif key.startswith("training_params__"):
+                subkey = key.split("__", 1)[1]
+                self.training_params[subkey] = value
+            else:
+                setattr(self, key, value)
+        return self
+
+    def _prepare_model_kwargs(self):
+        kwargs = dict(self.model_params)
+        kwargs.pop("type", None)
+        kwargs.pop("name", None)
+        kwargs.pop("input_size", None)
+        kwargs.pop("output_size", None)
+        if "numLayers" in kwargs and "n_layers" not in kwargs:
+            kwargs["n_layers"] = kwargs.pop("numLayers")
+        if "lr" in kwargs and "learning_rate" not in kwargs:
+            kwargs["learning_rate"] = kwargs.pop("lr")
+        if kwargs.get("max_vmap") is None:
+            kwargs["max_vmap"] = kwargs.get("batch_size", 32)
+        return kwargs
+
+    def fit(self, X, y):
+        model_kwargs = self._prepare_model_kwargs()
+        self.model = self.model_class(**model_kwargs)
+
+        X_np = np.asarray(X)
+        y_np = np.asarray(y)
+
+        self.model.fit(X_np, y_np)
+        self.train_losses = getattr(self.model, "loss_history_", None)
+        train_predictions = self.model.predict(X_np)
+        self.final_train_acc = accuracy_score(y_np, train_predictions)
+        return self
+
+    def predict(self, X):
+        if self.model is None:
+            raise ValueError("Model has not been fitted yet.")
+        return self.model.predict(np.asarray(X))
+
+    def predict_proba(self, X):
+        if self.model is None:
+            raise ValueError("Model has not been fitted yet.")
+        return self.model.predict_proba(np.asarray(X))
+
+    def score(self, X, y):
+        preds = self.predict(X)
+        return accuracy_score(np.asarray(y), preds)

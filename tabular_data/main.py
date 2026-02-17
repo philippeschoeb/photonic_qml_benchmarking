@@ -19,6 +19,7 @@ def main(
     random_state,
     use_wandb,
     hp_profile,
+    big_script_name,
 ):
     # Setup Wandb
     if use_wandb:
@@ -35,10 +36,25 @@ def main(
         wandb.run.summary["random_state"] = random_state
 
     if run_type == "single":
-        run_single(dataset, model, architecture, backend, random_state, use_wandb)
+        run_single(
+            dataset,
+            model,
+            architecture,
+            backend,
+            random_state,
+            use_wandb,
+            big_script_name,
+        )
     elif run_type == "hyperparam_search":
         run_search(
-            dataset, model, architecture, backend, random_state, use_wandb, hp_profile
+            dataset,
+            model,
+            architecture,
+            backend,
+            random_state,
+            use_wandb,
+            hp_profile,
+            big_script_name,
         )
     else:
         raise ValueError(f"Invalid run type: {run_type}")
@@ -108,6 +124,13 @@ if __name__ == "__main__":
         "--list",
         action="store_true",
         help="List supported datasets/models/run types and exit",
+    )
+    parser.add_argument(
+        "--big_script_name",
+        type=str,
+        required=False,
+        default=None,
+        help="Optional prefix folder under results/ for bulk scripts (e.g. run_all_single)",
     )
 
     # Parse and handle args
@@ -183,4 +206,5 @@ if __name__ == "__main__":
         random_state,
         use_wandb,
         hp_profile,
+        args.big_script_name,
     )

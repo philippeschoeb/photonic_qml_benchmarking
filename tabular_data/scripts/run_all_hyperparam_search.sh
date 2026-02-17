@@ -13,6 +13,7 @@ fi
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "${ROOT_DIR}"
+SCRIPT_NAME="$(basename "$0" .sh)"
 
 DATASETS=(
   "downscaled_mnist_pca_2"
@@ -113,7 +114,7 @@ for dataset in "${DATASETS[@]}"; do
     for backend in ${backends}; do
       search_type="${MODEL_SEARCH_TYPE[$model]:-unknown}"
       echo "    -> Model: ${model}, Backend: ${backend} (search: ${search_type})"
-      cmd=(python main.py --dataset "${dataset}" --model "${model}" --backend "${backend}" --run_type hyperparam_search)
+      cmd=(python main.py --dataset "${dataset}" --model "${model}" --backend "${backend}" --run_type hyperparam_search --big_script_name "${SCRIPT_NAME}")
       start_time=$(date +%s)
       if timeout "${TIMEOUT_SECONDS}" "${cmd[@]}"; then
         end_time=$(date +%s)

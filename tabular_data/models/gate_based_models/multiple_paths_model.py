@@ -20,7 +20,7 @@ from sklearn.metrics import accuracy_score
 import optax
 import jax
 import jax.numpy as jnp
-from training.gate_based_training.model_utils import train, chunk_vmapped_fn
+from models.gate_based_utils import train, chunk_vmapped_fn
 
 
 class MultiplePathsModelClassifier(BaseEstimator, ClassifierMixin):
@@ -39,31 +39,33 @@ class MultiplePathsModelClassifier(BaseEstimator, ClassifierMixin):
         qnode_kwargs={"interface": "jax-jit"},
         scaling=1.0,
         random_state=42,
+        reservoir=False,
         **kwargs,
     ):
         r"""
-        Dressed quantum circuit from https://arxiv.org/abs/1912.08278. The model consists of the following sequence
-            * a single layer fully connected trainable neural network with tanh activation function
-            * a parameterised quantum circuit taking the above outputs as input
-            * a single layer fully connected trainable neural network taking local expectation values of the above
-              circuit as input
+        Gate-based multiple paths model.
 
-        The last neural network maps to two neurons that we take the softmax of to get class probabilities.
-        The model is trained via binary cross entropy loss.
+        The model concatenates raw input features with expectation values from a
+        variational quantum circuit, then passes the combined vector through a
+        classical output network to produce class logits. Probabilities are
+        obtained via softmax, and the model is trained with binary cross entropy.
 
         Args:
-            n_layers (int): number of layers in the variational part of the circuit.
-            learning_rate (float): initial learning rate for gradient descent.
+            n_layers (int): Number of layers in the variational part of the circuit.
+            n_classical_h_layers (int): Number of hidden layers in the classical output network.
+            num_neurons (list[int]): Hidden layer sizes for the classical output network.
+            learning_rate (float): Initial learning rate for gradient descent.
             max_steps (int): Maximum number of training steps. A warning will be raised if training did not converge.
             max_vmap (int or None): The maximum size of a chunk to vectorise over. Lower values use less memory.
                 must divide batch_size.
             batch_size (int): Size of batches used for computing parameter updates.
             convergence_interval (int): The number of loss values to consider to decide convergence.
             jit (bool): Whether to use just in time compilation.
-            dev_type (str): string specifying the pennylane device type; e.g. 'default.qubit'.
-            qnode_kwargs (str): the keyword arguments passed to the circuit qnode.
+            dev_type (str): Pennylane device type; e.g. 'default.qubit'.
+            qnode_kwargs (dict): Keyword arguments passed to the circuit qnode.
             scaling (float): Factor by which to scale the input data.
             random_state (int): Seed used for pseudorandom number generation.
+            reservoir (bool): If True, keep the quantum circuit weights fixed after random initialization.
         """
         # attributes that do not depend on data
         self.n_layers = n_layers
@@ -78,6 +80,7 @@ class MultiplePathsModelClassifier(BaseEstimator, ClassifierMixin):
         self.jit = jit
         self.scaling = scaling
         self.random_state = random_state
+        self.reservoir = reservoir
         self.rng = np.random.default_rng(random_state)
 
         if max_vmap is None:
@@ -88,6 +91,7 @@ class MultiplePathsModelClassifier(BaseEstimator, ClassifierMixin):
         # data-dependant attributes
         # which will be initialised by calling "fit"
         self.params_ = None  # Dictionary containing the trainable parameters
+        self.non_train_params_ = None
         self.n_qubits_ = None
         self.n_features_ = None
         self.scaler = None  # data scaler will be fitted on training data
@@ -114,6 +118,7 @@ class MultiplePathsModelClassifier(BaseEstimator, ClassifierMixin):
             """
             The variational circuit taken from the plots
             """
+            weight_source = self.non_train_params_ if self.reservoir else params
             # data encoding
             for i in range(self.n_qubits_):
                 qml.Hadamard(wires=i)
@@ -121,7 +126,7 @@ class MultiplePathsModelClassifier(BaseEstimator, ClassifierMixin):
             # trainable unitary
             for layer in range(self.n_layers):
                 for i in range(self.n_qubits_):
-                    qml.RY(params["circuit_weights"][layer, i], wires=i)
+                    qml.RY(weight_source["circuit_weights"][layer, i], wires=i)
                 # qml.broadcast(qml.CNOT, wires=range(self.n_qubits_), pattern="ring")
                 for i in range(self.n_qubits_):
                     qml.CNOT(wires=[i, (i + 1) % self.n_qubits_])
@@ -211,11 +216,21 @@ class MultiplePathsModelClassifier(BaseEstimator, ClassifierMixin):
             )
             output_weights = tuple(output_weights)
 
-        self.params_ = {
-            "circuit_weights": circuit_weights,
-            # "input_weights": input_weights,
-            "output_weights": output_weights,
-        }
+        if self.reservoir:
+            self.params_ = {
+                # "input_weights": input_weights,
+                "output_weights": output_weights,
+            }
+            self.non_train_params_ = {
+                "circuit_weights": circuit_weights,
+            }
+        else:
+            self.params_ = {
+                "circuit_weights": circuit_weights,
+                # "input_weights": input_weights,
+                "output_weights": output_weights,
+            }
+            self.non_train_params_ = None
 
     def fit(self, X, y):
         """Fit the model to data X and labels y.

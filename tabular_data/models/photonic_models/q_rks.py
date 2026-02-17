@@ -2,9 +2,7 @@ import numpy as np
 from sklearn.base import BaseEstimator, ClassifierMixin
 from sklearn.metrics import accuracy_score
 from sklearn.svm import SVC
-from models.photonic_models.input_fock_state import get_input_fock_state
-from models.photonic_models.circuits import get_circuit
-from models.photonic_models.scaling_layer import scale_from_string_to_value
+from models.photonic_based_utils import get_circuit, get_input_fock_state, scale_from_string_to_value, get_computation_space
 import merlin as ml
 import torch
 
@@ -99,16 +97,16 @@ class QRKS:
 
         circuit = get_circuit(circuit, m, 1, True)
         input_fock_state = get_input_fock_state(input_state_type, m, n)
-        self.pqc = ml.QuantumLayer(
+        computation_space = get_computation_space(no_bunching)
+        q_layer = ml.QuantumLayer(
             input_size=1,
-            output_size=1,
             circuit=circuit,
             trainable_parameters=[],
             input_parameters=["px"],
             input_state=input_fock_state,
-            no_bunching=no_bunching,
-            output_mapping_strategy=ml.OutputMappingStrategy.LINEAR,
+            measurement_strategy=ml.MeasurementStrategy.probs(computation_space=computation_space),
         )
+        self.pqc = torch.nn.Sequential(q_layer, torch.nn.Linear(q_layer.output_size, 1))
 
         self.model = SVC(
             kernel="precomputed",

@@ -504,12 +504,12 @@ class MerlinReuploadingClassifier(BaseEstimator, ClassifierMixin):
         trainable_params = ["var"] if design[1] != "D" else []
         quantum_layer = ml.QuantumLayer(
             input_size=self.dimension,
-            output_size=2,  # [p01, p10]
+            # output_size=2,  # [p01, p10]
             circuit=circuit_model.circuit,
             trainable_parameters=trainable_params,
             input_parameters=["x"],
             input_state=circuit_model.input_state,
-            output_mapping_strategy=ml.OutputMappingStrategy.NONE,
+            measurement_strategy=ml.MeasurementStrategy.probs(),
         )
 
         class QuantumModule(nn.Module):
@@ -550,10 +550,14 @@ class MerlinReuploadingClassifier(BaseEstimator, ClassifierMixin):
         tau: float = 1.0,
         convergence_tolerance: float = 1e-6,
     ) -> "MerlinReuploadingClassifier":
-        X_t = torch.tensor(X, dtype=torch.float32, device=self.device)
-        y_t = torch.tensor(y, dtype=torch.long, device=self.device)
-        # X_t = X.clone().detach().to(dtype=torch.float32, device=self.device)
-        # y_t = y.clone().detach().to(dtype=torch.long, device=self.device)
+        if type(X) is torch.Tensor:
+            X_t = X.clone().detach().to(dtype=torch.float32, device=self.device)
+        else:
+            X_t = torch.tensor(X, dtype=torch.float32, device=self.device)
+        if type(y) is torch.Tensor:
+            y_t = y.clone().detach().to(dtype=torch.long, device=self.device)
+        else:
+            y_t = torch.tensor(y, dtype=torch.long, device=self.device)
         loader = self._create_loader(X_t, y_t, batch_size=batch_size)
 
         self.training_history_ = {"loss": [], "epochs": 0} if track_history else None
@@ -604,8 +608,10 @@ class MerlinReuploadingClassifier(BaseEstimator, ClassifierMixin):
     def predict(self, X: np.ndarray) -> np.ndarray:
         if not self.is_fitted_:
             raise ValueError("Call fit() first.")
-        X_t = torch.tensor(X, dtype=torch.float32, device=self.device)
-        # X_t = X.clone().detach().to(dtype=torch.float32, device=self.device)
+        if type(X) is torch.Tensor:
+            X_t = X.clone().detach().to(dtype=torch.float32, device=self.device)
+        else:
+            X_t = torch.tensor(X, dtype=torch.float32, device=self.device)
         with torch.no_grad():
             feats = self.quantum_model(X_t).cpu().numpy().reshape(-1)
         return self.classifier_.predict(feats)

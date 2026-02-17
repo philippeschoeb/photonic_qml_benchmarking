@@ -17,10 +17,7 @@ import numpy as np
 from sklearn.preprocessing import StandardScaler
 from sklearn.base import BaseEstimator, ClassifierMixin
 from sklearn.metrics import accuracy_score
-import optax
-import jax
-import jax.numpy as jnp
-from training.gate_based_training.model_utils import train, chunk_vmapped_fn
+from models.gate_based_utils import *
 
 
 class DressedQuantumCircuitClassifier(BaseEstimator, ClassifierMixin):
@@ -37,7 +34,7 @@ class DressedQuantumCircuitClassifier(BaseEstimator, ClassifierMixin):
         qnode_kwargs={"interface": "jax-jit"},
         scaling=1.0,
         random_state=42,
-        **kwargs,
+        reservoir=False,
     ):
         r"""
         Dressed quantum circuit from https://arxiv.org/abs/1912.08278. The model consists of the following sequence
@@ -62,6 +59,7 @@ class DressedQuantumCircuitClassifier(BaseEstimator, ClassifierMixin):
             qnode_kwargs (str): the keyword arguments passed to the circuit qnode.
             scaling (float): Factor by which to scale the input data.
             random_state (int): Seed used for pseudorandom number generation.
+            reservoir (bool): If True, keep the quantum circuit weights fixed after random initialization.
         """
         # attributes that do not depend on data
         self.n_layers = n_layers
@@ -74,6 +72,7 @@ class DressedQuantumCircuitClassifier(BaseEstimator, ClassifierMixin):
         self.jit = jit
         self.scaling = scaling
         self.random_state = random_state
+        self.reservoir = reservoir
         self.rng = np.random.default_rng(random_state)
 
         if max_vmap is None:
@@ -84,6 +83,7 @@ class DressedQuantumCircuitClassifier(BaseEstimator, ClassifierMixin):
         # data-dependant attributes
         # which will be initialised by calling "fit"
         self.params_ = None  # Dictionary containing the trainable parameters
+        self.non_train_params_ = None
         self.n_qubits_ = None
         self.n_features_ = None
         self.scaler = None  # data scaler will be fitted on training data
@@ -93,12 +93,10 @@ class DressedQuantumCircuitClassifier(BaseEstimator, ClassifierMixin):
 
     def input_transform(self, params, x):
         """
-        The first neural network that we implement as matrix multiplication.
-
-        Removed from model for comparison with photonic
+        The first neural network that we implment as matrix multiplication.
         """
-        # x = jnp.matmul(params["input_weights"], x)
-        # x = jnp.tanh(x) * jnp.pi / 2
+        x = jnp.matmul(params["input_weights"], x)
+        x = jnp.tanh(x) * jnp.pi / 2
         return x
 
     def output_transform(self, params, x):
@@ -116,6 +114,7 @@ class DressedQuantumCircuitClassifier(BaseEstimator, ClassifierMixin):
             """
             The variational circuit taken from the plots
             """
+            weight_source = self.non_train_params_ if self.reservoir else params
             # data encoding
             for i in range(self.n_qubits_):
                 qml.Hadamard(wires=i)
@@ -123,8 +122,7 @@ class DressedQuantumCircuitClassifier(BaseEstimator, ClassifierMixin):
             # trainable unitary
             for layer in range(self.n_layers):
                 for i in range(self.n_qubits_):
-                    qml.RY(params["circuit_weights"][layer, i], wires=i)
-                # qml.broadcast(qml.CNOT, wires=range(self.n_qubits_), pattern="ring")
+                    qml.RY(weight_source["circuit_weights"][layer, i], wires=i)
                 for i in range(self.n_qubits_):
                     qml.CNOT(wires=[i, (i + 1) % self.n_qubits_])
 
@@ -174,21 +172,31 @@ class DressedQuantumCircuitClassifier(BaseEstimator, ClassifierMixin):
                 shape=(self.n_layers, self.n_qubits_), key=self.generate_key()
             )
         )
-        """input_weights = (
+        input_weights = (
             jax.random.normal(
                 shape=(self.n_qubits_, self.n_qubits_), key=self.generate_key()
             )
             / self.n_features_
-        )"""
+        )
         output_weights = (
             jax.random.normal(shape=(2, self.n_qubits_), key=self.generate_key())
             / self.n_features_
         )
-        self.params_ = {
-            "circuit_weights": circuit_weights,
-            # "input_weights": input_weights,
-            "output_weights": output_weights,
-        }
+        if self.reservoir:
+            self.params_ = {
+                "input_weights": input_weights,
+                "output_weights": output_weights,
+            }
+            self.non_train_params_ = {
+                "circuit_weights": circuit_weights,
+            }
+        else:
+            self.params_ = {
+                "circuit_weights": circuit_weights,
+                "input_weights": input_weights,
+                "output_weights": output_weights,
+            }
+            self.non_train_params_ = None
 
     def fit(self, X, y):
         """Fit the model to data X and labels y.
@@ -268,6 +276,7 @@ class DressedQuantumCircuitClassifier(BaseEstimator, ClassifierMixin):
 
 
 class DressedQuantumCircuitClassifierOnlyNN(DressedQuantumCircuitClassifier):
+
     def construct_model(self):
         def dressed_circuit(params, x):
             x = self.input_transform(params, x)
@@ -290,19 +299,19 @@ class DressedQuantumCircuitClassifierOnlyNN(DressedQuantumCircuitClassifier):
             )
             / self.n_features_
         )
-        """input_weights = (
+        input_weights = (
             jax.random.normal(
                 shape=(self.n_qubits_, self.n_qubits_), key=self.generate_key()
             )
             / self.n_features_
-        )"""
+        )
         output_weights = (
             jax.random.normal(shape=(2, self.n_qubits_), key=self.generate_key())
             / self.n_features_
         )
         self.params_ = {
             "mid_weights": mid_weights,
-            # "input_weights": input_weights,
+            "input_weights": input_weights,
             "output_weights": output_weights,
         }
 
@@ -321,6 +330,7 @@ class DressedQuantumCircuitClassifierSeparable(DressedQuantumCircuitClassifier):
             """
             The variational circuit taken from the plots
             """
+            weight_source = self.non_train_params_ if self.reservoir else params
             # data encoding
             for i in range(self.n_qubits_):
                 qml.Hadamard(wires=i)
@@ -328,7 +338,7 @@ class DressedQuantumCircuitClassifierSeparable(DressedQuantumCircuitClassifier):
             # trainable unitary
             for layer in range(self.n_layers):
                 for i in range(self.n_qubits_):
-                    qml.RY(params["circuit_weights"][layer, i], wires=i)
+                    qml.RY(weight_source["circuit_weights"][layer, i], wires=i)
 
             return [qml.expval(qml.PauliZ(wires=i)) for i in range(self.n_qubits_)]
 
@@ -349,18 +359,24 @@ class DressedQuantumCircuitClassifierSeparable(DressedQuantumCircuitClassifier):
 
 
 class SKDressedQuantumCircuitGate(BaseEstimator, ClassifierMixin):
-    """Scikit-learn compatible wrapper for gate-based dressed quantum circuit."""
+    """Scikit-learn compatible wrapper for the gate-based dressed quantum circuit."""
 
-    def __init__(self, data_params=None, model_params=None, training_params=None):
+    def __init__(
+        self, data_params=None, model_params=None, training_params=None, reservoir=False
+    ):
         self.model_class = DressedQuantumCircuitClassifier
         self.model_type = "sklearn_gate"
         self.model_name = "dressed_quantum_circuit"
         self.data_params = data_params or {}
-        self.model_params = model_params or {}
+        self.model_params = dict(model_params or {})
         self.training_params = training_params or {}
+
+        if reservoir and "reservoir" not in self.model_params:
+            self.model_params["reservoir"] = True
 
         self.model = None
         self.train_losses = None
+        self.train_accuracies = None
         self.final_train_acc = None
 
     def get_params(self, deep=True):
@@ -388,12 +404,10 @@ class SKDressedQuantumCircuitGate(BaseEstimator, ClassifierMixin):
 
     def _prepare_model_kwargs(self):
         kwargs = dict(self.model_params)
-        # Remove metadata
         kwargs.pop("type", None)
         kwargs.pop("name", None)
         kwargs.pop("input_size", None)
         kwargs.pop("output_size", None)
-        # Map hyperparameter names to constructor expectations
         if "numLayers" in kwargs and "n_layers" not in kwargs:
             kwargs["n_layers"] = kwargs.pop("numLayers")
         if "lr" in kwargs and "learning_rate" not in kwargs:

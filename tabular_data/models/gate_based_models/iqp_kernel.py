@@ -21,7 +21,7 @@ from sklearn.base import BaseEstimator, ClassifierMixin
 from sklearn.metrics import accuracy_score
 from sklearn.svm import SVC
 from sklearn.preprocessing import MinMaxScaler
-from training.gate_based_training.model_utils import chunk_vmapped_fn
+from models.gate_based_utils import chunk_vmapped_fn
 
 jax.config.update("jax_enable_x64", True)
 
@@ -38,7 +38,6 @@ class IQPKernelClassifier(BaseEstimator, ClassifierMixin):
         max_vmap=250,
         dev_type="default.qubit",
         qnode_kwargs={"interface": "jax-jit", "diff_method": None},
-        **kwargs,
     ):
         r"""
         Kernel version of the classifier from https://arxiv.org/pdf/1804.11326v2.pdf.
@@ -245,19 +244,19 @@ class IQPKernelClassifier(BaseEstimator, ClassifierMixin):
 
 
 class SKIQPKernelGate(BaseEstimator, ClassifierMixin):
-    """Scikit-learn compatible wrapper for gate-based IQP kernel classifiers."""
-
-    model_name = "q_kernel_method"
+    """Scikit-learn compatible wrapper for the gate-based IQP kernel model."""
 
     def __init__(self, data_params=None, model_params=None, training_params=None):
         self.model_class = IQPKernelClassifier
         self.model_type = "sklearn_gate"
-        self.model_name = self.__class__.model_name
+        self.model_name = "q_kernel_method"
         self.data_params = data_params or {}
         self.model_params = model_params or {}
         self.training_params = training_params or {}
 
         self.model = None
+        self.train_losses = None
+        self.train_accuracies = None
         self.final_train_acc = None
 
     def get_params(self, deep=True):
@@ -289,8 +288,6 @@ class SKIQPKernelGate(BaseEstimator, ClassifierMixin):
         kwargs.pop("name", None)
         kwargs.pop("input_size", None)
         kwargs.pop("output_size", None)
-        if kwargs.get("max_vmap") is None:
-            kwargs["max_vmap"] = 250
         return kwargs
 
     def fit(self, X, y):
@@ -301,6 +298,7 @@ class SKIQPKernelGate(BaseEstimator, ClassifierMixin):
         y_np = np.asarray(y)
 
         self.model.fit(X_np, y_np)
+        self.train_losses = getattr(self.model, "loss_history_", None)
         train_predictions = self.model.predict(X_np)
         self.final_train_acc = accuracy_score(y_np, train_predictions)
         return self

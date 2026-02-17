@@ -1,7 +1,7 @@
 {
     "downscaled_mnist_pca": {
         "scaling": "minmax",
-        "batch_size": 32
+        "batch_size": 128
     },
     "hidden_manifold": {
         "scaling": "minmax",

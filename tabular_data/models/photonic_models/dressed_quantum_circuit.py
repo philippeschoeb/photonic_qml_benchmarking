@@ -5,10 +5,7 @@ import logging
 from sklearn.base import BaseEstimator, ClassifierMixin
 from sklearn.metrics import accuracy_score
 from training.training_torch import assign_criterion, assign_optimizer, assign_scheduler
-from models.photonic_models.scaling_layer import ScalingLayer
-from models.photonic_models.circuits import get_circuit
-from models.photonic_models.input_fock_state import get_input_fock_state
-
+from models.photonic_based_utils import get_computation_space, get_input_fock_state, get_circuit, ScalingLayer
 
 class DressedQuantumCircuit(torch.nn.Module):
     """
@@ -25,7 +22,7 @@ class DressedQuantumCircuit(torch.nn.Module):
         circuit_type,
         reservoir,
         no_bunching,
-        input_state_type="standard",
+        input_state_type="spaced",
         **kwargs,
     ):
         super().__init__()
@@ -34,20 +31,20 @@ class DressedQuantumCircuit(torch.nn.Module):
         circuit = get_circuit(circuit_type, m, input_size, reservoir)
         input_fock_state = get_input_fock_state(input_state_type, m, n)
         trainable_params = [] if reservoir else ["theta"]
-        self.pqc = ml.QuantumLayer(
+        computation_space = get_computation_space(no_bunching)
+        q_layer = ml.QuantumLayer(
             input_size=input_size,
-            output_size=output_size,
             circuit=circuit,
             input_state=input_fock_state,
             trainable_parameters=trainable_params,
             input_parameters=["px"],
-            output_mapping_strategy=ml.OutputMappingStrategy.LINEAR,
-            no_bunching=no_bunching,
+            measurement_strategy=ml.MeasurementStrategy.probs(computation_space=computation_space),
         )
+        self.dqc = torch.nn.Sequential(q_layer, torch.nn.Linear(q_layer.output_size, output_size))
 
     def forward(self, x):
         x = self.scaling(x)
-        output = self.pqc(x)
+        output = self.dqc(x)
         return output
 
 
