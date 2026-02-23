@@ -5,6 +5,7 @@ from datetime import datetime
 import os
 import random
 from typing import Optional
+import csv
 import numpy as np
 import torch
 import joblib
@@ -32,6 +33,75 @@ from utils.save_metrics import (
     save_sk_train_losses_accs,
     save_search_hyperparams,
 )
+
+
+def _serialize_for_json(obj):
+    if isinstance(obj, dict):
+        return {k: _serialize_for_json(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [_serialize_for_json(v) for v in obj]
+    if isinstance(obj, np.ndarray):
+        return obj.tolist()
+    if isinstance(obj, np.generic):
+        return obj.item()
+    if isinstance(obj, torch.device):
+        return str(obj)
+    return obj
+
+
+def save_hp_search_summary(
+    save_dir: str,
+    summary: dict,
+    dataset: str,
+    big_script_name: Optional[str] = None,
+):
+    """Persist per-run summary and append to dataset-level aggregate files."""
+    os.makedirs(save_dir, exist_ok=True)
+    summary = _serialize_for_json(summary)
+
+    per_run_path = os.path.join(save_dir, "hp_search_summary.json")
+    with open(per_run_path, "w") as f:
+        json.dump(summary, f, indent=4, default=str)
+
+    if not big_script_name:
+        return
+
+    repo_root = os.path.dirname(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    )
+    summary_dir = os.path.join(repo_root, "tabular_data", "results", big_script_name)
+    os.makedirs(summary_dir, exist_ok=True)
+
+    dataset_slug = dataset.replace("/", "_")
+    jsonl_path = os.path.join(summary_dir, f"hp_search_{dataset_slug}.jsonl")
+    with open(jsonl_path, "a") as f:
+        f.write(json.dumps(summary, default=str) + "\n")
+
+    csv_path = os.path.join(summary_dir, f"hp_search_{dataset_slug}.csv")
+    csv_row = {
+        "timestamp": summary.get("timestamp"),
+        "dataset": summary.get("dataset"),
+        "model": summary.get("model"),
+        "backend": summary.get("backend"),
+        "search_type": summary.get("search_type"),
+        "hp_profile": summary.get("hp_profile"),
+        "final_train_acc": summary.get("final_train_acc"),
+        "final_test_acc": summary.get("final_test_acc"),
+        "num_params": summary.get("num_params"),
+        "num_support_vectors": summary.get("num_support_vectors"),
+        "hp_search_time_seconds": summary.get("hp_search_time_seconds"),
+        "optimal_model_train_eval_time_seconds": summary.get(
+            "optimal_model_train_eval_time_seconds"
+        ),
+        "best_params": json.dumps(summary.get("best_params", {}), default=str),
+        "run_dir": summary.get("run_dir"),
+    }
+    write_header = not os.path.exists(csv_path)
+    with open(csv_path, "a", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=list(csv_row.keys()))
+        if write_header:
+            writer.writeheader()
+        writer.writerow(csv_row)
 
 
 def run_single(
@@ -334,15 +404,15 @@ def run_search(
     start = time()
     search.fit(x_train, y_train)
     end = time()
-    training_time = end - start
+    hp_search_time = end - start
     logging.warning(
-        f"HPs search completed in {training_time} seconds, best test accuracy reached: {search.best_score_:.4f}"
+        f"HPs search completed in {hp_search_time} seconds, best test accuracy reached: {search.best_score_:.4f}"
     )
 
     # Suggestion based on optimization time
-    if training_time > 3600:
+    if hp_search_time > 3600:
         suggestion = "Optimization is too long. Reduce search space or search strategy complexity."
-    elif training_time < 120:
+    elif hp_search_time < 120:
         suggestion = "Optimization is too short. You should increase search strategy complexity if possible."
     else:
         suggestion = "HP search duration is as expected."
@@ -353,12 +423,19 @@ def run_search(
 
     # Get best model and final accuracies
     best_model = search.best_estimator_
+    eval_start = time()
     y_pred_train = best_model.predict(x_train)
     final_train_acc = accuracy_score(y_train, y_pred_train)
     y_pred_test = best_model.predict(x_test)
     final_test_acc = accuracy_score(y_test, y_pred_test)
+    eval_time = time() - eval_start
+    refit_time = float(getattr(search, "refit_time_", 0.0))
+    optimal_model_train_eval_time = refit_time + eval_time
     logging.warning(
         f"Final train accuracy: {final_train_acc:.4f} | Final test accuracy: {final_test_acc:.4f}"
+    )
+    logging.warning(
+        f"Optimal model train+eval time: {optimal_model_train_eval_time:.4f} seconds"
     )
 
     model_dict = {"type": model_type, "name": model, "model": best_model}
@@ -369,14 +446,22 @@ def run_search(
     # Save number of parameters / support vectors and training time
     param_grid_serializable["num_params"] = num_params
     param_grid_serializable["num_support_vectors"] = num_support_vectors
-    param_grid_serializable["training_time"] = training_time
+    param_grid_serializable["training_time"] = hp_search_time
+    param_grid_serializable["hp_search_time_seconds"] = hp_search_time
+    param_grid_serializable["optimal_model_train_eval_time_seconds"] = (
+        optimal_model_train_eval_time
+    )
+    param_grid_serializable["final_train_acc"] = final_train_acc
+    param_grid_serializable["final_test_acc"] = final_test_acc
     # Also in wandb
     if use_wandb:
         wandb.log(
             {
                 "number_of_params": num_params,
                 "num_support_vectors": num_support_vectors,
-                "training_time": training_time,
+                "training_time": hp_search_time,
+                "hp_search_time_seconds": hp_search_time,
+                "optimal_model_train_eval_time_seconds": optimal_model_train_eval_time,
             }
         )
 
@@ -397,6 +482,12 @@ def run_search(
         save_final_accs(final_train_acc, final_test_acc, save_dir, use_wandb)
     elif model_type == "jax_sklearn_gate":
         save_final_accs(final_train_acc, final_test_acc, save_dir, use_wandb)
+    elif model_type == "sklearn_q_kernel":
+        save_final_accs(final_train_acc, final_test_acc, save_dir, use_wandb)
+    elif model_type == "sklearn_gate":
+        save_final_accs(final_train_acc, final_test_acc, save_dir, use_wandb)
+    elif model_type == "gate_rks":
+        save_final_accs(final_train_acc, final_test_acc, save_dir, use_wandb)
     else:
         raise NotImplementedError(f"Unknown model type: {model_type}")
     logging.warning(f"Metrics saved at {save_dir}\n\n")
@@ -404,6 +495,27 @@ def run_search(
     # Save optimal hyperparameters
     best_params = search.best_params_
     save_search_hyperparams(param_grid_serializable, best_params, save_dir, use_wandb)
+    save_hp_search_summary(
+        save_dir=save_dir,
+        dataset=dataset,
+        big_script_name=big_script_name,
+        summary={
+            "timestamp": datetime.now().isoformat(timespec="seconds"),
+            "dataset": dataset,
+            "model": model,
+            "backend": backend,
+            "search_type": search_type,
+            "hp_profile": hp_profile,
+            "best_params": best_params,
+            "final_train_acc": final_train_acc,
+            "final_test_acc": final_test_acc,
+            "num_params": num_params,
+            "num_support_vectors": num_support_vectors,
+            "hp_search_time_seconds": hp_search_time,
+            "optimal_model_train_eval_time_seconds": optimal_model_train_eval_time,
+            "run_dir": save_dir,
+        },
+    )
     # Save them to Wandb too
     if use_wandb:
         wandb.run.config.update({"best_hps": best_params})
@@ -436,7 +548,6 @@ def set_up_logging(
         run_type_label = "hp_search"
     else:
         raise ValueError(f"Unknown run_type: {run_type}")
-    run_folder = f"{run_type_label}_{timestamp}"
     model_backend_dataset = f"{model}_{backend}_{dataset}"
     repo_root = os.path.dirname(
         os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -444,7 +555,16 @@ def set_up_logging(
     path_parts = [repo_root, "tabular_data", "results"]
     if big_script_name:
         path_parts.append(big_script_name)
-    path_parts.extend([run_folder, model_backend_dataset])
+        # If a grouped run path is provided (e.g. script_name/timestamp),
+        # store model outputs directly beneath it.
+        if "/" in big_script_name:
+            path_parts.append(model_backend_dataset)
+        else:
+            run_folder = f"{run_type_label}_{timestamp}"
+            path_parts.extend([run_folder, model_backend_dataset])
+    else:
+        run_folder = f"{run_type_label}_{timestamp}"
+        path_parts.extend([run_folder, model_backend_dataset])
     log_dir = os.path.join(*path_parts)
     os.makedirs(log_dir, exist_ok=True)
     log_file = os.path.join(log_dir, "logs.txt")

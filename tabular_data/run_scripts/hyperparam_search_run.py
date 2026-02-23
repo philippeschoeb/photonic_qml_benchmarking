@@ -18,6 +18,10 @@ def _hp_search_root(hp_profile):
     raise ValueError(f"Unknown hp_profile: {hp_profile}")
 
 
+def _grid_config_subdir(hp_profile):
+    return "grid" if hp_profile == "minimal" else "halving_grid"
+
+
 def _dimension_from_config(value):
     if isinstance(value, _SKOPT_DIMENSIONS):
         return value
@@ -111,7 +115,7 @@ def get_dataset_hps(dataset_name, model, backend, hp_profile):
 
 def get_model_hps_halving_grid_photonic(model, architecture, hp_profile):
     hp_root = _hp_search_root(hp_profile)
-    hp_path = f"{hp_root}/halving_grid/photonic_model_hps.json"
+    hp_path = f"{hp_root}/{_grid_config_subdir(hp_profile)}/photonic_model_hps.json"
 
     # Load hps
     with open(hp_path, "r") as f:
@@ -227,7 +231,7 @@ def get_model_hps_bayes_photonic(model, architecture, hp_profile):
 
 def get_model_hps_halving_grid_gate(model, architecture, random_state, hp_profile):
     hp_root = _hp_search_root(hp_profile)
-    hp_path = f"{hp_root}/halving_grid/gate_model_hps.json"
+    hp_path = f"{hp_root}/{_grid_config_subdir(hp_profile)}/gate_model_hps.json"
 
     # Load hps
     with open(hp_path, "r") as f:
@@ -357,7 +361,9 @@ def get_model_hps_halving_grid_classical(
     else:
         # Load hps
         hp_root = _hp_search_root(hp_profile)
-        with open(f"{hp_root}/halving_grid/classical_model_hps.json", "r") as f:
+        with open(
+            f"{hp_root}/{_grid_config_subdir(hp_profile)}/classical_model_hps.json", "r"
+        ) as f:
             hps = json.load(f)
 
         # Access model hps
@@ -482,7 +488,9 @@ def get_training_hps_halving_grid(model_type, dataset_name, model, hp_profile):
 
     # Load hps
     hp_root = _hp_search_root(hp_profile)
-    with open(f"{hp_root}/halving_grid/training_hps.json", "r") as f:
+    with open(
+        f"{hp_root}/{_grid_config_subdir(hp_profile)}/training_hps.json", "r"
+    ) as f:
         hps = json.load(f)
 
     # Access training hps

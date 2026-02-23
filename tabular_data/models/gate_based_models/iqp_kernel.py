@@ -250,9 +250,9 @@ class SKIQPKernelGate(BaseEstimator, ClassifierMixin):
         self.model_class = IQPKernelClassifier
         self.model_type = "sklearn_gate"
         self.model_name = "q_kernel_method"
-        self.data_params = data_params or {}
-        self.model_params = model_params or {}
-        self.training_params = training_params or {}
+        self.data_params = {} if data_params is None else data_params
+        self.model_params = {} if model_params is None else model_params
+        self.training_params = {} if training_params is None else training_params
 
         self.model = None
         self.train_losses = None
@@ -260,11 +260,17 @@ class SKIQPKernelGate(BaseEstimator, ClassifierMixin):
         self.final_train_acc = None
 
     def get_params(self, deep=True):
-        params = dict(self.data_params)
-        params.update({f"model_params__{k}": v for k, v in self.model_params.items()})
-        params.update(
-            {f"training_params__{k}": v for k, v in self.training_params.items()}
-        )
+        params = {
+            "data_params": self.data_params,
+            "model_params": self.model_params,
+            "training_params": self.training_params,
+        }
+        if deep:
+            params.update(self.data_params)
+            params.update({f"model_params__{k}": v for k, v in self.model_params.items()})
+            params.update(
+                {f"training_params__{k}": v for k, v in self.training_params.items()}
+            )
         return params
 
     def set_params(self, **params):

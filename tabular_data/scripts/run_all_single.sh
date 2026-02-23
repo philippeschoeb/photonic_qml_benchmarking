@@ -54,8 +54,13 @@ for model in "${MODELS[@]}"; do
   fi
   backends="${MODEL_BACKENDS["$model"]}"
   for backend in ${backends}; do
-    echo "-> Model: ${model}, Backend: ${backend}"
-    python main.py --dataset "${DATASET}" --model "${model}" --backend "${backend}" --run_type single --big_script_name "${SCRIPT_NAME}"
+    if [[ "${backend}" == "classical" ]]; then
+      echo "-> Model: ${model}, Backend: auto (classical)"
+      python main.py --dataset "${DATASET}" --model "${model}" --run_type single --big_script_name "${SCRIPT_NAME}"
+    else
+      echo "-> Model: ${model}, Backend: ${backend}"
+      python main.py --dataset "${DATASET}" --model "${model}" --backend "${backend}" --run_type single --big_script_name "${SCRIPT_NAME}"
+    fi
   done
 done
 

@@ -394,13 +394,16 @@ class DressedQuantumCircuitClassifierSeparable(DressedQuantumCircuitClassifier):
 class SKMultiplePathsModelGate(BaseEstimator, ClassifierMixin):
     """Scikit-learn compatible wrapper for the gate-based multiple paths model."""
 
-    def __init__(self, data_params=None, model_params=None, training_params=None):
+    def __init__(
+        self, data_params=None, model_params=None, training_params=None, reservoir=False
+    ):
         self.model_class = MultiplePathsModelClassifier
         self.model_type = "sklearn_gate"
         self.model_name = "multiple_paths_model"
-        self.data_params = data_params or {}
-        self.model_params = model_params or {}
-        self.training_params = training_params or {}
+        self.data_params = {} if data_params is None else data_params
+        self.model_params = {} if model_params is None else model_params
+        self.training_params = {} if training_params is None else training_params
+        self.reservoir = reservoir
 
         self.model = None
         self.train_losses = None
@@ -408,11 +411,18 @@ class SKMultiplePathsModelGate(BaseEstimator, ClassifierMixin):
         self.final_train_acc = None
 
     def get_params(self, deep=True):
-        params = dict(self.data_params)
-        params.update({f"model_params__{k}": v for k, v in self.model_params.items()})
-        params.update(
-            {f"training_params__{k}": v for k, v in self.training_params.items()}
-        )
+        params = {
+            "data_params": self.data_params,
+            "model_params": self.model_params,
+            "training_params": self.training_params,
+            "reservoir": self.reservoir,
+        }
+        if deep:
+            params.update(self.data_params)
+            params.update({f"model_params__{k}": v for k, v in self.model_params.items()})
+            params.update(
+                {f"training_params__{k}": v for k, v in self.training_params.items()}
+            )
         return params
 
     def set_params(self, **params):
@@ -442,6 +452,8 @@ class SKMultiplePathsModelGate(BaseEstimator, ClassifierMixin):
             kwargs["learning_rate"] = kwargs.pop("lr")
         if "numNeurons" in kwargs and "num_neurons" not in kwargs:
             kwargs["num_neurons"] = kwargs.pop("numNeurons")
+        if "reservoir" not in kwargs:
+            kwargs["reservoir"] = self.reservoir
         num_neurons = kwargs.get("num_neurons", [])
         if "n_classical_h_layers" not in kwargs:
             kwargs["n_classical_h_layers"] = len(num_neurons) if num_neurons else 0

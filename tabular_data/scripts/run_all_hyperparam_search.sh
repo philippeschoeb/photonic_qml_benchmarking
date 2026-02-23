@@ -113,8 +113,13 @@ for dataset in "${DATASETS[@]}"; do
 
     for backend in ${backends}; do
       search_type="${MODEL_SEARCH_TYPE[$model]:-unknown}"
-      echo "    -> Model: ${model}, Backend: ${backend} (search: ${search_type})"
-      cmd=(python main.py --dataset "${dataset}" --model "${model}" --backend "${backend}" --run_type hyperparam_search --big_script_name "${SCRIPT_NAME}")
+      if [[ "${backend}" == "classical" ]]; then
+        echo "    -> Model: ${model}, Backend: auto (classical) (search: ${search_type})"
+        cmd=(python main.py --dataset "${dataset}" --model "${model}" --run_type hyperparam_search --big_script_name "${SCRIPT_NAME}")
+      else
+        echo "    -> Model: ${model}, Backend: ${backend} (search: ${search_type})"
+        cmd=(python main.py --dataset "${dataset}" --model "${model}" --backend "${backend}" --run_type hyperparam_search --big_script_name "${SCRIPT_NAME}")
+      fi
       start_time=$(date +%s)
       if timeout "${TIMEOUT_SECONDS}" "${cmd[@]}"; then
         end_time=$(date +%s)

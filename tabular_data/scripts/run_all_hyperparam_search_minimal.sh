@@ -7,8 +7,10 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "${ROOT_DIR}"
 SCRIPT_NAME="$(basename "$0" .sh)"
+RUN_TS="$(date '+%Y-%m-%d_%H-%M-%S')"
+RUN_GROUP="${SCRIPT_NAME}/${RUN_TS}"
 
-DATASET="downscaled_mnist_pca_2"
+DATASET="${1:-${DATASET:-hidden_manifold_2_6}}"
 USE_WANDB=0
 WANDB_FLAG="--no-wandb"
 if [[ "${USE_WANDB}" == "1" ]]; then
@@ -46,6 +48,8 @@ declare -A MODEL_BACKENDS=(
 echo "====== Hyperparameter Search (minimal) Sweep ======"
 echo "Dataset: ${DATASET}"
 echo "Models: ${MODELS[*]}"
+echo "Output root: tabular_data/results/${RUN_GROUP}"
+echo "Summary CSV: tabular_data/results/${RUN_GROUP}/hp_search_${DATASET}.csv"
 echo
 
 for model in "${MODELS[@]}"; do
@@ -55,8 +59,13 @@ for model in "${MODELS[@]}"; do
   fi
   backends="${MODEL_BACKENDS["$model"]}"
   for backend in ${backends}; do
-    echo "-> Model: ${model}, Backend: ${backend}"
-    python main.py --dataset "${DATASET}" --model "${model}" --backend "${backend}" --run_type hyperparam_search --hp_profile minimal --big_script_name "${SCRIPT_NAME}" ${WANDB_FLAG}
+    if [[ "${backend}" == "classical" ]]; then
+      echo "-> Model: ${model}, Backend: auto (classical)"
+      python main.py --dataset "${DATASET}" --model "${model}" --run_type hyperparam_search --hp_profile minimal --big_script_name "${RUN_GROUP}" ${WANDB_FLAG}
+    else
+      echo "-> Model: ${model}, Backend: ${backend}"
+      python main.py --dataset "${DATASET}" --model "${model}" --backend "${backend}" --run_type hyperparam_search --hp_profile minimal --big_script_name "${RUN_GROUP}" ${WANDB_FLAG}
+    fi
   done
 done
 
