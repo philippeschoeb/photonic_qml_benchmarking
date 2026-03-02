@@ -2,6 +2,7 @@ DATASET_BASE_NAMES = [
     "downscaled_mnist_pca",
     "hidden_manifold",
     "two_curves",
+    "spiral",
 ]
 
 PHOTONIC_MODELS = [

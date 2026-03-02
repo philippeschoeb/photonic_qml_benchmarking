@@ -1,4 +1,5 @@
 import logging
+from utils.photonic_dims import get_photonic_mn
 
 from models.photonic_models.dressed_quantum_circuit import (
     DressedQuantumCircuit as DressedQuantumCircuitPhotonic,
@@ -57,8 +58,7 @@ def fetch_model(model, backend, input_size, output_size, **hyperparams):
     # Photonic based quantum models
     if backend == "photonic":
         if model != "data_reuploading":
-            hyperparams["m"] = 2 * input_size
-            hyperparams["n"] = input_size
+            hyperparams["m"], hyperparams["n"] = get_photonic_mn(input_size)
         if (
             model == "dressed_quantum_circuit"
             or model == "dressed_quantum_circuit_reservoir"
@@ -201,16 +201,9 @@ def fetch_model(model, backend, input_size, output_size, **hyperparams):
                 random_state=hyperparams["random_state"],
             )
         elif model == "q_kernel_method":
-            logging.warning(
-                "q_kernel_method with gate based backend is only available in reservoir mode"
-            )
-            logging.warning("Returning q_kernel_method_reservoir")
-            return IQPKernelGate(
-                repeats=hyperparams["repeats"],
-                C=hyperparams["C"],
-                scaling=hyperparams["scaling"],
-                max_vmap=hyperparams["max_vmap"],
-                random_state=hyperparams["random_state"],
+            raise NotImplementedError(
+                "q_kernel_method with gate backend is not supported. "
+                "Use q_kernel_method_reservoir explicitly."
             )
         elif model == "q_rks":
             return QRKSGate(
@@ -229,10 +222,27 @@ def fetch_model(model, backend, input_size, output_size, **hyperparams):
     # Classical models
     elif backend == "classical":
         if model == "mlp":
+            num_neurons = hyperparams["numNeurons"]
+            reference_input_size = hyperparams.get("reference_input_size")
+            if reference_input_size is not None:
+                reference_input_size = int(reference_input_size)
+                if reference_input_size <= 0:
+                    raise ValueError(
+                        f"reference_input_size must be positive, got {reference_input_size}"
+                    )
+                scale = input_size / reference_input_size
+                num_neurons = [max(1, int(round(n * scale))) for n in num_neurons]
+                logging.info(
+                    "Scaled MLP numNeurons from reference_input_size=%s to input_size=%s: %s -> %s",
+                    reference_input_size,
+                    input_size,
+                    hyperparams["numNeurons"],
+                    num_neurons,
+                )
             return MLP(
                 input_size=input_size,
                 output_size=output_size,
-                numNeurons=hyperparams["numNeurons"],
+                numNeurons=num_neurons,
             )
         elif model == "rbf_svc":
             return RBFSVC(
@@ -286,11 +296,10 @@ def fetch_sk_model(model, backend):
         elif model == "data_reuploading":
             return SKDataReuploadingGate()
         elif model == "q_kernel_method":
-            logging.warning(
-                "q_kernel_method with gate based backend is only available in reservoir mode"
+            raise NotImplementedError(
+                "q_kernel_method with gate backend is not supported. "
+                "Use q_kernel_method_reservoir explicitly."
             )
-            logging.warning("Returning q_kernel_method_reservoir")
-            return SKIQPKernelGate()
         elif model == "q_kernel_method_reservoir":
             return SKIQPKernelGate()
         elif model == "q_rks":

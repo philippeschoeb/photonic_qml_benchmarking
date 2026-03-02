@@ -13,6 +13,7 @@ from datasets.hidden_manifold_loading import get_dataset as get_hm
 from datasets.hidden_manifold import generate_hidden_manifold_model
 from datasets.two_curves_loading import get_dataset as get_two_curves
 from datasets.two_curves import generate_two_curves
+from datasets.spiral import generate_spiral_dataset
 import pennylane as qml
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler, MinMaxScaler
@@ -44,7 +45,7 @@ def get_data(
     Load dataset arrays.
 
     Args:
-        data: Dataset base name ("downscaled_mnist_pca", "hidden_manifold", "two_curves").
+        data: Dataset base name ("downscaled_mnist_pca", "hidden_manifold", "two_curves", "spiral").
         loading: "fetch" to read prebuilt HDF5, "build" to generate on the fly.
         arg1: Dataset-specific parameter (e.g., input dimension).
         arg2: Dataset-specific parameter (e.g., manifold dimension).
@@ -86,6 +87,21 @@ def get_data(
             )
         else:
             raise ValueError(f"Unknown loading {loading}")
+    elif data == "spiral":
+        if arg1 is None:
+            raise ValueError("spiral dataset requires arg1=d with d in [2, 100].")
+        if random_state is None:
+            random_state = 42
+        # Keep defaults aligned with hidden_manifold/two_curves:
+        # 300 total samples split into 240 train / 60 test.
+        x_train, x_test, y_train, y_test = generate_spiral_dataset(
+            n_samples=300,
+            n_features=arg1,
+            n_classes=3,
+            test_size=0.2,
+            random_state=random_state,
+        )
+        return x_train, x_test, y_train.astype(np.int64), y_test.astype(np.int64)
     else:
         raise ValueError(f"Unknown dataset: {data}")
 

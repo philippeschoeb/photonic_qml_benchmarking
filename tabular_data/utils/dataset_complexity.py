@@ -1,4 +1,5 @@
 import argparse
+import json
 import os
 import shutil
 import sys
@@ -23,6 +24,7 @@ hidden_manifold_values = [(2, 6), (8, 6)]
 hidden_manifold_diff_values = [(10, 2), (10, 10)]
 two_curves_values = [(2, 5), (8, 5)]
 two_curves_diff_values = [(10, 2), (10, 10)]
+spiral_values = [2, 10, 30, 50]
 
 COMBINE_DATASET_CONFIGS: dict[str, list] = {
     "downscaled_mnist_pca": downscaled_mnist_pca_values,
@@ -30,7 +32,10 @@ COMBINE_DATASET_CONFIGS: dict[str, list] = {
     "hidden_manifold_diff": hidden_manifold_diff_values,
     "two_curves": two_curves_values,
     "two_curves_diff": two_curves_diff_values,
+    "spiral": spiral_values,
 }
+
+BASELINES_JSON_PATH = Path(ROOT_DIR) / "results" / "datasets" / "baselines.json"
 
 
 def _parse_dataset_name(dataset: str) -> tuple[str, int | None, int | None]:
@@ -167,15 +172,32 @@ def _make_progress(total: int, desc: str):
     return progress
 
 
+def _save_baseline_scores(dataset_key: str, scores: dict[str, float]) -> None:
+    """Persist sklearn baseline test-accuracy scores under results/datasets/baselines.json."""
+    BASELINES_JSON_PATH.parent.mkdir(parents=True, exist_ok=True)
+    payload: dict[str, dict[str, float]] = {}
+    if BASELINES_JSON_PATH.exists():
+        try:
+            payload = json.loads(BASELINES_JSON_PATH.read_text())
+        except json.JSONDecodeError:
+            payload = {}
+    payload[dataset_key] = {k: float(v) for k, v in scores.items()}
+    BASELINES_JSON_PATH.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
+
+
 def _load_dataset_splits(dataset: str) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     from datasets.data import download_datasets, get_data
 
     dataset_name, arg1, arg2 = _parse_dataset_name(dataset)
     try:
-        x_train, x_test, y_train, y_test = get_data(dataset_name, arg1=arg1, arg2=arg2)
+        x_train, x_test, y_train, y_test = get_data(
+            dataset_name, arg1=arg1, arg2=arg2, random_state=42
+        )
     except FileNotFoundError:
         download_datasets()
-        x_train, x_test, y_train, y_test = get_data(dataset_name, arg1=arg1, arg2=arg2)
+        x_train, x_test, y_train, y_test = get_data(
+            dataset_name, arg1=arg1, arg2=arg2, random_state=42
+        )
     return (
         np.asarray(x_train),
         np.asarray(x_test),
@@ -221,6 +243,10 @@ def download_dataset_as_arff(
 
 def _combine_concrete_dataset(dataset: str, value) -> tuple[str, str]:
     if dataset == "downscaled_mnist_pca":
+        concrete = f"{dataset}_{value}"
+        label = f"d={value}"
+        return concrete, label
+    if dataset == "spiral":
         concrete = f"{dataset}_{value}"
         label = f"d={value}"
         return concrete, label
@@ -422,6 +448,14 @@ def sklearn_accuracy_figure(dataset: str, subsample: bool = False) -> Path:
         if progress is not None:
             progress.close()
 
+    save_key = dataset
+    if subsample:
+        save_key = f"{save_key}{SUBSAMPLED_SUFFIX}"
+    _save_baseline_scores(
+        save_key,
+        {model_name: score for model_name, score in zip(model_names, test_scores)},
+    )
+
     x = np.arange(len(model_names))
     width = 0.36
     plt.figure(figsize=(10, 6))
@@ -511,6 +545,13 @@ def sklearn_combined_accuracy_figure(dataset: str, subsample: bool = False) -> P
                     progress.update(1)
                     progress.refresh()
                 model_scores[model_name].append(float(accuracy_score(y_test, test_pred)))
+            save_key = concrete_dataset
+            if subsample:
+                save_key = f"{save_key}{SUBSAMPLED_SUFFIX}"
+            _save_baseline_scores(
+                save_key,
+                {model_name: model_scores[model_name][-1] for model_name in model_scores},
+            )
     finally:
         if progress is not None:
             progress.close()
@@ -763,7 +804,7 @@ def main() -> None:
         help=(
             "Combine mode for dataset families: "
             "downscaled_mnist_pca, hidden_manifold, hidden_manifold_diff, "
-            "two_curves, two_curves_diff."
+            "two_curves, two_curves_diff, spiral."
         ),
     )
     parser.add_argument(

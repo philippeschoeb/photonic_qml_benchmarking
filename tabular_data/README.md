@@ -34,8 +34,13 @@ Dataset names follow:
 1. `downscaled_mnist_pca_{d}`
 2. `hidden_manifold_{d}_{m}`
 3. `two_curves_{d}_{D}`
+4. `spiral_{d}`
 
-With `d`, `m`, `D` in `[2, 3, ... , 20]`.
+With:
+- `downscaled_mnist_pca`: `d` in `[2, 3, ... , 20]`
+- `hidden_manifold`: `d,m` in `[2, 3, ... , 20]`
+- `two_curves`: `d,D` in `[2, 3, ... , 20]`
+- `spiral`: `d` in `[2, 3, ... , 100]` (3 classes)
 
 # Models
 Quantum models:
@@ -73,7 +78,8 @@ python main.py --dataset {dataset_name} --model {model_name} --architecture help
 - Data scaling: `minmax`
 - Scaling layer: `pi`
 - Photonic input state (for m/n-based models): `spaced`, which yields `[1,0,1,0,1,0,1,0,1,0]` when `m=10`, `n=5`
-- Modes/photons: `m=10`, `n=5` for all photonic models that accept `m`/`n`
+- Modes/photons (for photonic models that accept `m`/`n`): default mode `feature_plus_one` uses `m=n_features+1`, `n=ceil(n_features/2)`
+- Override via env var `PHOTONIC_DIM_MODE` in `{feature_plus_one, feature_equal, feature_double}`
 
 # Results Layout
 All runs write to:

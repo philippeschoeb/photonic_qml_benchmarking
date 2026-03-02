@@ -1,7 +1,7 @@
 """Reference guide for dataset selection parameters."""
 
 # Step 1: Choose dataset
-datasets = ["downscaled_mnist_pca", "hidden_manifold", "two_curves"]
+datasets = ["downscaled_mnist_pca", "hidden_manifold", "two_curves", "spiral"]
 
 # Step 2: Choose args
 args1 = list(range(2, 21))
@@ -19,6 +19,9 @@ args1 = list(range(2, 21))
 # arg1 != 10 -> arg2 = 5
 # 'two_curves_diff' varies arg2 (degree of polynomial)
 # arg2 != 5 -> arg1 = 10
+
+# If dataset = 'spiral':
+# 'spiral' uses arg1 only (feature dimension d), with d in [2, 100]
 
 args2 = list(range(2, 21))
 

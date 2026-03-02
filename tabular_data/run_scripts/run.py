@@ -33,6 +33,7 @@ from utils.save_metrics import (
     save_sk_train_losses_accs,
     save_search_hyperparams,
 )
+from utils.photonic_dims import get_photonic_mn
 
 
 def _serialize_for_json(obj):
@@ -152,10 +153,9 @@ def run_single(
     # Get model type
     model_type = model_hps["type"]
 
-    # Align photonic modes/photons with feature count for gate-based parity
+    # Align photonic modes/photons with feature count.
     if backend == "photonic" and model != "data_reuploading":
-        model_hps["m"] = 2 * input_size
-        model_hps["n"] = input_size
+        model_hps["m"], model_hps["n"] = get_photonic_mn(input_size)
 
     # Fetch model
     model = fetch_model(
@@ -624,9 +624,12 @@ def set_up_random_state(random_state: int):
 
 
 def count_parameters(model_dict, hp_opt=False):
-    # If the model comes from HP optimization, we simply take the model out of its SK wrapper
+    # If the model comes from HP optimization, we usually take the model out of its SK wrapper.
+    # For multiclass gate wrappers using one-vs-rest, keep the wrapper to aggregate counts.
     if hp_opt:
-        model_dict["model"] = model_dict["model"].model
+        wrapped_model = model_dict["model"]
+        if not getattr(wrapped_model, "ovr_models_", None):
+            model_dict["model"] = wrapped_model.model
         return count_parameters(model_dict)
 
     model_type = model_dict["type"]
@@ -649,17 +652,39 @@ def count_parameters(model_dict, hp_opt=False):
     elif model_type == "sklearn":
         num_support_vectors = len(model.model.support_)
     elif model_type == "jax_sklearn_gate":
-        num_params = sum(
-            p.size if not isinstance(p, tuple) else sum(e.size for e in p)
-            for p in model.params_.values()
-        )
+        if getattr(model, "ovr_models_", None):
+            num_params = 0
+            for _, binary_model in model.ovr_models_:
+                num_params += sum(
+                    p.size if not isinstance(p, tuple) else sum(e.size for e in p)
+                    for p in binary_model.params_.values()
+                )
+        else:
+            num_params = sum(
+                p.size if not isinstance(p, tuple) else sum(e.size for e in p)
+                for p in model.params_.values()
+            )
     elif model_type == "gate_rks":
-        num_params = sum(
-            p.size if not isinstance(p, tuple) else sum(e.size for e in p)
-            for p in model.params_.values()
-        )
+        if getattr(model, "ovr_models_", None):
+            num_params = 0
+            for _, binary_model in model.ovr_models_:
+                num_params += sum(
+                    p.size if not isinstance(p, tuple) else sum(e.size for e in p)
+                    for p in binary_model.params_.values()
+                )
+        else:
+            num_params = sum(
+                p.size if not isinstance(p, tuple) else sum(e.size for e in p)
+                for p in model.params_.values()
+            )
     elif model_type == "sklearn_gate":
-        num_support_vectors = len(model.svm.support_)
+        if getattr(model, "ovr_models_", None):
+            num_support_vectors = sum(
+                len(binary_model.svm.support_)
+                for _, binary_model in model.ovr_models_
+            )
+        else:
+            num_support_vectors = len(model.svm.support_)
     else:
         raise NotImplementedError(f"Unknown model type: {model_type}")
     logging.warning(f"Number of parameters: {num_params}")

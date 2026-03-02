@@ -7,6 +7,7 @@ from sklearn.metrics import accuracy_score
 from training.training_torch import assign_criterion, assign_optimizer, assign_scheduler
 from models.photonic_based_utils import ScalingLayer, StandardizationLayer, MinMaxScalingLayer, get_circuit, get_input_fock_state, get_computation_space
 from models.classical_models.mlp import MLP
+from utils.photonic_dims import get_photonic_mn
 
 
 class MultiplePathsModel(torch.nn.Module):
@@ -112,8 +113,7 @@ class SKMultiplePathsModel(BaseEstimator, ClassifierMixin):
 
     def fit(self, x, y):
         input_size = x.shape[1]
-        self.model_params["m"] = 2 * input_size
-        self.model_params["n"] = input_size
+        self.model_params["m"], self.model_params["n"] = get_photonic_mn(input_size)
         self.model = self.model_class(**self.model_params)
 
         # Get hyperparams
@@ -179,10 +179,6 @@ class SKMultiplePathsModel(BaseEstimator, ClassifierMixin):
 
         # Count number of parameters
         num_params = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
-        logging.info(f"Number of parameters: {num_params}")
-        logging.warning(
-            f"Final Train Accuracy: {train_acc:.4f} out of total train size: {total}"
-        )
         self.train_losses = train_losses
         self.train_accuracies = train_accuracies
         return self

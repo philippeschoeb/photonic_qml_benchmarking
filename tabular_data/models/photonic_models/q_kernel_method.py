@@ -8,6 +8,7 @@ import merlin as ml
 from models.photonic_based_utils import get_circuit, get_input_fock_state, scale_from_string_to_value, get_computation_space
 from merlin_additional.loss import NKernelAlignment
 from training.training_torch import assign_optimizer
+from utils.photonic_dims import get_photonic_mn
 
 
 class QSVC:
@@ -154,16 +155,21 @@ class _BaseSKQSVC(BaseEstimator, ClassifierMixin):
         model_kwargs = dict(self.model_params)
         if "circuit_type" in model_kwargs and "circuit" not in model_kwargs:
             model_kwargs["circuit"] = model_kwargs.pop("circuit_type")
-        input_size = x.shape[1]
-        model_kwargs["m"] = 2 * input_size
-        model_kwargs["n"] = input_size
-        self.model = self.model_class(**model_kwargs)
 
         batch_size = self.data_params.get("batch_size", 32)
         optimizer_name = self.training_params.get("optimizer", "Adam")
         lr = self.training_params.get("lr", 0.001)
         epochs = self.training_params.get("epochs", 5)
         pre_train = self.training_params.get("pre_train", True)
+        unique_labels = np.unique(y)
+        if pre_train and not np.array_equal(unique_labels, np.array([-1, 1])):
+            pre_train = False
+        # Keep the model construction aligned with the effective pretraining mode.
+        model_kwargs["pre_train"] = pre_train
+
+        input_size = x.shape[1]
+        model_kwargs["m"], model_kwargs["n"] = get_photonic_mn(input_size)
+        self.model = self.model_class(**model_kwargs)
 
         device_cfg = self.training_params.get("device", torch.device("cpu"))
         if isinstance(device_cfg, list):
@@ -178,7 +184,7 @@ class _BaseSKQSVC(BaseEstimator, ClassifierMixin):
 
         x_tensor = torch.tensor(x, dtype=torch.float32)
         if np.issubdtype(np.asarray(y).dtype, np.floating) or np.array_equal(
-            np.unique(y), np.array([-1, 1])
+            unique_labels, np.array([-1, 1])
         ):
             y_tensor = torch.tensor(y, dtype=torch.float32)
         else:

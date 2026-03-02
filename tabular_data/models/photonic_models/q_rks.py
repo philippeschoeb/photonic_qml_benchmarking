@@ -3,6 +3,7 @@ from sklearn.base import BaseEstimator, ClassifierMixin
 from sklearn.metrics import accuracy_score
 from sklearn.svm import SVC
 from models.photonic_based_utils import get_circuit, get_input_fock_state, scale_from_string_to_value, get_computation_space
+from utils.photonic_dims import get_photonic_mn
 import merlin as ml
 import torch
 
@@ -238,8 +239,7 @@ class SKQRKS(BaseEstimator, ClassifierMixin):
         if "circuit_type" in model_kwargs and "circuit" not in model_kwargs:
             model_kwargs["circuit"] = model_kwargs.pop("circuit_type")
         input_size = x.shape[1]
-        model_kwargs["m"] = 2 * input_size
-        model_kwargs["n"] = input_size
+        model_kwargs["m"], model_kwargs["n"] = get_photonic_mn(input_size)
         self.model = self.model_class(**model_kwargs)
         kernel_matrix_train, _ = self.model.get_kernels(x, x)
         self._x_train = np.array(x)

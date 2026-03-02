@@ -5,6 +5,7 @@ import copy
 from skopt.space import Real, Integer, Categorical
 
 from registry import DATASET_BASE_NAMES
+from utils.photonic_dims import get_photonic_mn
 
 
 _SKOPT_DIMENSIONS = (Real, Integer, Categorical)
@@ -82,8 +83,11 @@ def serialize_param_grid(param_grid):
 
 
 def get_dataset_hps(dataset_name, model, backend, hp_profile):
-    # Need labels -1 vs 1 for q_kernel_method and for gate_based models
-    if model == "q_kernel_method" or backend == "gate":
+    # Spiral is a 3-class dataset, so keep native integer labels.
+    if dataset_name == "spiral":
+        labels_treatment = ["none"]
+    # Need labels -1 vs 1 for q_kernel_method and for gate_based models on binary datasets.
+    elif model == "q_kernel_method" or backend == "gate":
         labels_treatment = ["-1_1"]
     else:
         labels_treatment = ["0_1"]
@@ -477,6 +481,10 @@ def get_training_hps_halving_grid(model_type, dataset_name, model, hp_profile):
         epochs = 25
         if model_type == "sklearn_q_kernel":
             epochs = 10
+    elif dataset_name == "spiral":
+        epochs = 25
+        if model_type == "sklearn_q_kernel":
+            epochs = 10
     else:
         raise Exception(f"Dataset name {dataset_name} not found.")
 
@@ -505,6 +513,8 @@ def get_training_hps_halving_grid(model_type, dataset_name, model, hp_profile):
     ]
     # Setup number of epochs
     training_hps["epochs"] = [epochs]
+    # Setup number of output classes
+    training_hps["output_size"] = [3 if dataset_name == "spiral" else 2]
     # Setup pre_train
     training_hps["pre_train"] = [pre_train]
 
@@ -522,6 +532,10 @@ def get_training_hps_bayes(model_type, dataset_name, model, hp_profile):
         if model_type == "sklearn_q_kernel":
             epochs = 10
     elif dataset_name == "two_curves":
+        epochs = 25
+        if model_type == "sklearn_q_kernel":
+            epochs = 10
+    elif dataset_name == "spiral":
         epochs = 25
         if model_type == "sklearn_q_kernel":
             epochs = 10
@@ -551,6 +565,8 @@ def get_training_hps_bayes(model_type, dataset_name, model, hp_profile):
     ]
     # Setup number of epochs
     training_hps["epochs"] = [epochs]
+    # Setup number of output classes
+    training_hps["output_size"] = [3 if dataset_name == "spiral" else 2]
     # Setup pre_train
     training_hps["pre_train"] = [pre_train]
 
@@ -590,11 +606,12 @@ def get_hyperparams_halving_grid(
     else:
         raise ValueError(f"Unknown backend: {backend}")
 
-    # Align photonic modes/photons with feature count for gate-based parity
+    # Align photonic modes/photons with feature count.
     if backend == "photonic" and model != "data_reuploading" and arg1 is not None:
         input_size = int(arg1)
-        model_hps["m"] = [input_size * 2]
-        model_hps["n"] = [input_size]
+        m, n = get_photonic_mn(input_size)
+        model_hps["m"] = [m]
+        model_hps["n"] = [n]
 
     # Training HPs #####################################################
     model_type = model_hps["type"][0]
@@ -654,11 +671,12 @@ def get_hyperparams_bayes(dataset, model, architecture, backend, sk_random, hp_p
     else:
         raise ValueError(f"Unknown backend: {backend}")
 
-    # Align photonic modes/photons with feature count for gate-based parity
+    # Align photonic modes/photons with feature count.
     if backend == "photonic" and model != "data_reuploading" and arg1 is not None:
         input_size = int(arg1)
-        model_hps["m"] = [2 * input_size]
-        model_hps["n"] = [input_size]
+        m, n = get_photonic_mn(input_size)
+        model_hps["m"] = [m]
+        model_hps["n"] = [n]
 
     # Training HPs #####################################################
     model_type = model_hps["type"][0]

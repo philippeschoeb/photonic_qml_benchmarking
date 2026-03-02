@@ -6,8 +6,11 @@ from registry import DATASET_BASE_NAMES
 
 
 def get_dataset_hps(dataset_name, model, backend):
-    # Need labels -1 vs 1 for q_kernel_method and for gate_based models
-    if model == "q_kernel_method" or backend == "gate":
+    # Spiral is a 3-class dataset, so keep native integer labels.
+    if dataset_name == "spiral":
+        labels_treatment = "none"
+    # Need labels -1 vs 1 for q_kernel_method and for gate_based models on binary datasets.
+    elif model == "q_kernel_method" or backend == "gate":
         labels_treatment = "-1_1"
     else:
         labels_treatment = "0_1"
@@ -217,6 +220,10 @@ def get_training_hps(model_type, dataset_name, model):
         epochs = 25
         if model_type == "sklearn_q_kernel":
             epochs = 10
+    elif dataset_name == "spiral":
+        epochs = 25
+        if model_type == "sklearn_q_kernel":
+            epochs = 10
     else:
         raise Exception(f"Dataset name {dataset_name} not found.")
 
@@ -242,6 +249,8 @@ def get_training_hps(model_type, dataset_name, model):
     )
     # Setup number of epochs
     training_hps["epochs"] = epochs
+    # Setup number of output classes
+    training_hps["output_size"] = 3 if dataset_name == "spiral" else 2
     # Setup pre_train
     training_hps["pre_train"] = pre_train
 

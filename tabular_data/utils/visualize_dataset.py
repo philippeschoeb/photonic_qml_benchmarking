@@ -63,7 +63,7 @@ def visualize_dataset(
         arg1 = int(args[0]) if len(args) >= 1 else None
         arg2 = int(args[1]) if len(args) >= 2 else None
         x_train, x_test, y_train, y_test = get_data(
-            dataset_name, arg1=arg1, arg2=arg2
+            dataset_name, arg1=arg1, arg2=arg2, random_state=random_state
         )
         x_train, x_test = preprocess_data(
             x_train, x_test, preprocess_overrides.get("scaling", "none")
@@ -88,10 +88,9 @@ def visualize_dataset(
     out_path = os.path.join(save_dir, f"{dataset}_{title_suffix}.png")
 
     plt.figure(figsize=(8, 6))
-    blue = "#1f77b4"
-    red = "#d62728"
     labels = np.unique(np.concatenate([y_train, y_test]))
-    colors = [blue, red]
+    cmap = plt.get_cmap("tab10")
+    colors = [cmap(i % 10) for i in range(len(labels))]
     for label, color in zip(labels, colors):
         mask_train = y_train == label
         mask_test = y_test == label

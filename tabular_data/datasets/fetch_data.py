@@ -41,7 +41,10 @@ def fetch_data(dataset, random_state=None, **hyperparams):
     arg2 = args[1] if len(args) >= 2 else None
 
     x_train, x_test, y_train, y_test = get_data(
-        dataset_name, arg1=int(arg1), arg2=int(arg2) if arg2 else None
+        dataset_name,
+        arg1=int(arg1),
+        arg2=int(arg2) if arg2 else None,
+        random_state=random_state,
     )
 
     # Subsampling dataset if kernel method on downscaled_mnist_pca
@@ -97,7 +100,10 @@ def fetch_sk_data(dataset, random_state=None, **hyperparams):
     arg2 = args[1] if len(args) >= 2 else None
 
     x_train, x_test, y_train, y_test = get_data(
-        dataset_name, arg1=int(arg1), arg2=int(arg2) if arg2 else None
+        dataset_name,
+        arg1=int(arg1),
+        arg2=int(arg2) if arg2 else None,
+        random_state=random_state,
     )
 
     # Subsampling dataset if kernel method on downscaled_mnist_pca

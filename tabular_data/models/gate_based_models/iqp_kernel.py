@@ -17,7 +17,7 @@ import pennylane as qml
 import numpy as np
 import jax
 import jax.numpy as jnp
-from sklearn.base import BaseEstimator, ClassifierMixin
+from sklearn.base import BaseEstimator, ClassifierMixin, clone
 from sklearn.metrics import accuracy_score
 from sklearn.svm import SVC
 from sklearn.preprocessing import MinMaxScaler
@@ -29,7 +29,7 @@ jax.config.update("jax_enable_x64", True)
 class IQPKernelClassifier(BaseEstimator, ClassifierMixin):
     def __init__(
         self,
-        svm=SVC(kernel="precomputed", probability=True),
+        svm=None,
         repeats=2,
         C=1.0,
         jit=False,
@@ -37,7 +37,7 @@ class IQPKernelClassifier(BaseEstimator, ClassifierMixin):
         scaling=1.0,
         max_vmap=250,
         dev_type="default.qubit",
-        qnode_kwargs={"interface": "jax-jit", "diff_method": None},
+        qnode_kwargs=None,
     ):
         r"""
         Kernel version of the classifier from https://arxiv.org/pdf/1804.11326v2.pdf.
@@ -72,9 +72,17 @@ class IQPKernelClassifier(BaseEstimator, ClassifierMixin):
         self.C = C
         self.jit = jit
         self.max_vmap = max_vmap
-        self.svm = svm
+        self.svm = (
+            SVC(kernel="precomputed", probability=True)
+            if svm is None
+            else clone(svm)
+        )
         self.dev_type = dev_type
-        self.qnode_kwargs = qnode_kwargs
+        self.qnode_kwargs = (
+            {"interface": "jax-jit", "diff_method": None}
+            if qnode_kwargs is None
+            else dict(qnode_kwargs)
+        )
         self.scaling = scaling
         self.random_state = random_state
         self.rng = np.random.default_rng(random_state)
@@ -255,6 +263,8 @@ class SKIQPKernelGate(BaseEstimator, ClassifierMixin):
         self.training_params = {} if training_params is None else training_params
 
         self.model = None
+        self.ovr_models_ = None
+        self.classes_ = None
         self.train_losses = None
         self.train_accuracies = None
         self.final_train_acc = None
@@ -298,25 +308,57 @@ class SKIQPKernelGate(BaseEstimator, ClassifierMixin):
 
     def fit(self, X, y):
         model_kwargs = self._prepare_model_kwargs()
-        self.model = self.model_class(**model_kwargs)
-
         X_np = np.asarray(X)
         y_np = np.asarray(y)
+        self.classes_ = np.unique(y_np)
 
-        self.model.fit(X_np, y_np)
-        self.train_losses = getattr(self.model, "loss_history_", None)
-        train_predictions = self.model.predict(X_np)
+        if self.classes_.size <= 2:
+            self.ovr_models_ = None
+            self.model = self.model_class(**model_kwargs)
+            self.model.fit(X_np, y_np)
+            self.train_losses = getattr(self.model, "loss_history_", None)
+        else:
+            self.ovr_models_ = []
+            self.train_losses = []
+            for class_label in self.classes_:
+                binary_y = np.where(y_np == class_label, 1, -1)
+                binary_model = self.model_class(**model_kwargs)
+                binary_model.fit(X_np, binary_y)
+                self.ovr_models_.append((class_label, binary_model))
+                loss_history = getattr(binary_model, "loss_history_", None)
+                if loss_history is not None:
+                    self.train_losses.append(loss_history)
+            self.model = self.ovr_models_[0][1]
+
+        train_predictions = self.predict(X_np)
         self.final_train_acc = accuracy_score(y_np, train_predictions)
         return self
 
     def predict(self, X):
-        if self.model is None:
+        if self.model is None and not self.ovr_models_:
             raise ValueError("Model has not been fitted yet.")
+        if self.ovr_models_:
+            probs = self.predict_proba(X)
+            mapped_predictions = np.argmax(probs, axis=1)
+            return np.take(self.classes_, mapped_predictions)
         return self.model.predict(np.asarray(X))
 
     def predict_proba(self, X):
-        if self.model is None:
+        if self.model is None and not self.ovr_models_:
             raise ValueError("Model has not been fitted yet.")
+        if self.ovr_models_:
+            X_np = np.asarray(X)
+            probs = np.zeros((X_np.shape[0], len(self.classes_)), dtype=float)
+            for idx, (_, binary_model) in enumerate(self.ovr_models_):
+                binary_probs = np.asarray(binary_model.predict_proba(X_np))
+                pos_idx_candidates = np.where(np.asarray(binary_model.classes_) == 1)[0]
+                pos_idx = int(pos_idx_candidates[0]) if len(pos_idx_candidates) else -1
+                probs[:, idx] = binary_probs[:, pos_idx]
+            row_sums = probs.sum(axis=1, keepdims=True)
+            nonzero = row_sums.squeeze() > 1e-12
+            probs[nonzero] = probs[nonzero] / row_sums[nonzero]
+            probs[~nonzero] = 1.0 / len(self.classes_)
+            return probs
         return self.model.predict_proba(np.asarray(X))
 
     def score(self, X, y):

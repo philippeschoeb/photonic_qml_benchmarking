@@ -1,5 +1,6 @@
 import torch
 import logging
+import numpy as np
 from sklearn.metrics import accuracy_score
 from merlin_additional.loss import NKernelAlignment
 from tqdm import tqdm
@@ -173,6 +174,13 @@ def training_sklearn_q_kernel(
     model_name = model_dict["name"]
     model = model_dict["model"]
     optimizable_model = model.quantum_kernel
+
+    y_train_np = np.asarray(y_train.detach().cpu().numpy() if hasattr(y_train, "detach") else y_train)
+    if pre_train and len(np.unique(y_train_np)) > 2:
+        logging.warning(
+            "Disabling q-kernel pretraining because NKernelAlignment is binary-only and labels are multiclass."
+        )
+        pre_train = False
 
     if pre_train:
         optimizable_model.to(device)

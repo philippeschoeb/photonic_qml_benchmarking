@@ -147,6 +147,7 @@ if __name__ == "__main__":
         print("  - downscaled_mnist_pca_{d}")
         print("  - hidden_manifold_{d}_{m}")
         print("  - two_curves_{d}_{D}")
+        print("  - spiral_{d}   (d in [2, 100], 3 classes)")
         print("Models:")
         for name in list_models():
             print(f"  - {name}")
@@ -185,6 +186,14 @@ if __name__ == "__main__":
     if model in CLASSICAL_MODELS:
         backend = "classical"
     print(f"Backend type: {backend}")
+
+    # q_kernel_method should not run on gate backend (use explicit reservoir model instead).
+    if model == "q_kernel_method" and backend == "gate":
+        print(
+            "WARNING: Skipping run. model='q_kernel_method' with backend='gate' is not supported. "
+            "Use model='q_kernel_method_reservoir' for gate backend."
+        )
+        sys.exit(0)
 
     # If the user wants help with different architecture configurations
     if architecture == "help":

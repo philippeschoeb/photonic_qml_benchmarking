@@ -45,6 +45,7 @@ Exports train, test, and merged ARFF files for one concrete dataset.
 
 Useful flags:
 - `--dataset <dataset_name>` such as `downscaled_mnist_pca_2`, `hidden_manifold_5_3`, `two_curves_2_5`
+  or `spiral_20`
 - `--subsample` only for `downscaled_mnist_pca_*` datasets
 
 Example:
@@ -86,7 +87,7 @@ Generates a single pycol-complexity comparison figure across fixed configuration
 
 Useful flags:
 - `--dataset` must be one of:
-  `downscaled_mnist_pca`, `hidden_manifold`, `hidden_manifold_diff`, `two_curves`, `two_curves_diff`
+  `downscaled_mnist_pca`, `hidden_manifold`, `hidden_manifold_diff`, `two_curves`, `two_curves_diff`, `spiral`
 - `--subsample` allowed only with `--dataset downscaled_mnist_pca`
 
 Examples:
@@ -136,7 +137,7 @@ Trains the same 3 sklearn models across a dataset family and plots test accuracy
 
 Useful flags:
 - `--dataset` must be one of:
-  `downscaled_mnist_pca`, `hidden_manifold`, `hidden_manifold_diff`, `two_curves`, `two_curves_diff`
+  `downscaled_mnist_pca`, `hidden_manifold`, `hidden_manifold_diff`, `two_curves`, `two_curves_diff`, `spiral`
 - `--subsample` allowed only with `--dataset downscaled_mnist_pca`
 
 Examples:
@@ -159,16 +160,15 @@ Behavior:
 - Runs both:
   `--pycol_combine_visu` equivalent and `--sklearn_combine_visu` equivalent
   for each dataset family:
-  `downscaled_mnist_pca`, `hidden_manifold`, `hidden_manifold_diff`, `two_curves`, `two_curves_diff`.
-- Generates exactly 10 figures total:
-  5 pycol combine + 5 sklearn combine.
+  `downscaled_mnist_pca`, `hidden_manifold`, `hidden_manifold_diff`, `two_curves`, `two_curves_diff`, `spiral`.
+- Generates exactly 12 figures total:
+  6 pycol combine + 6 sklearn combine.
 - Copies all generated combine figures into:
   `tabular_data/datasets/downloaded/all_combined/`
 - Existing `pycol_combined_*.png` and `sklearn_combined_*.png` in that folder are refreshed each run.
-- `--dataset` is not required for this task.
 - Using `--dataset` with `--all_combine_visu` is invalid and raises an error.
 - `--subsample` is supported and only applies to `downscaled_mnist_pca`
-  (to speed up that family while keeping total output at 10 figures).
+  (to speed up that family while keeping total output at 12 figures).
 
 Example:
 

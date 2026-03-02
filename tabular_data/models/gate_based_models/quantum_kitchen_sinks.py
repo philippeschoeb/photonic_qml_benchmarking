@@ -18,7 +18,7 @@ import numpy as np
 import jax
 
 jax.config.update("jax_enable_x64", True)
-from sklearn.base import BaseEstimator, ClassifierMixin
+from sklearn.base import BaseEstimator, ClassifierMixin, clone
 from sklearn.utils.extmath import softmax
 from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import StandardScaler
@@ -30,7 +30,7 @@ from models.gate_based_utils import chunk_vmapped_fn
 class QuantumKitchenSinks(BaseEstimator, ClassifierMixin):
     def __init__(
         self,
-        linear_model=LogisticRegression(penalty=None, solver="lbfgs", tol=10e-4),
+        linear_model=None,
         n_episodes=100,
         n_qfeatures="full",
         var=1.0,
@@ -84,7 +84,13 @@ class QuantumKitchenSinks(BaseEstimator, ClassifierMixin):
         """
 
         # attributes that do not depend on data
-        self.linear_model = linear_model
+        self.linear_model = (
+            LogisticRegression(
+                penalty="l2", C=1.0, solver="lbfgs", tol=1e-4, max_iter=1000
+            )
+            if linear_model is None
+            else clone(linear_model)
+        )
         self.n_episodes = n_episodes
         self.n_qfeatures = n_qfeatures
         self.var = var
@@ -245,7 +251,8 @@ class QuantumKitchenSinks(BaseEstimator, ClassifierMixin):
         """
         X = self.transform(X)
         predictions_2d = self.linear_model.predict_proba(X)
-        return softmax(predictions_2d, copy=False)
+        #return softmax(predictions_2d, copy=False)
+        return predictions_2d
 
     def transform(self, X, preprocess=True):
         """
@@ -300,6 +307,8 @@ class SKQuantumKitchenSinksGate(BaseEstimator, ClassifierMixin):
         self.training_params = {} if training_params is None else training_params
 
         self.model = None
+        self.ovr_models_ = None
+        self.classes_ = None
         self.train_losses = None
         self.train_accuracies = None
         self.final_train_acc = None
@@ -347,25 +356,57 @@ class SKQuantumKitchenSinksGate(BaseEstimator, ClassifierMixin):
 
     def fit(self, X, y):
         model_kwargs = self._prepare_model_kwargs()
-        self.model = self.model_class(**model_kwargs)
-
         X_np = np.asarray(X)
         y_np = np.asarray(y)
+        self.classes_ = np.unique(y_np)
 
-        self.model.fit(X_np, y_np)
-        self.train_losses = getattr(self.model, "loss_history_", None)
-        train_predictions = self.model.predict(X_np)
+        if self.classes_.size <= 2:
+            self.ovr_models_ = None
+            self.model = self.model_class(**model_kwargs)
+            self.model.fit(X_np, y_np)
+            self.train_losses = getattr(self.model, "loss_history_", None)
+        else:
+            self.ovr_models_ = []
+            self.train_losses = []
+            for class_label in self.classes_:
+                binary_y = np.where(y_np == class_label, 1, -1)
+                binary_model = self.model_class(**model_kwargs)
+                binary_model.fit(X_np, binary_y)
+                self.ovr_models_.append((class_label, binary_model))
+                loss_history = getattr(binary_model, "loss_history_", None)
+                if loss_history is not None:
+                    self.train_losses.append(loss_history)
+            self.model = self.ovr_models_[0][1]
+
+        train_predictions = self.predict(X_np)
         self.final_train_acc = accuracy_score(y_np, train_predictions)
         return self
 
     def predict(self, X):
-        if self.model is None:
+        if self.model is None and not self.ovr_models_:
             raise ValueError("Model has not been fitted yet.")
+        if self.ovr_models_:
+            probs = self.predict_proba(X)
+            mapped_predictions = np.argmax(probs, axis=1)
+            return np.take(self.classes_, mapped_predictions)
         return self.model.predict(np.asarray(X))
 
     def predict_proba(self, X):
-        if self.model is None:
+        if self.model is None and not self.ovr_models_:
             raise ValueError("Model has not been fitted yet.")
+        if self.ovr_models_:
+            X_np = np.asarray(X)
+            probs = np.zeros((X_np.shape[0], len(self.classes_)), dtype=float)
+            for idx, (_, binary_model) in enumerate(self.ovr_models_):
+                binary_probs = np.asarray(binary_model.predict_proba(X_np))
+                pos_idx_candidates = np.where(np.asarray(binary_model.classes_) == 1)[0]
+                pos_idx = int(pos_idx_candidates[0]) if len(pos_idx_candidates) else -1
+                probs[:, idx] = binary_probs[:, pos_idx]
+            row_sums = probs.sum(axis=1, keepdims=True)
+            nonzero = row_sums.squeeze() > 1e-12
+            probs[nonzero] = probs[nonzero] / row_sums[nonzero]
+            probs[~nonzero] = 1.0 / len(self.classes_)
+            return probs
         return self.model.predict_proba(np.asarray(X))
 
     def score(self, X, y):

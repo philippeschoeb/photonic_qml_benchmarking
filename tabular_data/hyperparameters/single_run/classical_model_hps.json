@@ -1,11 +1,11 @@
 {
     "mlp": {
         "default": {
+            "reference_input_size": 2,
             "numNeurons": [
-                24,
-                24,
-                24,
-                24
+                [12],
+                [2, 2, 2, 2],
+                [6, 2, 2]
             ]
         }
     },
