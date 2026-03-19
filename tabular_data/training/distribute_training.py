@@ -26,6 +26,8 @@ def distribute_training(
             optimizer=hyperparams["optimizer"],
             scheduler=hyperparams["scheduler"],
             epochs=hyperparams["epochs"],
+            max_steps=hyperparams.get("max_steps"),
+            convergence_interval=hyperparams.get("convergence_interval", 200),
             lr=hyperparams["lr"],
             betas=hyperparams["betas"],
             momentum=hyperparams["momentum"],

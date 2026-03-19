@@ -71,6 +71,9 @@ def _serialize_dimension(dim):
 
 
 def serialize_param_grid(param_grid):
+    if isinstance(param_grid, list):
+        return [serialize_param_grid(grid) for grid in param_grid]
+
     serialized = {}
     for key, value in param_grid.items():
         if isinstance(value, _SKOPT_DIMENSIONS):
@@ -80,6 +83,38 @@ def serialize_param_grid(param_grid):
         else:
             serialized[key] = value
     return serialized
+
+
+def _prune_photonic_measurement_grouping_grid(param_grid, backend):
+    if backend != "photonic":
+        return param_grid
+    if not isinstance(param_grid, dict):
+        return param_grid
+
+    strategy_key = "model_params__measurement_strategy"
+    grouping_key = "model_params__grouping"
+    if strategy_key not in param_grid or grouping_key not in param_grid:
+        return param_grid
+
+    strategies = list(param_grid[strategy_key])
+    groupings = list(param_grid[grouping_key])
+    if "mode_expectations" not in strategies:
+        return param_grid
+
+    probs_strategies = [s for s in strategies if s != "mode_expectations"]
+    grids = []
+    if probs_strategies:
+        probs_grid = copy.deepcopy(param_grid)
+        probs_grid[strategy_key] = probs_strategies
+        probs_grid[grouping_key] = groupings
+        grids.append(probs_grid)
+
+    mode_grid = copy.deepcopy(param_grid)
+    mode_grid[strategy_key] = ["mode_expectations"]
+    mode_grid[grouping_key] = ["none"]
+    grids.append(mode_grid)
+
+    return grids
 
 
 def get_dataset_hps(dataset_name, model, backend, hp_profile):
@@ -488,6 +523,7 @@ def get_training_hps_halving_grid(model_type, dataset_name, model, hp_profile):
     else:
         raise Exception(f"Dataset name {dataset_name} not found.")
 
+
     # Determine if pre_train for q_kernel_method
     if model == "q_kernel_method_reservoir":
         pre_train = False
@@ -541,6 +577,7 @@ def get_training_hps_bayes(model_type, dataset_name, model, hp_profile):
             epochs = 10
     else:
         raise Exception(f"Dataset name {dataset_name} not found.")
+
 
     # Determine if pre_train for q_kernel_method
     if model == "q_kernel_method_reservoir":
@@ -639,6 +676,7 @@ def get_hyperparams_halving_grid(
     param_grid["model_params__output_size"] = [
         int(param_grid["training_params__output_size"][0])
     ]
+    param_grid = _prune_photonic_measurement_grouping_grid(param_grid, backend)
     return param_grid, dataset_hps, model_hps, training_hps
 
 

@@ -6,6 +6,17 @@ from merlin_additional.loss import NKernelAlignment
 from tqdm import tqdm
 
 
+def _has_converged(loss_history, convergence_interval):
+    if convergence_interval is None:
+        return False
+    if len(loss_history) <= 2 * convergence_interval:
+        return False
+    average1 = np.mean(loss_history[-convergence_interval:])
+    average2 = np.mean(loss_history[-2 * convergence_interval : -convergence_interval])
+    std1 = np.std(loss_history[-convergence_interval:])
+    return np.abs(average2 - average1) <= std1 / np.sqrt(convergence_interval) / 2
+
+
 def training_torch(
     model_dict,
     train_loader,
@@ -19,6 +30,8 @@ def training_torch(
     momentum,
     weight_decay,
     device=torch.device("cpu"),
+    max_steps=None,
+    convergence_interval=200,
 ):
     model_type = model_dict["type"]
     model_name = model_dict["name"]
@@ -34,63 +47,102 @@ def training_torch(
     scheduler = assign_scheduler(scheduler, optimizer)
 
     model.to(device)
+    steps_per_epoch = max(1, len(train_loader))
+    if max_steps is None:
+        max_steps = max(1, epochs * steps_per_epoch)
 
-    for epoch in tqdm(range(epochs), desc="Torch Training", unit="epoch"):
-        # --- Training ---
-        model.train()
-        train_loss, correct, total = 0, 0, 0
+    train_iter = iter(train_loader)
+    step_loss_history = []
+    window_train_loss = 0.0
+    window_correct = 0
+    window_total = 0
+    converged = False
 
-        for batch_x, batch_y in train_loader:
+    with tqdm(total=max_steps, desc="Torch Training Progress", unit="step") as pbar:
+        for step in range(max_steps):
+            try:
+                batch_x, batch_y = next(train_iter)
+            except StopIteration:
+                train_iter = iter(train_loader)
+                batch_x, batch_y = next(train_iter)
+
             batch_x = batch_x.to(device)
             batch_y = batch_y.to(device)
 
+            model.train()
             optimizer.zero_grad()
             outputs = model(batch_x)
             loss = criterion(outputs, batch_y)
             loss.backward()
             optimizer.step()
 
-            train_loss += loss.item() * batch_x.size(0)
+            batch_size = batch_x.size(0)
+            step_loss = loss.item()
+            step_loss_history.append(step_loss)
+            window_train_loss += step_loss * batch_size
             _, predicted = outputs.max(1)
-            correct += predicted.eq(batch_y).sum().item()
-            total += batch_x.size(0)
+            window_correct += predicted.eq(batch_y).sum().item()
+            window_total += batch_size
 
-        avg_train_loss = train_loss / total
-        train_acc = correct / total
-        train_losses.append(avg_train_loss)
-        train_accuracies.append(train_acc)
+            pbar.update(1)
 
-        # --- Test ---
-        model.eval()
-        test_loss, test_correct, test_total = 0, 0, 0
+            if np.isnan(step_loss):
+                logging.info("nan encountered at step %s. Training aborted.", step + 1)
+                break
 
-        with torch.no_grad():
-            for batch_x, batch_y in test_loader:
-                batch_x = batch_x.to(device)
-                batch_y = batch_y.to(device)
+            if _has_converged(step_loss_history, convergence_interval):
+                logging.info(
+                    "Model %s converged after %s steps.",
+                    model.__class__.__name__,
+                    step + 1,
+                )
+                converged = True
 
-                outputs = model(batch_x)
-                loss = criterion(outputs, batch_y)
+            if ((step + 1) % steps_per_epoch == 0) or (step == max_steps - 1) or converged:
+                avg_train_loss = window_train_loss / max(window_total, 1)
+                train_acc = window_correct / max(window_total, 1)
+                train_losses.append(avg_train_loss)
+                train_accuracies.append(train_acc)
 
-                test_loss += loss.item() * batch_x.size(0)
-                _, predicted = outputs.max(1)
-                test_correct += predicted.eq(batch_y).sum().item()
-                test_total += batch_x.size(0)
+                # --- Test ---
+                model.eval()
+                test_loss, test_correct, test_total = 0, 0, 0
+                with torch.no_grad():
+                    for batch_x, batch_y in test_loader:
+                        batch_x = batch_x.to(device)
+                        batch_y = batch_y.to(device)
 
-        avg_test_loss = test_loss / test_total
-        test_acc = test_correct / test_total
-        test_losses.append(avg_test_loss)
-        test_accuracies.append(test_acc)
+                        outputs = model(batch_x)
+                        loss = criterion(outputs, batch_y)
+                        test_loss += loss.item() * batch_x.size(0)
+                        _, predicted = outputs.max(1)
+                        test_correct += predicted.eq(batch_y).sum().item()
+                        test_total += batch_x.size(0)
 
-        logging.info(
-            f"Epoch {epoch + 1}/{epochs} "
-            f"| Train Loss: {avg_train_loss:.4f}, Acc: {train_acc:.4f} "
-            f"| Test Loss: {avg_test_loss:.4f}, Acc: {test_acc:.4f}"
-        )
+                avg_test_loss = test_loss / max(test_total, 1)
+                test_acc = test_correct / max(test_total, 1)
+                test_losses.append(avg_test_loss)
+                test_accuracies.append(test_acc)
 
-        # ---- Scheduler Step ----
-        if scheduler is not None:
-            scheduler.step()  # standard schedulers
+                logging.info(
+                    "Step %s/%s | Train Loss: %.4f, Acc: %.4f | Test Loss: %.4f, Acc: %.4f",
+                    step + 1,
+                    max_steps,
+                    avg_train_loss,
+                    train_acc,
+                    avg_test_loss,
+                    test_acc,
+                )
+
+                if scheduler is not None:
+                    scheduler.step()
+
+                window_train_loss = 0.0
+                window_correct = 0
+                window_total = 0
+
+            if converged:
+                break
 
     logging.warning(
         f"Final Train Accuracy: {train_acc:.4f} | Final Test Accuracy: {test_acc:.4f}"

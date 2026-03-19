@@ -1,11 +1,21 @@
 import logging
 import torch
+import numpy as np
 from torch.utils.data import DataLoader, TensorDataset
 import merlin as ml
 from sklearn.base import BaseEstimator, ClassifierMixin
 from sklearn.metrics import accuracy_score
 from training.training_torch import assign_criterion, assign_optimizer, assign_scheduler
-from models.photonic_based_utils import ScalingLayer, StandardizationLayer, MinMaxScalingLayer, get_circuit, get_input_fock_state, get_computation_space
+from tqdm import tqdm
+from models.photonic_based_utils import (
+    ScalingLayer,
+    StandardizationLayer,
+    MinMaxScalingLayer,
+    get_circuit,
+    get_input_fock_state,
+    get_measurement_strategy,
+    get_measurement_output_size,
+)
 from models.classical_models.mlp import MLP
 from utils.photonic_dims import get_photonic_mn
 
@@ -27,6 +37,8 @@ class MultiplePathsModel(torch.nn.Module):
         no_bunching,
         post_circuit_scaling,
         numNeurons,
+        measurement_strategy="probs",
+        grouping="none",
         input_state_type="standard",
         **kwargs,
     ):
@@ -36,16 +48,24 @@ class MultiplePathsModel(torch.nn.Module):
         circuit = get_circuit(circuit_type, m, input_size, reservoir)
         input_fock_state = get_input_fock_state(input_state_type, m, n)
         trainable_params = [] if reservoir else ["theta"]
-        computation_space = get_computation_space(no_bunching)
+        measurement = get_measurement_strategy(
+            measurement_strategy=measurement_strategy,
+            no_bunching=no_bunching,
+            grouping=grouping,
+            m=m,
+            n=n,
+        )
         self.pqc = ml.QuantumLayer(
             input_size=input_size,
             circuit=circuit,
             input_state=input_fock_state,
             trainable_parameters=trainable_params,
             input_parameters=["px"],
-            measurement_strategy=ml.MeasurementStrategy.probs(computation_space=computation_space),
+            measurement_strategy=measurement,
         )
-        quantum_output_size = self.pqc.output_size
+        quantum_output_size = get_measurement_output_size(
+            self.pqc.output_size, measurement_strategy, grouping
+        )
         self.post_circuit = self.set_up_post_circuit_scaling(post_circuit_scaling)
 
         self.mlp = MLP(input_size + quantum_output_size, output_size, numNeurons)
@@ -121,6 +141,8 @@ class SKMultiplePathsModel(BaseEstimator, ClassifierMixin):
         optimizer = self.training_params.get("optimizer", "Adam")
         scheduler = self.training_params.get("scheduler", "None")
         epochs = self.training_params.get("epochs", 50)
+        max_steps = self.training_params.get("max_steps")
+        convergence_interval = self.training_params.get("convergence_interval", 200)
         lr = self.training_params.get("lr", 0.001)
         betas = self.training_params.get("betas", (0.9, 0.999))
         momentum = self.training_params.get("momentum", 0.9)
@@ -143,39 +165,82 @@ class SKMultiplePathsModel(BaseEstimator, ClassifierMixin):
         scheduler = assign_scheduler(scheduler, optimizer)
 
         self.model.to(device)
+        steps_per_epoch = max(1, len(loader))
+        if max_steps is None:
+            max_steps = max(1, epochs * steps_per_epoch)
 
-        for epoch in range(epochs):
-            # --- Training ---
-            self.model.train()
-            train_loss, correct, total = 0, 0, 0
+        train_iter = iter(loader)
+        step_loss_history = []
+        window_train_loss = 0.0
+        window_correct = 0
+        window_total = 0
+        converged = False
 
-            for batch_x, batch_y in loader:
+        with tqdm(total=max_steps, desc="Training Progress", unit="step") as pbar:
+            for step in range(max_steps):
+                try:
+                    batch_x, batch_y = next(train_iter)
+                except StopIteration:
+                    train_iter = iter(loader)
+                    batch_x, batch_y = next(train_iter)
+
                 batch_x = batch_x.to(device)
                 batch_y = batch_y.to(device)
 
+                self.model.train()
                 optimizer.zero_grad()
                 outputs = self.model(batch_x)
                 loss = criterion(outputs, batch_y)
                 loss.backward()
                 optimizer.step()
 
-                train_loss += loss.item() * batch_x.size(0)
+                batch_size = batch_x.size(0)
+                step_loss = loss.item()
+                step_loss_history.append(step_loss)
+                window_train_loss += step_loss * batch_size
                 _, predicted = outputs.max(1)
-                correct += predicted.eq(batch_y).sum().item()
-                total += batch_x.size(0)
+                window_correct += predicted.eq(batch_y).sum().item()
+                window_total += batch_size
+                pbar.update(1)
 
-            avg_train_loss = train_loss / total
-            train_acc = correct / total
-            train_losses.append(avg_train_loss)
-            train_accuracies.append(train_acc)
+                if np.isnan(step_loss):
+                    logging.info("nan encountered at step %s. Training aborted.", step + 1)
+                    break
 
-            logging.info(
-                f"Epoch {epoch + 1}/{epochs} | Train Loss: {avg_train_loss:.4f}, Acc: {train_acc:.4f}"
-            )
+                if convergence_interval is not None and len(step_loss_history) > 2 * convergence_interval:
+                    average1 = np.mean(step_loss_history[-convergence_interval:])
+                    average2 = np.mean(
+                        step_loss_history[-2 * convergence_interval : -convergence_interval]
+                    )
+                    std1 = np.std(step_loss_history[-convergence_interval:])
+                    if np.abs(average2 - average1) <= std1 / np.sqrt(convergence_interval) / 2:
+                        logging.info(
+                            "Model %s converged after %s steps.",
+                            self.model.__class__.__name__,
+                            step + 1,
+                        )
+                        converged = True
 
-            # ---- Scheduler Step ----
-            if scheduler is not None:
-                scheduler.step()  # standard schedulers
+                if ((step + 1) % steps_per_epoch == 0) or (step == max_steps - 1) or converged:
+                    avg_train_loss = window_train_loss / max(window_total, 1)
+                    train_acc = window_correct / max(window_total, 1)
+                    train_losses.append(avg_train_loss)
+                    train_accuracies.append(train_acc)
+                    logging.info(
+                        "Step %s/%s | Train Loss: %.4f, Acc: %.4f",
+                        step + 1,
+                        max_steps,
+                        avg_train_loss,
+                        train_acc,
+                    )
+                    if scheduler is not None:
+                        scheduler.step()
+                    window_train_loss = 0.0
+                    window_correct = 0
+                    window_total = 0
+
+                if converged:
+                    break
 
         # Count number of parameters
         num_params = sum(p.numel() for p in self.model.parameters() if p.requires_grad)

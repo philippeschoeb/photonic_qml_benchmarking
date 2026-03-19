@@ -2,7 +2,13 @@
     "dressed_quantum_circuit": {
         "default": {
             "scaling": [
-                "pi"
+                "1"
+            ],
+            "measurement_strategy": [
+                "mode_expectations"
+            ],
+            "grouping": [
+                "none"
             ],
             "circuit_type": [
                 "generic_mzi"
@@ -21,7 +27,13 @@
     "dressed_quantum_circuit_reservoir": {
         "default": {
             "scaling": [
-                "pi"
+                "1"
+            ],
+            "measurement_strategy": [
+                "mode_expectations"
+            ],
+            "grouping": [
+                "none"
             ],
             "circuit_type": [
                 "generic_mzi"
@@ -40,7 +52,13 @@
     "multiple_paths_model": {
         "default": {
             "scaling": [
-                "pi"
+                "1"
+            ],
+            "measurement_strategy": [
+                "mode_expectations"
+            ],
+            "grouping": [
+                "none"
             ],
             "circuit_type": [
                 "generic_mzi"
@@ -65,7 +83,13 @@
     "multiple_paths_model_reservoir": {
         "default": {
             "scaling": [
-                "pi"
+                "1"
+            ],
+            "measurement_strategy": [
+                "mode_expectations"
+            ],
+            "grouping": [
+                "none"
             ],
             "circuit_type": [
                 "generic_mzi"
@@ -90,13 +114,19 @@
     "data_reuploading": {
         "default": {
             "scaling": [
-                "pi"
+                "1"
+            ],
+            "measurement_strategy": [
+                "mode_expectations"
+            ],
+            "grouping": [
+                "none"
             ],
             "numLayers": [
                 10, 20
             ],
             "design": [
-                "AA", "AB", "BA", "BB"
+                "AB"
             ]
         }
     },
@@ -104,6 +134,12 @@
         "default": {
             "scaling": [
                 "pi"
+            ],
+            "measurement_strategy": [
+                "mode_expectations"
+            ],
+            "grouping": [
+                "none"
             ],
             "circuit_type": [
                 "generic_mzi"
@@ -127,6 +163,12 @@
             "scaling": [
                 "pi"
             ],
+            "measurement_strategy": [
+                "mode_expectations"
+            ],
+            "grouping": [
+                "none"
+            ],
             "circuit_type": [
                 "generic_mzi"
             ],
@@ -147,7 +189,13 @@
     "q_rks": {
         "default": {
             "scaling": [
-                "pi"
+                "1"
+            ],
+            "measurement_strategy": [
+                "mode_expectations"
+            ],
+            "grouping": [
+                "none"
             ],
             "circuit_type": [
                 "generic_mzi"

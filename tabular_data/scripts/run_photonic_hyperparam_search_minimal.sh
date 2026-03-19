@@ -13,7 +13,7 @@ RESULTS_ROOT="results/${RUN_GROUP}"
 LOG_DIR="${RESULTS_ROOT}/logs"
 mkdir -p "${LOG_DIR}"
 
-DATASET="${1:-${DATASET:-hidden_manifold_10_10}}"
+DATASET="${1:-${DATASET:-hidden_manifold_2_6}}"
 USE_WANDB=0
 WANDB_FLAG="--no-wandb"
 if [[ "${USE_WANDB}" == "1" ]]; then
@@ -29,23 +29,17 @@ MODELS=(
   "q_kernel_method"
   "q_kernel_method_reservoir"
   "q_rks"
-  "mlp"
-  "rbf_svc"
-  "rks"
 )
 
 declare -A MODEL_BACKENDS=(
-  ["dressed_quantum_circuit"]="photonic gate"
-  ["dressed_quantum_circuit_reservoir"]="photonic gate"
-  ["multiple_paths_model"]="photonic gate"
-  ["multiple_paths_model_reservoir"]="photonic gate"
-  ["data_reuploading"]="photonic gate"
-  ["q_kernel_method"]="photonic gate"
-  ["q_kernel_method_reservoir"]="photonic gate"
-  ["q_rks"]="photonic gate"
-  ["mlp"]="classical"
-  ["rbf_svc"]="classical"
-  ["rks"]="classical"
+  ["dressed_quantum_circuit"]="photonic"
+  ["dressed_quantum_circuit_reservoir"]="photonic"
+  ["multiple_paths_model"]="photonic"
+  ["multiple_paths_model_reservoir"]="photonic"
+  ["data_reuploading"]="photonic"
+  ["q_kernel_method"]="photonic"
+  ["q_kernel_method_reservoir"]="photonic"
+  ["q_rks"]="photonic"
 )
 
 echo "====== Hyperparameter Search (minimal) Sweep ======"

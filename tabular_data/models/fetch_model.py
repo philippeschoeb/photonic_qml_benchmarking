@@ -72,6 +72,8 @@ def fetch_model(model, backend, input_size, output_size, **hyperparams):
                 circuit_type=hyperparams["circuit"],
                 reservoir=hyperparams["reservoir"],
                 no_bunching=hyperparams["no_bunching"],
+                measurement_strategy=hyperparams.get("measurement_strategy", "probs"),
+                grouping=hyperparams.get("grouping", "none"),
                 input_state_type=hyperparams.get("input_state_type", "standard"),
             )
         elif (
@@ -88,6 +90,8 @@ def fetch_model(model, backend, input_size, output_size, **hyperparams):
                 no_bunching=hyperparams["no_bunching"],
                 post_circuit_scaling=hyperparams["post_circuit_scaling"],
                 numNeurons=hyperparams["numNeurons"],
+                measurement_strategy=hyperparams.get("measurement_strategy", "probs"),
+                grouping=hyperparams.get("grouping", "none"),
                 input_state_type=hyperparams.get("input_state_type", "standard"),
             )
         elif model == "data_reuploading":
@@ -122,6 +126,8 @@ def fetch_model(model, backend, input_size, output_size, **hyperparams):
                 C=hyperparams["C"],
                 R=hyperparams["R"],
                 gamma=hyperparams["gamma"],
+                measurement_strategy=hyperparams.get("measurement_strategy", "probs"),
+                grouping=hyperparams.get("grouping", "none"),
                 input_state_type=hyperparams.get("input_state_type", "standard"),
             )
         else:

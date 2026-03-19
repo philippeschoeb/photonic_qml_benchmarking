@@ -2,7 +2,13 @@ import numpy as np
 from sklearn.base import BaseEstimator, ClassifierMixin
 from sklearn.metrics import accuracy_score
 from sklearn.svm import SVC
-from models.photonic_based_utils import get_circuit, get_input_fock_state, scale_from_string_to_value, get_computation_space
+from models.photonic_based_utils import (
+    get_circuit,
+    get_input_fock_state,
+    scale_from_string_to_value,
+    get_measurement_strategy,
+    get_measurement_output_size,
+)
 from utils.photonic_dims import get_photonic_mn
 import merlin as ml
 import torch
@@ -91,6 +97,8 @@ class QRKS:
         probability=False,
         random_state=None,
         input_state_type="standard",
+        measurement_strategy="probs",
+        grouping="none",
         **kwargs,
     ):
         self.scaling = scale_from_string_to_value(scaling)
@@ -98,16 +106,25 @@ class QRKS:
 
         circuit = get_circuit(circuit, m, 1, True)
         input_fock_state = get_input_fock_state(input_state_type, m, n)
-        computation_space = get_computation_space(no_bunching)
+        measurement = get_measurement_strategy(
+            measurement_strategy=measurement_strategy,
+            no_bunching=no_bunching,
+            grouping=grouping,
+            m=m,
+            n=n,
+        )
         q_layer = ml.QuantumLayer(
             input_size=1,
             circuit=circuit,
             trainable_parameters=[],
             input_parameters=["px"],
             input_state=input_fock_state,
-            measurement_strategy=ml.MeasurementStrategy.probs(computation_space=computation_space),
+            measurement_strategy=measurement,
         )
-        self.pqc = torch.nn.Sequential(q_layer, torch.nn.Linear(q_layer.output_size, 1))
+        linear_in_features = get_measurement_output_size(
+            q_layer.output_size, measurement_strategy, grouping
+        )
+        self.pqc = torch.nn.Sequential(q_layer, torch.nn.Linear(linear_in_features, 1))
 
         self.model = SVC(
             kernel="precomputed",

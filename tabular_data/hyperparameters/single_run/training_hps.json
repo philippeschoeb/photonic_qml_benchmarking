@@ -10,7 +10,9 @@
             0.999
         ],
         "momentum": 0.9,
-        "weight_decay": 0.0
+        "weight_decay": 0.0,
+        "max_steps": 50000,
+        "convergence_interval": 200
     },
     "reuploading": {
         "track_history": true,

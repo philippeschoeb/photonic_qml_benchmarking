@@ -17,7 +17,7 @@
                 1
             ],
             "max_steps": [
-                100000
+                50000
             ],
             "convergence_interval": [
                 200
@@ -47,7 +47,7 @@
                 1
             ],
             "max_steps": [
-                100000
+                50000
             ],
             "convergence_interval": [
                 200
@@ -88,7 +88,7 @@
                 1
             ],
             "max_steps": [
-                100000
+                50000
             ],
             "convergence_interval": [
                 200
@@ -129,7 +129,7 @@
                 1
             ],
             "max_steps": [
-                100000
+                50000
             ],
             "convergence_interval": [
                 200
@@ -156,7 +156,7 @@
                 200
             ],
             "max_steps": [
-                10000
+                5000
             ],
             "lr": [
                 0.05,

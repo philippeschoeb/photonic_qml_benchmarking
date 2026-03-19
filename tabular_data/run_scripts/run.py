@@ -15,7 +15,7 @@ from time import time
 
 from sklearn.metrics import accuracy_score
 from sklearn.experimental import enable_halving_search_cv
-from sklearn.model_selection import HalvingGridSearchCV, GridSearchCV
+from sklearn.model_selection import HalvingGridSearchCV, GridSearchCV, ParameterGrid
 from skopt import BayesSearchCV
 
 from run_scripts.single_run import get_hyperparams as single_hps
@@ -50,6 +50,54 @@ def _serialize_for_json(obj):
     return obj
 
 
+def _count_search_configurations(param_grid):
+    if isinstance(param_grid, dict):
+        return len(ParameterGrid(param_grid))
+    if isinstance(param_grid, list):
+        return sum(len(ParameterGrid(grid)) for grid in param_grid)
+    raise TypeError(f"Unsupported param_grid type: {type(param_grid)!r}")
+
+
+def _summary_csv_row(summary: dict) -> dict:
+    return {
+        "timestamp": summary.get("timestamp"),
+        "dataset": summary.get("dataset"),
+        "model": summary.get("model"),
+        "backend": summary.get("backend"),
+        "search_type": summary.get("search_type"),
+        "hp_profile": summary.get("hp_profile"),
+        "number_of_configs": summary.get("number_of_configs"),
+        "final_train_acc": summary.get("final_train_acc"),
+        "final_test_acc": summary.get("final_test_acc"),
+        "num_params": summary.get("num_params"),
+        "num_support_vectors": summary.get("num_support_vectors"),
+        "hp_search_time_seconds": summary.get("hp_search_time_seconds"),
+        "optimal_model_train_eval_time_seconds": summary.get(
+            "optimal_model_train_eval_time_seconds"
+        ),
+        "best_params": json.dumps(summary.get("best_params", {}), default=str),
+        "run_dir": summary.get("run_dir"),
+    }
+
+
+def _rewrite_summary_csv_from_jsonl(jsonl_path: str, csv_path: str) -> None:
+    rows = []
+    with open(jsonl_path, "r") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            rows.append(_summary_csv_row(json.loads(line)))
+
+    if not rows:
+        return
+
+    with open(csv_path, "w", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=list(rows[0].keys()))
+        writer.writeheader()
+        writer.writerows(rows)
+
+
 def save_hp_search_summary(
     save_dir: str,
     summary: dict,
@@ -79,30 +127,25 @@ def save_hp_search_summary(
         f.write(json.dumps(summary, default=str) + "\n")
 
     csv_path = os.path.join(summary_dir, f"hp_search_{dataset_slug}.csv")
-    csv_row = {
+    _rewrite_summary_csv_from_jsonl(jsonl_path, csv_path)
+
+    configs_csv_path = os.path.join(
+        summary_dir, f"hp_search_{dataset_slug}_number_of_configs.csv"
+    )
+    configs_csv_row = {
         "timestamp": summary.get("timestamp"),
         "dataset": summary.get("dataset"),
         "model": summary.get("model"),
         "backend": summary.get("backend"),
-        "search_type": summary.get("search_type"),
-        "hp_profile": summary.get("hp_profile"),
-        "final_train_acc": summary.get("final_train_acc"),
-        "final_test_acc": summary.get("final_test_acc"),
-        "num_params": summary.get("num_params"),
-        "num_support_vectors": summary.get("num_support_vectors"),
-        "hp_search_time_seconds": summary.get("hp_search_time_seconds"),
-        "optimal_model_train_eval_time_seconds": summary.get(
-            "optimal_model_train_eval_time_seconds"
-        ),
-        "best_params": json.dumps(summary.get("best_params", {}), default=str),
+        "number_of_configs": summary.get("number_of_configs"),
         "run_dir": summary.get("run_dir"),
     }
-    write_header = not os.path.exists(csv_path)
-    with open(csv_path, "a", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=list(csv_row.keys()))
-        if write_header:
+    write_configs_header = not os.path.exists(configs_csv_path)
+    with open(configs_csv_path, "a", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=list(configs_csv_row.keys()))
+        if write_configs_header:
             writer.writeheader()
-        writer.writerow(csv_row)
+        writer.writerow(configs_csv_row)
 
 
 def run_single(
@@ -325,8 +368,15 @@ def run_search(
         raise NotImplementedError(f"Unknown model name for hp search: {model}")
     logging.warning(f"Hyperparameters search type: {search_type}")
     logging.warning(f"Hyperparameters profile: {hp_profile}")
+    number_of_configs = _count_search_configurations(param_grid)
+    logging.warning(
+        f"Number of hyperparameter configurations considered: {number_of_configs}"
+    )
 
     param_grid_serializable = serialize_param_grid(param_grid)
+    if isinstance(param_grid_serializable, list):
+        param_grid_serializable = {"grids": param_grid_serializable}
+    param_grid_serializable["number_of_configs"] = number_of_configs
 
     # Get device
     device = training_hps["device"][0]
@@ -495,6 +545,8 @@ def run_search(
     # Save optimal hyperparameters
     best_params = search.best_params_
     save_search_hyperparams(param_grid_serializable, best_params, save_dir, use_wandb)
+    if use_wandb:
+        wandb.log({"number_of_configs": number_of_configs})
     save_hp_search_summary(
         save_dir=save_dir,
         dataset=dataset,
@@ -511,6 +563,7 @@ def run_search(
             "final_test_acc": final_test_acc,
             "num_params": num_params,
             "num_support_vectors": num_support_vectors,
+            "number_of_configs": number_of_configs,
             "hp_search_time_seconds": hp_search_time,
             "optimal_model_train_eval_time_seconds": optimal_model_train_eval_time,
             "run_dir": save_dir,
@@ -668,15 +721,12 @@ def count_parameters(model_dict, hp_opt=False):
         if getattr(model, "ovr_models_", None):
             num_params = 0
             for _, binary_model in model.ovr_models_:
-                num_params += sum(
-                    p.size if not isinstance(p, tuple) else sum(e.size for e in p)
-                    for p in binary_model.params_.values()
-                )
+                weights = getattr(binary_model, "params_", {}).get("weights")
+                if weights is not None:
+                    num_params += weights.size
         else:
-            num_params = sum(
-                p.size if not isinstance(p, tuple) else sum(e.size for e in p)
-                for p in model.params_.values()
-            )
+            weights = getattr(model, "params_", {}).get("weights")
+            num_params = weights.size if weights is not None else 0
     elif model_type == "sklearn_gate":
         if getattr(model, "ovr_models_", None):
             num_support_vectors = sum(

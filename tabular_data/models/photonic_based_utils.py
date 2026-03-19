@@ -12,6 +12,74 @@ def get_computation_space(no_bunching):
         return ml.ComputationSpace.UNBUNCHED
     else:
         return ml.ComputationSpace.FOCK
+
+
+def get_fock_space_dim(m, n, no_bunching):
+    if no_bunching:
+        return math.comb(m, n)
+    return math.comb(m + n - 1, n)
+
+
+def _build_grouping(grouping, m, n, no_bunching):
+    if grouping == "none" or grouping is None:
+        return None
+    if m is None or n is None:
+        raise ValueError("Grouping requires both m and n to be provided.")
+
+    fock_space_dim = get_fock_space_dim(m, n, no_bunching)
+    if grouping == "lex_grouping":
+        grouping_cls = ml.LexGrouping
+    elif grouping == "mod_grouping":
+        grouping_cls = ml.ModGrouping
+    else:
+        raise NotImplementedError(f"grouping {grouping} not implemented")
+
+    return grouping_cls(fock_space_dim, fock_space_dim // 2)
+
+
+def get_measurement_strategy(
+    measurement_strategy, no_bunching, grouping="none", m=None, n=None
+):
+    if measurement_strategy not in ["probs", "mode_expectations"]:
+        raise NotImplementedError(
+            f"measurement_strategy {measurement_strategy} not implemented"
+        )
+
+    strategy_fn = getattr(ml.MeasurementStrategy, measurement_strategy)
+    grouping = get_effective_grouping(measurement_strategy, grouping)
+
+    kwargs = {}
+    if measurement_strategy == "probs":
+        kwargs["computation_space"] = get_computation_space(no_bunching)
+
+    grouping_obj = _build_grouping(grouping, m, n, no_bunching)
+    if grouping_obj is not None:
+        kwargs["grouping"] = grouping_obj
+
+    # Some strategy constructors may not support computation_space; retry without it.
+    try:
+        return strategy_fn(**kwargs)
+    except TypeError:
+        if "computation_space" in kwargs:
+            kwargs.pop("computation_space")
+            return strategy_fn(**kwargs)
+        raise
+
+
+def get_effective_grouping(measurement_strategy, grouping):
+    if grouping is None:
+        grouping = "none"
+    if measurement_strategy == "mode_expectations":
+        return "none"
+    return grouping
+
+
+def get_measurement_output_size(layer_output_size, measurement_strategy, grouping):
+    grouping = get_effective_grouping(measurement_strategy, grouping)
+    if grouping == "none":
+        return layer_output_size
+    # For both lex and mod grouping, the output size is halved
+    return layer_output_size // 2
     
 # Input Fock state util ###################################################################
 
