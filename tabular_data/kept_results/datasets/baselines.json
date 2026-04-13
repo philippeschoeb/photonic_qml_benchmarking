@@ -1,0 +1,82 @@
+{
+  "downscaled_mnist_pca_2_subsampled": {
+    "HistGradientBoostingClassifier": 0.6666666666666666,
+    "KNeighborsClassifier": 0.7666666666666667,
+    "LogisticRegression": 0.7833333333333333
+  },
+  "downscaled_mnist_pca_4_subsampled": {
+    "HistGradientBoostingClassifier": 0.7333333333333333,
+    "KNeighborsClassifier": 0.7166666666666667,
+    "LogisticRegression": 0.7833333333333333
+  },
+  "downscaled_mnist_pca_6_subsampled": {
+    "HistGradientBoostingClassifier": 0.85,
+    "KNeighborsClassifier": 0.95,
+    "LogisticRegression": 0.9333333333333333
+  },
+  "downscaled_mnist_pca_8_subsampled": {
+    "HistGradientBoostingClassifier": 0.8833333333333333,
+    "KNeighborsClassifier": 0.95,
+    "LogisticRegression": 0.9166666666666666
+  },
+  "hidden_manifold_10_10": {
+    "HistGradientBoostingClassifier": 0.75,
+    "KNeighborsClassifier": 0.7166666666666667,
+    "LogisticRegression": 0.8333333333333334
+  },
+  "hidden_manifold_10_2": {
+    "HistGradientBoostingClassifier": 1.0,
+    "KNeighborsClassifier": 1.0,
+    "LogisticRegression": 1.0
+  },
+  "hidden_manifold_2_6": {
+    "HistGradientBoostingClassifier": 0.6333333333333333,
+    "KNeighborsClassifier": 0.6166666666666667,
+    "LogisticRegression": 0.65
+  },
+  "hidden_manifold_8_6": {
+    "HistGradientBoostingClassifier": 0.9666666666666667,
+    "KNeighborsClassifier": 0.9166666666666666,
+    "LogisticRegression": 0.9333333333333333
+  },
+  "spiral_10": {
+    "HistGradientBoostingClassifier": 0.95,
+    "KNeighborsClassifier": 0.9666666666666667,
+    "LogisticRegression": 0.8666666666666667
+  },
+  "spiral_2": {
+    "HistGradientBoostingClassifier": 0.95,
+    "KNeighborsClassifier": 0.95,
+    "LogisticRegression": 0.5333333333333333
+  },
+  "spiral_30": {
+    "HistGradientBoostingClassifier": 0.9666666666666667,
+    "KNeighborsClassifier": 0.9166666666666666,
+    "LogisticRegression": 0.8333333333333334
+  },
+  "spiral_50": {
+    "HistGradientBoostingClassifier": 0.9333333333333333,
+    "KNeighborsClassifier": 0.8166666666666667,
+    "LogisticRegression": 0.8
+  },
+  "two_curves_10_10": {
+    "HistGradientBoostingClassifier": 0.8333333333333334,
+    "KNeighborsClassifier": 0.8333333333333334,
+    "LogisticRegression": 0.6666666666666666
+  },
+  "two_curves_10_2": {
+    "HistGradientBoostingClassifier": 1.0,
+    "KNeighborsClassifier": 1.0,
+    "LogisticRegression": 1.0
+  },
+  "two_curves_2_5": {
+    "HistGradientBoostingClassifier": 0.8333333333333334,
+    "KNeighborsClassifier": 0.85,
+    "LogisticRegression": 0.48333333333333334
+  },
+  "two_curves_8_5": {
+    "HistGradientBoostingClassifier": 0.95,
+    "KNeighborsClassifier": 0.95,
+    "LogisticRegression": 0.9666666666666667
+  }
+}
