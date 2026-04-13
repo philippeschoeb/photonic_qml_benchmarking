@@ -98,9 +98,22 @@ def get_standard_state(m, n):
 
 def get_spaced_state(m, n):
     state = [0] * m
-    jump = m // n
-    for i in range(0, m, jump):
+    placed = 0
+
+    # Start with the 01 pattern: place photons on odd indices first.
+    for i in range(1, m, 2):
+        if placed >= n:
+            break
         state[i] = 1
+        placed += 1
+
+    # Fallback if n exceeds available odd positions.
+    for i in range(0, m, 2):
+        if placed >= n:
+            break
+        state[i] = 1
+        placed += 1
+
     return state
 
 
@@ -315,7 +328,8 @@ class StandardizationLayer(torch.nn.Module):
     def forward(self, x):
         # Calculate mean and standard deviation of each datapoint in batch
         mean = x.mean(dim=0, keepdim=True)
-        std = x.std(dim=0, keepdim=True)
+        # Use population std to avoid warnings for tiny batches (e.g., size 1).
+        std = x.std(dim=0, keepdim=True, unbiased=False)
 
         # Standardize (normalize) the input
         return (x - mean) / (std + 1e-8)  # Adding epsilon to avoid division by zero

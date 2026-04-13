@@ -5,7 +5,6 @@ from datetime import datetime
 import os
 import random
 from typing import Optional
-import csv
 import numpy as np
 import torch
 import joblib
@@ -15,15 +14,24 @@ from time import time
 
 from sklearn.metrics import accuracy_score
 from sklearn.experimental import enable_halving_search_cv
-from sklearn.model_selection import HalvingGridSearchCV, GridSearchCV, ParameterGrid
+from sklearn.model_selection import HalvingGridSearchCV, GridSearchCV
 from skopt import BayesSearchCV
 
 from run_scripts.single_run import get_hyperparams as single_hps
 from run_scripts.hyperparam_search_run import get_hyperparams_halving_grid
 from run_scripts.hyperparam_search_run import get_hyperparams_bayes
 from run_scripts.hyperparam_search_run import serialize_param_grid
+from run_scripts.run_output_utils import (
+    _count_search_configurations,
+    save_hp_search_summary,
+)
 from datasets.fetch_data import fetch_data, fetch_sk_data
 from models.fetch_model import fetch_model, fetch_sk_model
+from models.ablation import (
+    can_apply_ablation,
+    parse_ablation_model_name,
+)
+from models.parameter_counting import count_parameters
 from training.distribute_training import distribute_training
 from utils.save_metrics import (
     save_train_losses_accs,
@@ -34,118 +42,6 @@ from utils.save_metrics import (
     save_search_hyperparams,
 )
 from utils.photonic_dims import get_photonic_mn
-
-
-def _serialize_for_json(obj):
-    if isinstance(obj, dict):
-        return {k: _serialize_for_json(v) for k, v in obj.items()}
-    if isinstance(obj, (list, tuple)):
-        return [_serialize_for_json(v) for v in obj]
-    if isinstance(obj, np.ndarray):
-        return obj.tolist()
-    if isinstance(obj, np.generic):
-        return obj.item()
-    if isinstance(obj, torch.device):
-        return str(obj)
-    return obj
-
-
-def _count_search_configurations(param_grid):
-    if isinstance(param_grid, dict):
-        return len(ParameterGrid(param_grid))
-    if isinstance(param_grid, list):
-        return sum(len(ParameterGrid(grid)) for grid in param_grid)
-    raise TypeError(f"Unsupported param_grid type: {type(param_grid)!r}")
-
-
-def _summary_csv_row(summary: dict) -> dict:
-    return {
-        "timestamp": summary.get("timestamp"),
-        "dataset": summary.get("dataset"),
-        "model": summary.get("model"),
-        "backend": summary.get("backend"),
-        "search_type": summary.get("search_type"),
-        "hp_profile": summary.get("hp_profile"),
-        "number_of_configs": summary.get("number_of_configs"),
-        "final_train_acc": summary.get("final_train_acc"),
-        "final_test_acc": summary.get("final_test_acc"),
-        "num_params": summary.get("num_params"),
-        "num_support_vectors": summary.get("num_support_vectors"),
-        "hp_search_time_seconds": summary.get("hp_search_time_seconds"),
-        "optimal_model_train_eval_time_seconds": summary.get(
-            "optimal_model_train_eval_time_seconds"
-        ),
-        "best_params": json.dumps(summary.get("best_params", {}), default=str),
-        "run_dir": summary.get("run_dir"),
-    }
-
-
-def _rewrite_summary_csv_from_jsonl(jsonl_path: str, csv_path: str) -> None:
-    rows = []
-    with open(jsonl_path, "r") as f:
-        for line in f:
-            line = line.strip()
-            if not line:
-                continue
-            rows.append(_summary_csv_row(json.loads(line)))
-
-    if not rows:
-        return
-
-    with open(csv_path, "w", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=list(rows[0].keys()))
-        writer.writeheader()
-        writer.writerows(rows)
-
-
-def save_hp_search_summary(
-    save_dir: str,
-    summary: dict,
-    dataset: str,
-    big_script_name: Optional[str] = None,
-):
-    """Persist per-run summary and append to dataset-level aggregate files."""
-    os.makedirs(save_dir, exist_ok=True)
-    summary = _serialize_for_json(summary)
-
-    per_run_path = os.path.join(save_dir, "hp_search_summary.json")
-    with open(per_run_path, "w") as f:
-        json.dump(summary, f, indent=4, default=str)
-
-    if not big_script_name:
-        return
-
-    repo_root = os.path.dirname(
-        os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    )
-    summary_dir = os.path.join(repo_root, "tabular_data", "results", big_script_name)
-    os.makedirs(summary_dir, exist_ok=True)
-
-    dataset_slug = dataset.replace("/", "_")
-    jsonl_path = os.path.join(summary_dir, f"hp_search_{dataset_slug}.jsonl")
-    with open(jsonl_path, "a") as f:
-        f.write(json.dumps(summary, default=str) + "\n")
-
-    csv_path = os.path.join(summary_dir, f"hp_search_{dataset_slug}.csv")
-    _rewrite_summary_csv_from_jsonl(jsonl_path, csv_path)
-
-    configs_csv_path = os.path.join(
-        summary_dir, f"hp_search_{dataset_slug}_number_of_configs.csv"
-    )
-    configs_csv_row = {
-        "timestamp": summary.get("timestamp"),
-        "dataset": summary.get("dataset"),
-        "model": summary.get("model"),
-        "backend": summary.get("backend"),
-        "number_of_configs": summary.get("number_of_configs"),
-        "run_dir": summary.get("run_dir"),
-    }
-    write_configs_header = not os.path.exists(configs_csv_path)
-    with open(configs_csv_path, "a", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=list(configs_csv_row.keys()))
-        if write_configs_header:
-            writer.writeheader()
-        writer.writerow(configs_csv_row)
 
 
 def run_single(
@@ -225,7 +121,12 @@ def run_single(
     logging.warning(f"Training completed in {training_time} seconds")
 
     # Number of parameters after training (for 'sklearn_gate' models)
-    num_params, num_support_vectors = count_parameters(model_dict)
+    (
+        num_params,
+        num_quantum_params,
+        num_classical_params,
+        num_support_vectors,
+    ) = count_parameters(model_dict)
 
     # Save metrics based on model type
     if model_type == "torch":
@@ -289,6 +190,8 @@ def run_single(
 
     # Save hyperparameters, number of parameters / support vectors and training time
     model_hps["num_params"] = num_params
+    model_hps["num_quantum_params"] = num_quantum_params
+    model_hps["num_classical_params"] = num_classical_params
     model_hps["num_support_vectors"] = num_support_vectors
     training_hps["training_time"] = training_time
     save_hyperparams(
@@ -299,6 +202,8 @@ def run_single(
         wandb.log(
             {
                 "number_of_params": num_params,
+                "number_of_quantum_params": num_quantum_params,
+                "number_of_classical_params": num_classical_params,
                 "num_support_vectors": num_support_vectors,
                 "training_time": training_time,
             }
@@ -316,6 +221,10 @@ def run_search(
     hp_profile,
     big_script_name=None,
 ):
+    ablation_spec = parse_ablation_model_name(model)
+    base_model = ablation_spec.base_model
+    ablation_type = ablation_spec.ablation_type
+
     # Setup logging and return save directory
     save_dir = set_up_logging(
         dataset=dataset,
@@ -346,26 +255,26 @@ def run_search(
     force_full_grid = hp_profile == "minimal"
     if force_full_grid:
         param_grid, dataset_hps, model_hps, training_hps = get_hyperparams_halving_grid(
-            dataset, model, architecture, backend, random_state, hp_profile
+            dataset, base_model, architecture, backend, random_state, hp_profile
         )
         search_type = "grid_search"
-    elif model in halving_grid_list:
+    elif base_model in halving_grid_list:
         param_grid, dataset_hps, model_hps, training_hps = get_hyperparams_halving_grid(
-            dataset, model, architecture, backend, random_state, hp_profile
+            dataset, base_model, architecture, backend, random_state, hp_profile
         )
         search_type = "halving_grid_search"
-    elif model in bayes_list:
+    elif base_model in bayes_list:
         param_grid, dataset_hps, model_hps, training_hps = get_hyperparams_bayes(
-            dataset, model, architecture, backend, random_state, hp_profile
+            dataset, base_model, architecture, backend, random_state, hp_profile
         )
         search_type = "bayes_search"
-    elif model in grid_list:
+    elif base_model in grid_list:
         param_grid, dataset_hps, model_hps, training_hps = get_hyperparams_halving_grid(
-            dataset, model, architecture, backend, random_state, hp_profile
+            dataset, base_model, architecture, backend, random_state, hp_profile
         )
         search_type = "grid_search"
     else:
-        raise NotImplementedError(f"Unknown model name for hp search: {model}")
+        raise NotImplementedError(f"Unknown model name for hp search: {base_model}")
     logging.warning(f"Hyperparameters search type: {search_type}")
     logging.warning(f"Hyperparameters profile: {hp_profile}")
     number_of_configs = _count_search_configurations(param_grid)
@@ -382,6 +291,29 @@ def run_search(
     device = training_hps["device"][0]
     # Get model type
     model_type = model_hps["type"][0]
+    if ablation_type is not None:
+        can_apply, skip_reason = can_apply_ablation(
+            model_type=model_type,
+            model_name=base_model,
+            ablation_type=ablation_type,
+        )
+        if not can_apply:
+            logging.warning(
+                "Skipping run `%s`: %s",
+                model,
+                skip_reason,
+            )
+            return
+        if isinstance(param_grid, list):
+            for grid in param_grid:
+                grid["training_params__ablation_type"] = [ablation_type]
+        else:
+            param_grid["training_params__ablation_type"] = [ablation_type]
+        if "grids" in param_grid_serializable:
+            for grid in param_grid_serializable["grids"]:
+                grid["training_params__ablation_type"] = [ablation_type]
+        else:
+            param_grid_serializable["training_params__ablation_type"] = [ablation_type]
 
     # Fetch data
     x_train, x_test, y_train, y_test = fetch_sk_data(dataset, **dataset_hps)
@@ -399,7 +331,7 @@ def run_search(
         wandb.run.summary["hp_profile"] = hp_profile
 
     # Fetch model
-    sk_model = fetch_sk_model(model, backend)
+    sk_model = fetch_sk_model(base_model, backend)
 
     # Check device / override parallelism if requested
     # For safety and avoid crashes, n_jobs=1
@@ -407,7 +339,7 @@ def run_search(
 
     # Merlin-based photonic kernels do not play nicely with multiprocessing
     if (backend == "photonic" and n_jobs != 1) and (
-        model == "q_rks" or model == "q_kernel_method"
+        base_model == "q_rks" or base_model == "q_kernel_method"
     ):
         logging.warning(
             "Forcing n_jobs=1 for photonic q_rks to avoid worker crashes during hyperparameter search."
@@ -420,7 +352,7 @@ def run_search(
         search = GridSearchCV(
             sk_model, param_grid=param_grid, cv=3, n_jobs=n_jobs, verbose=2
         )
-    elif model in halving_grid_list:
+    elif base_model in halving_grid_list:
         # HalvingGridSearchCV
         search = HalvingGridSearchCV(
             sk_model,
@@ -430,7 +362,7 @@ def run_search(
             verbose=2,
             min_resources=20,
         )
-    elif model in bayes_list:
+    elif base_model in bayes_list:
         # BayesSearchCV
         search = BayesSearchCV(
             sk_model,
@@ -441,13 +373,13 @@ def run_search(
             verbose=2,
             n_iter=100,
         )
-    elif model in grid_list:
+    elif base_model in grid_list:
         # GridSearchCV
         search = GridSearchCV(
             sk_model, param_grid=param_grid, cv=3, n_jobs=n_jobs, verbose=2
         )
     else:
-        raise NotImplementedError(f"Unknown model name for hp search: {model}")
+        raise NotImplementedError(f"Unknown model name for hp search: {base_model}")
 
     # Hyperparameter search
     logging.warning("HPs search started")
@@ -488,13 +420,20 @@ def run_search(
         f"Optimal model train+eval time: {optimal_model_train_eval_time:.4f} seconds"
     )
 
-    model_dict = {"type": model_type, "name": model, "model": best_model}
+    model_dict = {"type": model_type, "name": base_model, "model": best_model}
 
     # Number of parameters after training (for 'sklearn_gate' models)
-    num_params, num_support_vectors = count_parameters(model_dict, True)
+    (
+        num_params,
+        num_quantum_params,
+        num_classical_params,
+        num_support_vectors,
+    ) = count_parameters(model_dict, True)
 
     # Save number of parameters / support vectors and training time
     param_grid_serializable["num_params"] = num_params
+    param_grid_serializable["num_quantum_params"] = num_quantum_params
+    param_grid_serializable["num_classical_params"] = num_classical_params
     param_grid_serializable["num_support_vectors"] = num_support_vectors
     param_grid_serializable["training_time"] = hp_search_time
     param_grid_serializable["hp_search_time_seconds"] = hp_search_time
@@ -508,6 +447,8 @@ def run_search(
         wandb.log(
             {
                 "number_of_params": num_params,
+                "number_of_quantum_params": num_quantum_params,
+                "number_of_classical_params": num_classical_params,
                 "num_support_vectors": num_support_vectors,
                 "training_time": hp_search_time,
                 "hp_search_time_seconds": hp_search_time,
@@ -555,6 +496,8 @@ def run_search(
             "timestamp": datetime.now().isoformat(timespec="seconds"),
             "dataset": dataset,
             "model": model,
+            "ablation_type": ablation_type,
+            "base_model": base_model,
             "backend": backend,
             "search_type": search_type,
             "hp_profile": hp_profile,
@@ -562,6 +505,8 @@ def run_search(
             "final_train_acc": final_train_acc,
             "final_test_acc": final_test_acc,
             "num_params": num_params,
+            "num_quantum_params": num_quantum_params,
+            "num_classical_params": num_classical_params,
             "num_support_vectors": num_support_vectors,
             "number_of_configs": number_of_configs,
             "hp_search_time_seconds": hp_search_time,
@@ -674,69 +619,3 @@ def set_up_random_state(random_state: int):
     torch.backends.cudnn.benchmark = False
 
     return random_state
-
-
-def count_parameters(model_dict, hp_opt=False):
-    # If the model comes from HP optimization, we usually take the model out of its SK wrapper.
-    # For multiclass gate wrappers using one-vs-rest, keep the wrapper to aggregate counts.
-    if hp_opt:
-        wrapped_model = model_dict["model"]
-        if not getattr(wrapped_model, "ovr_models_", None):
-            model_dict["model"] = wrapped_model.model
-        return count_parameters(model_dict)
-
-    model_type = model_dict["type"]
-    model = model_dict["model"]
-    num_params = 0
-    num_support_vectors = 0
-
-    if model_type == "torch":
-        num_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
-    elif model_type == "reuploading":
-        num_params = sum(
-            p.numel() for p in model.quantum_model.parameters() if p.requires_grad
-        )
-    elif model_type == "sklearn_q_kernel":
-        optimizable_model = model.quantum_kernel
-        num_params = sum(p.numel() for p in optimizable_model.parameters())
-        num_support_vectors = len(model.model.support_)
-    elif model_type == "sklearn_kernel":
-        num_support_vectors = len(model.model.support_)
-    elif model_type == "sklearn":
-        num_support_vectors = len(model.model.support_)
-    elif model_type == "jax_sklearn_gate":
-        if getattr(model, "ovr_models_", None):
-            num_params = 0
-            for _, binary_model in model.ovr_models_:
-                num_params += sum(
-                    p.size if not isinstance(p, tuple) else sum(e.size for e in p)
-                    for p in binary_model.params_.values()
-                )
-        else:
-            num_params = sum(
-                p.size if not isinstance(p, tuple) else sum(e.size for e in p)
-                for p in model.params_.values()
-            )
-    elif model_type == "gate_rks":
-        if getattr(model, "ovr_models_", None):
-            num_params = 0
-            for _, binary_model in model.ovr_models_:
-                weights = getattr(binary_model, "params_", {}).get("weights")
-                if weights is not None:
-                    num_params += weights.size
-        else:
-            weights = getattr(model, "params_", {}).get("weights")
-            num_params = weights.size if weights is not None else 0
-    elif model_type == "sklearn_gate":
-        if getattr(model, "ovr_models_", None):
-            num_support_vectors = sum(
-                len(binary_model.svm.support_)
-                for _, binary_model in model.ovr_models_
-            )
-        else:
-            num_support_vectors = len(model.svm.support_)
-    else:
-        raise NotImplementedError(f"Unknown model type: {model_type}")
-    logging.warning(f"Number of parameters: {num_params}")
-    logging.warning(f"Number of support vectors: {num_support_vectors}")
-    return num_params, num_support_vectors

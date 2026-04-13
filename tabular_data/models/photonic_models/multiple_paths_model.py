@@ -17,6 +17,7 @@ from models.photonic_based_utils import (
     get_measurement_output_size,
 )
 from models.classical_models.mlp import MLP
+from models.ablation import apply_ablation_if_requested
 from utils.photonic_dims import get_photonic_mn
 
 
@@ -135,6 +136,17 @@ class SKMultiplePathsModel(BaseEstimator, ClassifierMixin):
         input_size = x.shape[1]
         self.model_params["m"], self.model_params["n"] = get_photonic_mn(input_size)
         self.model = self.model_class(**self.model_params)
+        ablation_result = apply_ablation_if_requested(
+            model_type="torch",
+            model_name=self.model_name,
+            model_obj=self.model,
+            training_params=self.training_params,
+            measurement_strategy=self.model_params.get("measurement_strategy"),
+            n_photons=self.model_params.get("n"),
+        )
+        if ablation_result.skipped:
+            raise ValueError(f"Ablation requested but skipped: {ablation_result.reason}")
+        self.model = ablation_result.model
 
         # Get hyperparams
         criterion = self.training_params.get("criterion", "CrossEntropyLoss")

@@ -76,6 +76,7 @@
         "default": {
             "R": 100,
             "n_qfeatures": "full",
+            "max_vmap": 10,
             "gamma": 1.0,
             "scaling": 1.0
         }

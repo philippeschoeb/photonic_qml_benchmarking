@@ -1,0 +1,30 @@
+{
+  "datasets": [
+    "hidden_manifold_2_6",
+    "hidden_manifold_8_6",
+    "hidden_manifold_10_2",
+    "hidden_manifold_10_10",
+    "two_curves_2_5",
+    "two_curves_8_5",
+    "two_curves_10_2",
+    "two_curves_10_10",
+    "spiral_2",
+    "spiral_5",
+    "spiral_10"
+  ],
+  "run_ablations": true,
+  "hp_profile": "minimal",
+  "models": [
+    "dressed_quantum_circuit",
+    "dressed_quantum_circuit_reservoir",
+    "multiple_paths_model",
+    "multiple_paths_model_reservoir",
+    "data_reuploading",
+    "q_kernel_method",
+    "q_kernel_method_reservoir",
+    "q_rks",
+    "mlp",
+    "rbf_svc",
+    "rks"
+  ]
+}

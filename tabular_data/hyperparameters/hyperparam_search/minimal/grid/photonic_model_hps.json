@@ -2,7 +2,9 @@
     "dressed_quantum_circuit": {
         "default": {
             "scaling": [
-                "1"
+                "1",
+                "pi",
+                "learned"
             ],
             "measurement_strategy": [
                 "mode_expectations"
@@ -27,7 +29,9 @@
     "dressed_quantum_circuit_reservoir": {
         "default": {
             "scaling": [
-                "1"
+                "1",
+                "pi",
+                "learned"
             ],
             "measurement_strategy": [
                 "mode_expectations"
@@ -52,7 +56,9 @@
     "multiple_paths_model": {
         "default": {
             "scaling": [
-                "1"
+                "1",
+                "pi",
+                "learned"
             ],
             "measurement_strategy": [
                 "mode_expectations"
@@ -67,7 +73,7 @@
                 false
             ],
             "no_bunching": [
-                false
+                true
             ],
             "post_circuit_scaling": [
                 "standardize", "minmax"
@@ -83,7 +89,9 @@
     "multiple_paths_model_reservoir": {
         "default": {
             "scaling": [
-                "1"
+                "1",
+                "pi",
+                "learned"
             ],
             "measurement_strategy": [
                 "mode_expectations"
@@ -98,7 +106,7 @@
                 true
             ],
             "no_bunching": [
-                false
+                true
             ],
             "post_circuit_scaling": [
                 "standardize", "minmax"
@@ -114,7 +122,9 @@
     "data_reuploading": {
         "default": {
             "scaling": [
-                "1"
+                "1",
+                "pi",
+                "learned"
             ],
             "measurement_strategy": [
                 "mode_expectations"
@@ -133,7 +143,9 @@
     "q_kernel_method": {
         "default": {
             "scaling": [
-                "pi"
+                "1",
+                "pi",
+                "learned"
             ],
             "measurement_strategy": [
                 "mode_expectations"
@@ -161,7 +173,9 @@
     "q_kernel_method_reservoir": {
         "default": {
             "scaling": [
-                "pi"
+                "1",
+                "pi",
+                "learned"
             ],
             "measurement_strategy": [
                 "mode_expectations"
@@ -189,7 +203,9 @@
     "q_rks": {
         "default": {
             "scaling": [
-                "1"
+                "1",
+                "pi",
+                "learned"
             ],
             "measurement_strategy": [
                 "mode_expectations"

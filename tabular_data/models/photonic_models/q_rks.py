@@ -12,6 +12,7 @@ from models.photonic_based_utils import (
 from utils.photonic_dims import get_photonic_mn
 import merlin as ml
 import torch
+from models.ablation import apply_ablation_if_requested
 
 
 def get_random_w_b(r, input_size):
@@ -258,6 +259,17 @@ class SKQRKS(BaseEstimator, ClassifierMixin):
         input_size = x.shape[1]
         model_kwargs["m"], model_kwargs["n"] = get_photonic_mn(input_size)
         self.model = self.model_class(**model_kwargs)
+        ablation_result = apply_ablation_if_requested(
+            model_type="sklearn_kernel",
+            model_name=self.model_name,
+            model_obj=self.model,
+            training_params=self.training_params,
+            measurement_strategy=model_kwargs.get("measurement_strategy"),
+            n_photons=model_kwargs.get("n"),
+        )
+        if ablation_result.skipped:
+            raise ValueError(f"Ablation requested but skipped: {ablation_result.reason}")
+        self.model = ablation_result.model
         kernel_matrix_train, _ = self.model.get_kernels(x, x)
         self._x_train = np.array(x)
 

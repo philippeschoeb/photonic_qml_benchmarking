@@ -34,6 +34,34 @@ python main.py --dataset {dataset} --model {model} --run_type hyperparam_search 
 
 Use `--architecture help` to inspect model-specific architecture strings. Classical models automatically switch to the classical backend.
 
+## Ablation Studies (Opt-In)
+Two ablation modes are supported for hyperparameter search, and they are only run when explicitly requested.
+
+- Quantum ablation (`_abla_q`):
+  replaces the model's quantum block with a frozen 1-hidden-layer MLP (same output size as the replaced quantum block).
+- Classical ablation (`_abla_c`):
+  freezes classical trainable parameters while keeping quantum trainable parameters active.
+
+Run one ablated model directly:
+
+```bash
+cd tabular_data
+python main.py --dataset {dataset} --model {base_model}_abla_q --run_type hyperparam_search --backend photonic
+python main.py --dataset {dataset} --model {base_model}_abla_c --run_type hyperparam_search --backend photonic
+```
+
+Run a full minimal sweep with optional ablations:
+
+```bash
+cd tabular_data
+./scripts/run_all_hp_search_minimal_ablation.sh {dataset}
+./scripts/run_all_hp_search_minimal_ablation.sh {dataset} --with-ablation
+```
+
+Notes:
+- Ablations are not applied to normal model names (no `_abla_q`/`_abla_c` suffix).
+- Unsupported ablation/model combinations are skipped safely in the pipeline.
+
 ## GPU vs CPU Notes
 - Photonic simulations (MerLin) are CPU-heavy; run with `--backend photonic`. If you encounter worker crashes during large hyperparameter sweeps, prefer serial execution (`n_jobs=1`) or trim the search space.
 - JAX-based gate models can leverage GPU execution when `jaxlib` is installed with CUDA support. Ensure `XLA_PYTHON_CLIENT_PREALLOCATE=false` is set if GPU memory becomes constrained.
@@ -42,4 +70,3 @@ Use `--architecture help` to inspect model-specific architecture strings. Classi
 - `tabular_data/` – core pipelines for datasets, models, training loops, hyperparameter definitions.
 - `time_series_data/`, `vision_data/` – placeholders for future modalities.
 - `tabular_data/results/` – metrics and artifacts written by completed runs.
-

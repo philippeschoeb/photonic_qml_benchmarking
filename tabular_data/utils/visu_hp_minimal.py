@@ -32,6 +32,8 @@ class SummaryRow:
     final_train_acc: float
     final_test_acc: float
     num_params: int
+    num_quantum_params: int
+    num_classical_params: int
     num_support_vectors: int
     hp_search_time_seconds: float
     optimal_model_train_eval_time_seconds: float
@@ -167,6 +169,25 @@ def _load_rows(csv_files: list[Path]) -> list[SummaryRow]:
                 if not dataset or not model:
                     continue
                 model_key = f"{model} ({backend})" if backend else model
+                total_params = _to_int(r, "num_params")
+                raw_quantum = _to_int(r, "num_quantum_params")
+                raw_classical = _to_int(r, "num_classical_params")
+                has_quantum = bool((r.get("num_quantum_params") or "").strip())
+                has_classical = bool((r.get("num_classical_params") or "").strip())
+
+                if has_quantum and has_classical:
+                    quantum_params = raw_quantum
+                    classical_params = raw_classical
+                elif has_quantum:
+                    quantum_params = raw_quantum
+                    classical_params = max(0, total_params - quantum_params)
+                elif has_classical:
+                    classical_params = raw_classical
+                    quantum_params = max(0, total_params - classical_params)
+                else:
+                    quantum_params = 0
+                    classical_params = total_params
+
                 rows.append(
                     SummaryRow(
                         dataset=dataset,
@@ -175,7 +196,9 @@ def _load_rows(csv_files: list[Path]) -> list[SummaryRow]:
                         model_key=model_key,
                         final_train_acc=_to_float(r, "final_train_acc"),
                         final_test_acc=_to_float(r, "final_test_acc"),
-                        num_params=_to_int(r, "num_params"),
+                        num_params=total_params,
+                        num_quantum_params=quantum_params,
+                        num_classical_params=classical_params,
                         num_support_vectors=_to_int(r, "num_support_vectors"),
                         hp_search_time_seconds=_to_float(r, "hp_search_time_seconds"),
                         optimal_model_train_eval_time_seconds=_to_float(
@@ -217,6 +240,18 @@ def _build_index(rows: list[SummaryRow]) -> tuple[list[str], list[str], dict[tup
     datasets = list(dict.fromkeys(r.dataset for r in rows))
     lookup = {(r.model_key, r.dataset): r for r in rows}
     return model_keys, datasets, lookup
+
+
+def _is_ablation_model_name(model_name: str) -> bool:
+    return "_abla_" in model_name
+
+
+def _split_ablation_variant(model_name: str) -> tuple[str, str]:
+    if model_name.endswith("_abla_q"):
+        return model_name[: -len("_abla_q")], "q"
+    if model_name.endswith("_abla_c"):
+        return model_name[: -len("_abla_c")], "c"
+    return model_name, "orig"
 
 
 def _hatches(n: int) -> list[str]:
@@ -361,6 +396,27 @@ def _variable_axis_label(variable_name: str) -> str:
     return variable_name
 
 
+def _multi_path_point_dataset_title(datasets: list[str]) -> str | None:
+    unique_datasets = list(dict.fromkeys(datasets))
+    if not unique_datasets:
+        return None
+
+    parsed_bases: list[str] = []
+    for dataset in unique_datasets:
+        info = _parse_dataset_identifier(dataset)
+        if info is None:
+            return None
+        parsed_bases.append(info[0])
+
+    if len(set(parsed_bases)) != 1:
+        return None
+
+    base = parsed_bases[0]
+    if base == "downscaled_mnist_pca":
+        return "mnist_pca"
+    return base
+
+
 def _plot_multi_path_point_accuracy_by_family(
     family_name: str,
     family_model_keys: list[str],
@@ -369,6 +425,7 @@ def _plot_multi_path_point_accuracy_by_family(
     baselines_by_dataset: dict[str, dict[str, float]],
     variable_name: str,
     out_path: Path,
+    title_dataset_suffix: str = "",
 ) -> None:
     fig, ax = plt.subplots(figsize=(10, 6))
     palette = plt.get_cmap("tab10")
@@ -420,7 +477,7 @@ def _plot_multi_path_point_accuracy_by_family(
             label=f"{baseline_name} baseline",
         )
 
-    ax.set_title(f"{MODEL_FAMILIES[family_name]['title']}: Test Accuracy")
+    ax.set_title(f"{MODEL_FAMILIES[family_name]['title']}: Test Accuracy{title_dataset_suffix}")
     ax.set_xlabel(_variable_axis_label(variable_name))
     ax.set_ylabel("Test Accuracy")
     ax.set_ylim(0, 1)
@@ -446,6 +503,7 @@ def _plot_multi_path_point_dual_metric_by_family(
     metric_b_getter,
     ylabel_a: str,
     ylabel_b: str,
+    title_dataset_suffix: str = "",
 ) -> None:
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 9), sharex=True)
     palette = plt.get_cmap("tab10")
@@ -470,12 +528,12 @@ def _plot_multi_path_point_dual_metric_by_family(
         ax2.plot(xs, vals_b, color=color, linewidth=1.4, alpha=0.85, label=model_key)
         ax2.scatter(xs, vals_b, color=color, edgecolors="black", linewidths=0.7, s=54, zorder=3)
 
-    ax1.set_title(f"{MODEL_FAMILIES[family_name]['title']}: {metric_a_name}")
+    ax1.set_title(f"{MODEL_FAMILIES[family_name]['title']}: {metric_a_name}{title_dataset_suffix}")
     ax1.set_ylabel(ylabel_a)
     ax1.grid(axis="both", alpha=0.25)
     ax1.legend(loc="best", fontsize=8)
 
-    ax2.set_title(f"{MODEL_FAMILIES[family_name]['title']}: {metric_b_name}")
+    ax2.set_title(f"{MODEL_FAMILIES[family_name]['title']}: {metric_b_name}{title_dataset_suffix}")
     ax2.set_xlabel(_variable_axis_label(variable_name))
     ax2.set_ylabel(ylabel_b)
     ax2.set_xticks(x_values)
@@ -495,6 +553,7 @@ def _plot_multi_path_point_family_figures(
     dataset_points: list[tuple[str, int]],
     output_dir: Path,
     point_mode: bool = False,
+    title_dataset_suffix: str = "",
 ) -> list[Path]:
     saved_paths: list[Path] = []
     for family_name in MODEL_FAMILIES:
@@ -514,6 +573,7 @@ def _plot_multi_path_point_family_figures(
             baselines_by_dataset=baselines_by_dataset,
             variable_name=variable_name,
             out_path=accuracy_path,
+            title_dataset_suffix=title_dataset_suffix,
         )
         saved_paths.append(accuracy_path)
 
@@ -534,6 +594,7 @@ def _plot_multi_path_point_family_figures(
             metric_b_getter=lambda r: r.num_support_vectors,
             ylabel_a="Parameters",
             ylabel_b="Support Vectors",
+            title_dataset_suffix=title_dataset_suffix,
         )
         saved_paths.append(params_path)
 
@@ -554,6 +615,7 @@ def _plot_multi_path_point_family_figures(
             metric_b_getter=lambda r: r.optimal_model_train_eval_time_seconds,
             ylabel_a="Time (s)",
             ylabel_b="Time (s)",
+            title_dataset_suffix=title_dataset_suffix,
         )
         saved_paths.append(times_path)
 
@@ -581,6 +643,7 @@ def _plot_grouped(
     group_fill_ratio: float = 0.8,
     max_bar_width: float = 0.20,
     point_mode: bool = False,
+    metric_a_quantum_getter=None,
 ) -> None:
     x = np.arange(len(model_keys))
     n_sets = max(1, len(datasets))
@@ -603,14 +666,20 @@ def _plot_grouped(
         ]
         vals_a = []
         vals_b = []
+        vals_a_quantum = []
         for model_key in model_keys:
             row = lookup.get((model_key, dataset))
             if row is None:
                 vals_a.append(0.0)
                 vals_b.append(0.0)
+                vals_a_quantum.append(0.0)
             else:
                 vals_a.append(metric_a_getter(row))
                 vals_b.append(metric_b_getter(row))
+                if metric_a_quantum_getter is not None:
+                    vals_a_quantum.append(float(metric_a_quantum_getter(row)))
+                else:
+                    vals_a_quantum.append(0.0)
 
         colors_a = []
         colors_b = []
@@ -646,15 +715,44 @@ def _plot_grouped(
                     zorder=3,
                 )
         else:
-            bars_a = ax.bar(
-                x + offsets[0],
-                vals_a,
-                width=width,
-                color=colors_a,
-                edgecolor="black",
-                linewidth=0.6,
-                hatch=hatch_patterns[ds_idx],
-            )
+            if metric_a_quantum_getter is not None:
+                vals_a_quantum_clipped = [
+                    min(max(q, 0.0), float(total))
+                    for q, total in zip(vals_a_quantum, vals_a)
+                ]
+                vals_a_classical = [
+                    float(total) - float(q)
+                    for total, q in zip(vals_a, vals_a_quantum_clipped)
+                ]
+                bars_a = ax.bar(
+                    x + offsets[0],
+                    vals_a_quantum_clipped,
+                    width=width,
+                    color="black",
+                    edgecolor="black",
+                    linewidth=0.6,
+                    hatch=hatch_patterns[ds_idx],
+                )
+                ax.bar(
+                    x + offsets[0],
+                    vals_a_classical,
+                    width=width,
+                    bottom=vals_a_quantum_clipped,
+                    color=colors_a,
+                    edgecolor="black",
+                    linewidth=0.6,
+                    hatch=hatch_patterns[ds_idx],
+                )
+            else:
+                bars_a = ax.bar(
+                    x + offsets[0],
+                    vals_a,
+                    width=width,
+                    color=colors_a,
+                    edgecolor="black",
+                    linewidth=0.6,
+                    hatch=hatch_patterns[ds_idx],
+                )
             bars_b = ax.bar(
                 x + offsets[1],
                 vals_b,
@@ -707,40 +805,48 @@ def _plot_grouped(
 
         if annotate_counts and not point_mode:
             ymax = max(1.0, max(vals_a + vals_b))
-            if point_mode:
-                point_groups = [
-                    list(zip(x + offsets[0], vals_a, colors_a)),
-                    list(zip(x + offsets[1], vals_b, colors_b)),
-                ]
-            else:
-                point_groups = [
-                    [
-                        (b.get_x() + b.get_width() / 2, b.get_height(), b.get_facecolor()[:3])
-                        for b in bars_a
-                    ],
-                    [
-                        (b.get_x() + b.get_width() / 2, b.get_height(), b.get_facecolor()[:3])
-                        for b in bars_b
-                    ],
-                ]
-            for points in point_groups:
-                for x_pos, h, face_rgb in points:
-                    if h <= 0:
-                        continue
-                    text_inside_bar = (not point_mode) and h >= 0.08 * ymax
-                    y = h - 0.04 * ymax if text_inside_bar else h + 0.01 * ymax
-                    va = "top" if text_inside_bar else "bottom"
-                    text_color = "white" if (text_inside_bar and _is_dark_rgb(face_rgb)) else "black"
-                    ax.text(
-                        x_pos,
-                        y,
-                        f"{int(round(h))}",
-                        ha="center",
-                        va=va,
-                        fontsize=9 if point_mode else 8,
-                        fontweight="bold",
-                        color=text_color,
-                    )
+            vals_a_quantum_clipped = [
+                min(max(q, 0.0), float(total))
+                for q, total in zip(vals_a_quantum, vals_a)
+            ]
+
+            for idx, (x_pos, h, face_rgb) in enumerate(zip(x + offsets[0], vals_a, colors_a)):
+                if h <= 0:
+                    continue
+                quantum_ratio = (vals_a_quantum_clipped[idx] / h) if h > 0 else 0.0
+                quantum_dominates = metric_a_quantum_getter is not None and quantum_ratio >= 0.60
+                text_inside_bar = h >= 0.08 * ymax and not quantum_dominates
+                y = h - 0.04 * ymax if text_inside_bar else h + 0.01 * ymax
+                va = "top" if text_inside_bar else "bottom"
+                text_color = "white" if (text_inside_bar and _is_dark_rgb(face_rgb)) else "black"
+                ax.text(
+                    x_pos,
+                    y,
+                    f"{int(round(h))}",
+                    ha="center",
+                    va=va,
+                    fontsize=8,
+                    fontweight="bold",
+                    color=text_color,
+                )
+
+            for x_pos, h, face_rgb in zip(x + offsets[1], vals_b, colors_b):
+                if h <= 0:
+                    continue
+                text_inside_bar = h >= 0.08 * ymax
+                y = h - 0.04 * ymax if text_inside_bar else h + 0.01 * ymax
+                va = "top" if text_inside_bar else "bottom"
+                text_color = "white" if (text_inside_bar and _is_dark_rgb(face_rgb)) else "black"
+                ax.text(
+                    x_pos,
+                    y,
+                    f"{int(round(h))}",
+                    ha="center",
+                    va=va,
+                    fontsize=8,
+                    fontweight="bold",
+                    color=text_color,
+                )
 
     ax.set_title(title)
     ax.set_ylabel(ylabel)
@@ -761,6 +867,10 @@ def _plot_grouped(
             Patch(facecolor=color_a, edgecolor="black", label=metric_a_name),
             Patch(facecolor=color_b, edgecolor="black", label=metric_b_name),
         ]
+        if metric_a_quantum_getter is not None:
+            metric_legend.append(
+                Patch(facecolor="black", edgecolor="black", label="Quantum share of Parameters")
+            )
     dataset_legend = [
         Patch(
             facecolor="white",
@@ -1035,7 +1145,7 @@ def _with_optional_point_suffix(path: Path, point_mode: bool) -> Path:
 
 
 def _plot_each_model_figures(
-    model_keys: list[str],
+    rows: list[SummaryRow],
     datasets: list[str],
     lookup: dict[tuple[str, str], SummaryRow],
     baselines_by_dataset: dict[str, dict[str, float]],
@@ -1048,50 +1158,146 @@ def _plot_each_model_figures(
 
     saved_paths: list[Path] = []
     x = np.arange(len(datasets))
-    width = 0.175
     x_limits = (-0.5, len(datasets) - 0.5)
+    variant_order = ["orig", "q", "c"]
+    variant_labels = {
+        "orig": "Original",
+        "q": "Q Ablation",
+        "c": "C Ablation",
+    }
+    variant_hatches = {
+        "orig": "",
+        "q": "//",
+        "c": "xx",
+    }
 
-    for model_key in model_keys:
+    grouped_model_keys: dict[str, dict[str, str]] = {}
+    for row in rows:
+        base_model, variant = _split_ablation_variant(row.model)
+        base_model_key = f"{base_model} ({row.backend})" if row.backend else base_model
+        grouped_model_keys.setdefault(base_model_key, {})
+        grouped_model_keys[base_model_key][variant] = row.model_key
+
+    for base_model_key, variant_to_model_key in grouped_model_keys.items():
+        ordered_variants = [v for v in variant_order if v in variant_to_model_key]
+        other_variants = sorted(v for v in variant_to_model_key if v not in variant_order)
+        ordered_variants.extend(other_variants)
+        if not ordered_variants:
+            continue
+
         acc_train = []
         acc_test = []
         counts_params = []
+        counts_quantum_params = []
         counts_vectors = []
         time_search = []
         time_train_eval = []
 
-        for dataset in datasets:
-            row = lookup.get((model_key, dataset))
-            if row is None:
-                acc_train.append(0.0)
-                acc_test.append(0.0)
-                counts_params.append(0.0)
-                counts_vectors.append(0.0)
-                time_search.append(0.0)
-                time_train_eval.append(0.0)
-            else:
-                acc_train.append(float(row.final_train_acc))
-                acc_test.append(float(row.final_test_acc))
-                counts_params.append(float(row.num_params))
-                counts_vectors.append(float(row.num_support_vectors))
-                time_search.append(float(row.hp_search_time_seconds))
-                time_train_eval.append(float(row.optimal_model_train_eval_time_seconds))
+        series_by_variant: dict[str, dict[str, list[float]]] = {}
+        for variant in ordered_variants:
+            model_key = variant_to_model_key[variant]
+            s_acc_train = []
+            s_acc_test = []
+            s_counts_params = []
+            s_counts_quantum_params = []
+            s_counts_vectors = []
+            s_time_search = []
+            s_time_train_eval = []
+            for dataset in datasets:
+                row = lookup.get((model_key, dataset))
+                if row is None:
+                    s_acc_train.append(0.0)
+                    s_acc_test.append(0.0)
+                    s_counts_params.append(0.0)
+                    s_counts_quantum_params.append(0.0)
+                    s_counts_vectors.append(0.0)
+                    s_time_search.append(0.0)
+                    s_time_train_eval.append(0.0)
+                else:
+                    s_acc_train.append(float(row.final_train_acc))
+                    s_acc_test.append(float(row.final_test_acc))
+                    s_counts_params.append(float(row.num_params))
+                    s_counts_quantum_params.append(float(row.num_quantum_params))
+                    s_counts_vectors.append(float(row.num_support_vectors))
+                    s_time_search.append(float(row.hp_search_time_seconds))
+                    s_time_train_eval.append(float(row.optimal_model_train_eval_time_seconds))
+            series_by_variant[variant] = {
+                "acc_train": s_acc_train,
+                "acc_test": s_acc_test,
+                "counts_params": s_counts_params,
+                "counts_quantum_params": s_counts_quantum_params,
+                "counts_vectors": s_counts_vectors,
+                "time_search": s_time_search,
+                "time_train_eval": s_time_train_eval,
+            }
 
         fig = plt.figure(figsize=(13, 9))
         gs = fig.add_gridspec(2, 2, height_ratios=[1.15, 1.0], hspace=0.40, wspace=0.25)
         ax1 = fig.add_subplot(gs[0, :])
         ax2 = fig.add_subplot(gs[1, 0])
         ax3 = fig.add_subplot(gs[1, 1])
+        width = min(0.16, 0.86 / (2 * max(1, len(ordered_variants))))
+        start = -0.43 + width / 2
 
         if point_mode:
+            marker_map = {"orig": "o", "q": "s", "c": "^"}
+            for variant in ordered_variants:
+                marker = marker_map.get(variant, "o")
+                label_suffix = variant_labels.get(variant, variant)
+                ax1.plot(x, series_by_variant[variant]["acc_train"], color="#1f77b4", linewidth=1.0, alpha=0.45, zorder=2)
+                ax1.plot(x, series_by_variant[variant]["acc_test"], color="#d62728", linewidth=1.0, alpha=0.45, zorder=2)
+                ax1.scatter(
+                    x,
+                    series_by_variant[variant]["acc_train"],
+                    color="#1f77b4",
+                    edgecolors="black",
+                    linewidths=0.7,
+                    s=52,
+                    marker=marker,
+                    label=f"Train Accuracy ({label_suffix})",
+                    zorder=3,
+                )
+                ax1.scatter(
+                    x,
+                    series_by_variant[variant]["acc_test"],
+                    color="#d62728",
+                    edgecolors="black",
+                    linewidths=0.7,
+                    s=52,
+                    marker=marker,
+                    label=f"Test Accuracy ({label_suffix})",
+                    zorder=3,
+                )
+        else:
             bars_train = []
             bars_test = []
-            ax1.plot(x, acc_train, color="#1f77b4", linewidth=1.2, alpha=0.55, zorder=2)
-            ax1.plot(x, acc_test, color="#d62728", linewidth=1.2, alpha=0.55, zorder=2)
-            ax1.scatter(x, acc_train, color="#1f77b4", edgecolors="black", linewidths=0.7, s=56, marker="o", label="Train Accuracy", zorder=3)
-            ax1.scatter(x, acc_test, color="#d62728", edgecolors="black", linewidths=0.7, s=56, marker="D", label="Test Accuracy", zorder=3)
-        else:
-            bars_train = ax1.bar(x - width / 2, acc_train, width=width, color="#1f77b4", edgecolor="black", linewidth=0.6, label="Train Accuracy")
-            bars_test = ax1.bar(x + width / 2, acc_test, width=width, color="#d62728", edgecolor="black", linewidth=0.6, label="Test Accuracy")
+            for idx, variant in enumerate(ordered_variants):
+                offset_train = start + width * (2 * idx)
+                offset_test = start + width * (2 * idx + 1)
+                hatch = variant_hatches.get(variant, "..")
+                label_suffix = variant_labels.get(variant, variant)
+                bt = ax1.bar(
+                    x + offset_train,
+                    series_by_variant[variant]["acc_train"],
+                    width=width,
+                    color="#1f77b4",
+                    edgecolor="black",
+                    linewidth=0.6,
+                    hatch=hatch,
+                    label=f"Train Accuracy ({label_suffix})",
+                )
+                bv = ax1.bar(
+                    x + offset_test,
+                    series_by_variant[variant]["acc_test"],
+                    width=width,
+                    color="#d62728",
+                    edgecolor="black",
+                    linewidth=0.6,
+                    hatch=hatch,
+                    label=f"Test Accuracy ({label_suffix})",
+                )
+                bars_train.extend(bt)
+                bars_test.extend(bv)
         baseline_colors = ["#9467bd", "#8c564b", "#17becf"]
         baseline_handles = []
         baseline_names = sorted(
@@ -1139,33 +1345,32 @@ def _plot_each_model_figures(
         ax1.set_xlim(*x_limits)
         ax1.grid(axis="y", alpha=0.25)
         if not point_mode:
-            for bars in (bars_train, bars_test):
-                for b in bars:
-                    h = b.get_height()
-                    if h <= 0:
-                        continue
-                    face_rgb = b.get_facecolor()[:3]
-                    use_white_text = _is_dark_rgb(face_rgb)
-                    ax1.text(
-                        b.get_x() + b.get_width() / 2,
-                        h + 0.015 if h < 0.12 else h - 0.04,
-                        f"{h:.2f}",
-                        ha="center",
-                        va="bottom" if h < 0.12 else "top",
-                        fontsize=10,
-                        fontweight="bold",
-                        color="white" if use_white_text else "black",
-                        bbox=dict(
-                            boxstyle="round,pad=0.10",
-                            facecolor=(0, 0, 0, 0.22) if use_white_text else (1, 1, 1, 0.60),
-                            linewidth=0,
-                        ),
-                    )
+            for b in bars_train + bars_test:
+                h = b.get_height()
+                if h <= 0:
+                    continue
+                face_rgb = b.get_facecolor()[:3]
+                use_white_text = _is_dark_rgb(face_rgb)
+                ax1.text(
+                    b.get_x() + b.get_width() / 2,
+                    h + 0.015 if h < 0.12 else h - 0.04,
+                    f"{h:.2f}",
+                    ha="center",
+                    va="bottom" if h < 0.12 else "top",
+                    fontsize=8,
+                    fontweight="bold",
+                    color="white" if use_white_text else "black",
+                    bbox=dict(
+                        boxstyle="round,pad=0.10",
+                        facecolor=(0, 0, 0, 0.22) if use_white_text else (1, 1, 1, 0.60),
+                        linewidth=0,
+                    ),
+                )
         handles, labels = ax1.get_legend_handles_labels()
         metric_handles = []
         metric_labels = []
         for h, lbl in zip(handles, labels):
-            if lbl in {"Train Accuracy", "Test Accuracy"}:
+            if lbl.startswith("Train Accuracy") or lbl.startswith("Test Accuracy"):
                 metric_handles.append(h)
                 metric_labels.append(lbl)
         ordered_handles = metric_handles + baseline_handles
@@ -1173,13 +1378,65 @@ def _plot_each_model_figures(
         ax1.legend(ordered_handles, ordered_labels, loc="upper right")
 
         if point_mode:
-            ax2.plot(x, counts_params, color="#2ca02c", linewidth=1.2, alpha=0.55, zorder=2)
-            ax2.plot(x, counts_vectors, color="#ff7f0e", linewidth=1.2, alpha=0.55, zorder=2)
-            ax2.scatter(x, counts_params, color="#2ca02c", edgecolors="black", linewidths=0.7, s=56, marker="o", label="Parameters", zorder=3)
-            ax2.scatter(x, counts_vectors, color="#ff7f0e", edgecolors="black", linewidths=0.7, s=56, marker="D", label="Support Vectors", zorder=3)
+            marker_map = {"orig": "o", "q": "s", "c": "^"}
+            for variant in ordered_variants:
+                marker = marker_map.get(variant, "o")
+                label_suffix = variant_labels.get(variant, variant)
+                ax2.plot(x, series_by_variant[variant]["counts_params"], color="#2ca02c", linewidth=1.0, alpha=0.45, zorder=2)
+                ax2.plot(x, series_by_variant[variant]["counts_vectors"], color="#ff7f0e", linewidth=1.0, alpha=0.45, zorder=2)
+                ax2.scatter(x, series_by_variant[variant]["counts_params"], color="#2ca02c", edgecolors="black", linewidths=0.7, s=52, marker=marker, label=f"Parameters ({label_suffix})", zorder=3)
+                ax2.scatter(x, series_by_variant[variant]["counts_vectors"], color="#ff7f0e", edgecolors="black", linewidths=0.7, s=52, marker=marker, label=f"Support Vectors ({label_suffix})", zorder=3)
         else:
-            ax2.bar(x - width / 2, counts_params, width=width, color="#2ca02c", edgecolor="black", linewidth=0.6, label="Parameters")
-            ax2.bar(x + width / 2, counts_vectors, width=width, color="#ff7f0e", edgecolor="black", linewidth=0.6, label="Support Vectors")
+            for idx, variant in enumerate(ordered_variants):
+                offset_params = start + width * (2 * idx)
+                offset_vectors = start + width * (2 * idx + 1)
+                hatch = variant_hatches.get(variant, "..")
+                label_suffix = variant_labels.get(variant, variant)
+                counts_quantum_clipped = [
+                    min(max(q, 0.0), float(total))
+                    for q, total in zip(
+                        series_by_variant[variant]["counts_quantum_params"],
+                        series_by_variant[variant]["counts_params"],
+                    )
+                ]
+                counts_classical = [
+                    float(total) - float(q)
+                    for total, q in zip(
+                        series_by_variant[variant]["counts_params"],
+                        counts_quantum_clipped,
+                    )
+                ]
+                ax2.bar(
+                    x + offset_params,
+                    counts_quantum_clipped,
+                    width=width,
+                    color="black",
+                    edgecolor="black",
+                    linewidth=0.6,
+                    hatch=hatch,
+                    label=f"Quantum share ({label_suffix})",
+                )
+                ax2.bar(
+                    x + offset_params,
+                    counts_classical,
+                    width=width,
+                    bottom=counts_quantum_clipped,
+                    color="#2ca02c",
+                    edgecolor="black",
+                    linewidth=0.6,
+                    hatch=hatch,
+                    label=f"Parameters ({label_suffix})",
+                )
+                ax2.bar(
+                    x + offset_vectors,
+                    series_by_variant[variant]["counts_vectors"],
+                    width=width,
+                    color="#ff7f0e",
+                    edgecolor="black",
+                    linewidth=0.6,
+                    hatch=hatch,
+                    label=f"Support Vectors ({label_suffix})",
+                )
         ax2.set_title("Parameters / Support Vectors")
         ax2.set_ylabel("Count")
         ax2.set_xticks(x)
@@ -1189,13 +1446,22 @@ def _plot_each_model_figures(
         ax2.legend(loc="upper right")
 
         if point_mode:
-            ax3.plot(x, time_search, color="#d62728", linewidth=1.2, alpha=0.55, zorder=2)
-            ax3.plot(x, time_train_eval, color="#2ca02c", linewidth=1.2, alpha=0.55, zorder=2)
-            ax3.scatter(x, time_search, color="#d62728", edgecolors="black", linewidths=0.7, s=56, marker="o", label="HP Search Time", zorder=3)
-            ax3.scatter(x, time_train_eval, color="#2ca02c", edgecolors="black", linewidths=0.7, s=56, marker="D", label="Training+Eval Time", zorder=3)
+            marker_map = {"orig": "o", "q": "s", "c": "^"}
+            for variant in ordered_variants:
+                marker = marker_map.get(variant, "o")
+                label_suffix = variant_labels.get(variant, variant)
+                ax3.plot(x, series_by_variant[variant]["time_search"], color="#d62728", linewidth=1.0, alpha=0.45, zorder=2)
+                ax3.plot(x, series_by_variant[variant]["time_train_eval"], color="#2ca02c", linewidth=1.0, alpha=0.45, zorder=2)
+                ax3.scatter(x, series_by_variant[variant]["time_search"], color="#d62728", edgecolors="black", linewidths=0.7, s=52, marker=marker, label=f"HP Search Time ({label_suffix})", zorder=3)
+                ax3.scatter(x, series_by_variant[variant]["time_train_eval"], color="#2ca02c", edgecolors="black", linewidths=0.7, s=52, marker=marker, label=f"Training+Eval Time ({label_suffix})", zorder=3)
         else:
-            ax3.bar(x - width / 2, time_search, width=width, color="#d62728", edgecolor="black", linewidth=0.6, label="HP Search Time")
-            ax3.bar(x + width / 2, time_train_eval, width=width, color="#2ca02c", edgecolor="black", linewidth=0.6, label="Training+Eval Time")
+            for idx, variant in enumerate(ordered_variants):
+                offset_search = start + width * (2 * idx)
+                offset_train_eval = start + width * (2 * idx + 1)
+                hatch = variant_hatches.get(variant, "..")
+                label_suffix = variant_labels.get(variant, variant)
+                ax3.bar(x + offset_search, series_by_variant[variant]["time_search"], width=width, color="#d62728", edgecolor="black", linewidth=0.6, hatch=hatch, label=f"HP Search Time ({label_suffix})")
+                ax3.bar(x + offset_train_eval, series_by_variant[variant]["time_train_eval"], width=width, color="#2ca02c", edgecolor="black", linewidth=0.6, hatch=hatch, label=f"Training+Eval Time ({label_suffix})")
         ax3.set_title("Search Time / Training+Eval Time")
         ax3.set_ylabel("Time (s)")
         ax3.set_xticks(x)
@@ -1204,11 +1470,11 @@ def _plot_each_model_figures(
         ax3.grid(axis="y", alpha=0.25)
         ax3.legend(loc="upper right")
 
-        fig.suptitle(f"{model_key}{title_dataset_suffix}", fontsize=15)
+        fig.suptitle(f"{base_model_key}{title_dataset_suffix}", fontsize=15)
         fig.subplots_adjust(top=0.90, bottom=0.10, left=0.07, right=0.98, hspace=0.42, wspace=0.28)
 
         out_path = _with_optional_point_suffix(
-            each_model_dir / f"{_sanitize_filename(model_key)}.png",
+            each_model_dir / f"{_sanitize_filename(base_model_key)}.png",
             point_mode,
         )
         fig.savefig(out_path, dpi=220)
@@ -1247,11 +1513,23 @@ def main() -> None:
 
     csv_files = _discover_csvs(args.file_path)
     config_count_csv_files = _discover_config_count_csvs(args.file_path)
-    rows = _load_rows(csv_files)
-    model_keys, datasets, lookup = _build_index(rows)
+    rows_all = _load_rows(csv_files)
+    rows_global = [row for row in rows_all if not _is_ablation_model_name(row.model)]
+    if not rows_global:
+        # Fallback: if no non-ablation rows exist, keep previous behaviour.
+        rows_global = rows_all
+        print(
+            "WARNING: only ablation rows were found; global figures will include ablation models."
+        )
+
+    model_keys, datasets, lookup = _build_index(rows_global)
+    _, each_model_datasets, each_model_lookup = _build_index(rows_all)
     config_count_lookup: dict[tuple[str, str], int] = {}
     if config_count_csv_files:
         config_count_rows = _load_config_count_rows(config_count_csv_files)
+        config_count_rows = [
+            row for row in config_count_rows if not _is_ablation_model_name(row.model)
+        ]
         config_count_lookup = {
             (row.model_key, row.dataset): row.number_of_configs
             for row in config_count_rows
@@ -1283,14 +1561,17 @@ def main() -> None:
             )
         else:
             variable_name, dataset_points = inferred
+            dataset_title = _multi_path_point_dataset_title([dataset for dataset, _ in dataset_points])
+            title_dataset_suffix = f" on {dataset_title}" if dataset_title else ""
             generated_paths = _plot_multi_path_point_family_figures(
-                rows=rows,
+                rows=rows_global,
                 lookup=lookup,
                 baselines_by_dataset=baselines_by_dataset,
                 variable_name=variable_name,
                 dataset_points=dataset_points,
                 output_dir=output_dir,
                 point_mode=args.point,
+                title_dataset_suffix=title_dataset_suffix,
             )
             for path in generated_paths:
                 print(path)
@@ -1342,6 +1623,9 @@ def main() -> None:
         group_fill_ratio=0.95,
         max_bar_width=0.35,
         point_mode=args.point,
+        metric_a_quantum_getter=(
+            None if args.point else (lambda r: float(r.num_quantum_params))
+        ),
     )
 
     fig3 = _with_optional_point_suffix(output_dir / "hp_minimal_times.png", args.point)
@@ -1385,9 +1669,9 @@ def main() -> None:
         )
 
     each_model_figures = _plot_each_model_figures(
-        model_keys=model_keys,
-        datasets=datasets,
-        lookup=lookup,
+        rows=rows_all,
+        datasets=each_model_datasets,
+        lookup=each_model_lookup,
         baselines_by_dataset=baselines_by_dataset if include_baselines else {},
         output_dir=output_dir,
         title_dataset_suffix=each_model_title_dataset_suffix,

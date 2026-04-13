@@ -6,6 +6,7 @@ import argparse
 from run_scripts.run import run_single, run_search
 from helper import architecture_help
 from registry import CLASSICAL_MODELS, HP_PROFILES, RUN_TYPES, get_dataset_base_name, list_models
+from models.ablation import parse_ablation_model_name
 import wandb
 import sys
 
@@ -137,6 +138,8 @@ if __name__ == "__main__":
     args = parser.parse_args()
     dataset = args.dataset
     model = args.model
+    ablation_spec = parse_ablation_model_name(model)
+    base_model = ablation_spec.base_model
     run_type = args.run_type
     architecture = args.architecture
     backend = args.backend
@@ -166,7 +169,7 @@ if __name__ == "__main__":
     if run_type is None:
         parser.error("--run_type is required unless --list is set")
 
-    if model == "data_reuploading_reservoir":
+    if base_model == "data_reuploading_reservoir":
         raise ValueError(
             "data_reuploading_reservoir is not supported in this benchmarking study. Please select a different model."
         )
@@ -183,12 +186,12 @@ if __name__ == "__main__":
         raise ValueError(f"Unknown dataset name: {dataset}") from exc
 
     # If classical model, change backend to classical
-    if model in CLASSICAL_MODELS:
+    if base_model in CLASSICAL_MODELS:
         backend = "classical"
     print(f"Backend type: {backend}")
 
     # q_kernel_method should not run on gate backend (use explicit reservoir model instead).
-    if model == "q_kernel_method" and backend == "gate":
+    if base_model == "q_kernel_method" and backend == "gate":
         print(
             "WARNING: Skipping run. model='q_kernel_method' with backend='gate' is not supported. "
             "Use model='q_kernel_method_reservoir' for gate backend."
@@ -197,7 +200,7 @@ if __name__ == "__main__":
 
     # If the user wants help with different architecture configurations
     if architecture == "help":
-        print(architecture_help(model, backend))
+        print(architecture_help(base_model, backend))
         sys.exit(0)
 
     if architecture is None:

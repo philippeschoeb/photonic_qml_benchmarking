@@ -215,6 +215,7 @@ def fetch_model(model, backend, input_size, output_size, **hyperparams):
             return QRKSGate(
                 n_episodes=hyperparams["R"],
                 n_qfeatures=hyperparams["n_qfeatures"],
+                max_vmap=hyperparams.get("max_vmap", 100000),
                 var=hyperparams["gamma"] ** 2,
                 scaling=hyperparams["scaling"],
                 random_state=hyperparams["random_state"],
