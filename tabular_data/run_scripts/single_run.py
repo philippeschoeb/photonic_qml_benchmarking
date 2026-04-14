@@ -227,7 +227,6 @@ def get_training_hps(model_type, dataset_name, model):
     else:
         raise Exception(f"Dataset name {dataset_name} not found.")
 
-
     # Determine if pre_train for q_kernel_method
     if model == "q_kernel_method_reservoir":
         pre_train = False

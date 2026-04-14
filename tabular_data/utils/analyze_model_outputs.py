@@ -163,9 +163,13 @@ def _normalize_num_neurons(value: Any) -> list[int]:
     return []
 
 
-def _single_run_model_hps(backend: str, model: str, random_state: int) -> dict[str, Any]:
+def _single_run_model_hps(
+    backend: str, model: str, random_state: int
+) -> dict[str, Any]:
     if backend == "photonic":
-        hps = _load_json(TABULAR_ROOT / "hyperparameters/single_run/photonic_model_hps.json")
+        hps = _load_json(
+            TABULAR_ROOT / "hyperparameters/single_run/photonic_model_hps.json"
+        )
         out = copy.deepcopy(hps[model]["default"])
         if model in {
             "dressed_quantum_circuit",
@@ -185,7 +189,9 @@ def _single_run_model_hps(backend: str, model: str, random_state: int) -> dict[s
         return out
 
     if backend == "gate":
-        hps = _load_json(TABULAR_ROOT / "hyperparameters/single_run/gate_model_hps.json")
+        hps = _load_json(
+            TABULAR_ROOT / "hyperparameters/single_run/gate_model_hps.json"
+        )
         out = copy.deepcopy(hps[model]["default"])
         out["random_state"] = random_state
         if "numNeurons" in out:
@@ -205,7 +211,9 @@ def _single_run_model_hps(backend: str, model: str, random_state: int) -> dict[s
         return out
 
     if backend == "classical":
-        hps = _load_json(TABULAR_ROOT / "hyperparameters/single_run/classical_model_hps.json")
+        hps = _load_json(
+            TABULAR_ROOT / "hyperparameters/single_run/classical_model_hps.json"
+        )
         out = copy.deepcopy(hps[model]["default"])
         out["random_state"] = random_state
         if model == "mlp":
@@ -229,10 +237,14 @@ def _dataset_hps_for_analysis() -> dict[str, Any]:
     return base
 
 
-def _load_eval_context(d: int, manifold_dim: int, sample_limit: int, random_state: int) -> EvalContext:
+def _load_eval_context(
+    d: int, manifold_dim: int, sample_limit: int, random_state: int
+) -> EvalContext:
     dataset_name = f"hidden_manifold_{d}_{manifold_dim}"
     dataset_hps = _dataset_hps_for_analysis()
-    _, _, x_train, _, _, _ = fetch_data(dataset_name, random_state=random_state, **dataset_hps)
+    _, _, x_train, _, _, _ = fetch_data(
+        dataset_name, random_state=random_state, **dataset_hps
+    )
 
     if sample_limit > 0 and x_train.shape[0] > sample_limit:
         x_eval_torch = x_train[:sample_limit]
@@ -299,14 +311,20 @@ def _extract_mn_from_input_state(input_state: Any) -> tuple[int | None, int | No
     return _to_positive_int(arr.size), _to_positive_int(arr.sum())
 
 
-def _infer_photonic_mn(model: Any, model_name: str, input_size: int) -> tuple[int | None, int | None]:
+def _infer_photonic_mn(
+    model: Any, model_name: str, input_size: int
+) -> tuple[int | None, int | None]:
     """Resolve (m, n) from instantiated photonic model, fallback to runtime sizing rule."""
     # Merlin reuploading implementation is fixed at m=2, n=1.
     if model_name == "data_reuploading":
         return 2, 1
 
     # Prefer explicit attributes if a model defines them.
-    for obj in (model, getattr(model, "model", None), getattr(model, "quantum_model", None)):
+    for obj in (
+        model,
+        getattr(model, "model", None),
+        getattr(model, "quantum_model", None),
+    ):
         if obj is None:
             continue
         m_val = _to_positive_int(getattr(obj, "m", None))
@@ -322,7 +340,9 @@ def _infer_photonic_mn(model: Any, model_name: str, input_size: int) -> tuple[in
         q_layer = model.pqc
 
     if q_layer is not None:
-        m_val, n_val = _extract_mn_from_input_state(getattr(q_layer, "input_state", None))
+        m_val, n_val = _extract_mn_from_input_state(
+            getattr(q_layer, "input_state", None)
+        )
         if m_val is not None and n_val is not None:
             return m_val, n_val
 
@@ -333,7 +353,9 @@ def _infer_photonic_mn(model: Any, model_name: str, input_size: int) -> tuple[in
     ):
         if state_obj is None:
             continue
-        m_val, n_val = _extract_mn_from_input_state(getattr(state_obj, "input_state", None))
+        m_val, n_val = _extract_mn_from_input_state(
+            getattr(state_obj, "input_state", None)
+        )
         if m_val is not None and n_val is not None:
             return m_val, n_val
 
@@ -341,7 +363,9 @@ def _infer_photonic_mn(model: Any, model_name: str, input_size: int) -> tuple[in
     return get_photonic_mn(int(input_size))
 
 
-def _extract_architecture(backend: str, model_name: str, model: Any, model_hps: dict[str, Any], d: int) -> dict[str, Any]:
+def _extract_architecture(
+    backend: str, model_name: str, model: Any, model_hps: dict[str, Any], d: int
+) -> dict[str, Any]:
     n_qubits = None
     n_modes = None
     n_photons = None
@@ -357,7 +381,13 @@ def _extract_architecture(backend: str, model_name: str, model: Any, model_hps: 
             n_qubits = int(model.n_qubits_)
         elif model_name == "data_reuploading":
             n_qubits = int(math.ceil(d / 3))
-        elif model_name in {"dressed_quantum_circuit", "dressed_quantum_circuit_reservoir", "multiple_paths_model", "multiple_paths_model_reservoir", "q_kernel_method_reservoir"}:
+        elif model_name in {
+            "dressed_quantum_circuit",
+            "dressed_quantum_circuit_reservoir",
+            "multiple_paths_model",
+            "multiple_paths_model_reservoir",
+            "q_kernel_method_reservoir",
+        }:
             n_qubits = int(d)
 
     if backend == "photonic" and isinstance(model, torch.nn.Module):
@@ -386,7 +416,9 @@ def _instantiate_model(
     params = copy.deepcopy(model_hps)
 
     if spec.backend == "photonic" and spec.model != "data_reuploading":
-        params["m"], params["n"] = get_photonic_mn(int(input_size), mode="feature_plus_one")
+        params["m"], params["n"] = get_photonic_mn(
+            int(input_size), mode="feature_plus_one"
+        )
 
     return fetch_model(
         spec.model,
@@ -424,7 +456,11 @@ def _run_model_outputs(
         bs = max(1, int(batch_size))
         q_model = getattr(model, "quantum_model", None)
         if q_model is None:
-            return model_acc, circuit_acc, "Photonic data_reuploading missing `quantum_model`; skipped."
+            return (
+                model_acc,
+                circuit_acc,
+                "Photonic data_reuploading missing `quantum_model`; skipped.",
+            )
 
         device = getattr(model, "device", torch.device("cpu"))
         if hasattr(q_model, "eval"):
@@ -433,7 +469,9 @@ def _run_model_outputs(
         with torch.no_grad():
             for start in range(0, n, bs):
                 end = min(start + bs, n)
-                x_chunk_t = torch.as_tensor(x_np[start:end], dtype=torch.float32, device=device)
+                x_chunk_t = torch.as_tensor(
+                    x_np[start:end], dtype=torch.float32, device=device
+                )
                 encoded = x_chunk_t * float(getattr(model, "alpha", 1.0))
 
                 if hasattr(q_model, "layer"):
@@ -460,7 +498,10 @@ def _run_model_outputs(
         bs = max(1, int(batch_size))
 
         with torch.no_grad():
-            if spec.backend == "photonic" and model_name in {"dressed_quantum_circuit", "dressed_quantum_circuit_reservoir"}:
+            if spec.backend == "photonic" and model_name in {
+                "dressed_quantum_circuit",
+                "dressed_quantum_circuit_reservoir",
+            }:
                 for start in range(0, n, bs):
                     end = min(start + bs, n)
                     scaled = model.scaling(x_torch[start:end])
@@ -468,13 +509,20 @@ def _run_model_outputs(
                     out_t = model.dqc[1](circ_t)
                     circuit_acc.update(circ_t.detach().cpu().numpy())
                     model_acc.update(out_t.detach().cpu().numpy())
-            elif spec.backend == "photonic" and model_name in {"multiple_paths_model", "multiple_paths_model_reservoir"}:
+            elif spec.backend == "photonic" and model_name in {
+                "multiple_paths_model",
+                "multiple_paths_model_reservoir",
+            }:
                 for start in range(0, n, bs):
                     end = min(start + bs, n)
                     x_chunk = x_torch[start:end]
                     scaled = model.scaling(x_chunk)
                     circ_t = model.pqc(scaled)
-                    post_t = model.post_circuit(circ_t) if model.post_circuit is not None else circ_t
+                    post_t = (
+                        model.post_circuit(circ_t)
+                        if model.post_circuit is not None
+                        else circ_t
+                    )
                     mlp_in = torch.cat((x_chunk, post_t), dim=1)
                     out_t = model.mlp(mlp_in)
                     circuit_acc.update(circ_t.detach().cpu().numpy())
@@ -487,14 +535,18 @@ def _run_model_outputs(
                     end = min(start + bs, n)
                     x_chunk_np = x_np[start:end]
                     x_r = get_x_r_i_s(x_chunk_np, w, b, model.R, model.gamma)
-                    q_in = torch.tensor(x_r, dtype=torch.float32).view(len(x_chunk_np) * model.R, -1)
+                    q_in = torch.tensor(x_r, dtype=torch.float32).view(
+                        len(x_chunk_np) * model.R, -1
+                    )
                     q_in = q_in * model.scaling
                     q_raw_t = model.pqc[0](q_in)
                     q_feat_t = model.pqc[1](q_raw_t)
                     q_raw_np = q_raw_t.detach().cpu().numpy()
                     q_feat_np = q_feat_t.detach().cpu().numpy()
                     q_dim = q_raw_np.shape[1] if q_raw_np.ndim == 2 else 1
-                    circuit_acc.update(q_raw_np.reshape(len(x_chunk_np), model.R * q_dim))
+                    circuit_acc.update(
+                        q_raw_np.reshape(len(x_chunk_np), model.R * q_dim)
+                    )
                     model_acc.update(q_feat_np.reshape(len(x_chunk_np), model.R))
                 note = "q_rks model output reports quantum features (R channels) before SVC."
             else:
@@ -508,11 +560,18 @@ def _run_model_outputs(
     # Gate models
     if spec.backend == "gate":
         if model_name == "q_kernel_method_reservoir":
-            return model_acc, circuit_acc, "Gate IQP kernel has no direct per-sample circuit feature vector in this analysis."
+            return (
+                model_acc,
+                circuit_acc,
+                "Gate IQP kernel has no direct per-sample circuit feature vector in this analysis.",
+            )
 
         x_trans = _prepare_gate_model(model_name, model, x_np)
 
-        if model_name in {"dressed_quantum_circuit", "dressed_quantum_circuit_reservoir"}:
+        if model_name in {
+            "dressed_quantum_circuit",
+            "dressed_quantum_circuit_reservoir",
+        }:
             logits = np.asarray(model.chunked_forward(model.params_, x_trans))
             circuits = []
             for i in range(x_trans.shape[0]):
@@ -524,7 +583,10 @@ def _run_model_outputs(
 
         if model_name in {"multiple_paths_model", "multiple_paths_model_reservoir"}:
             logits = np.asarray(model.chunked_forward(model.params_, x_trans))
-            circuits = [np.asarray(model.circuit(model.params_, x_trans[i])) for i in range(x_trans.shape[0])]
+            circuits = [
+                np.asarray(model.circuit(model.params_, x_trans[i]))
+                for i in range(x_trans.shape[0])
+            ]
             model_acc.update(logits)
             circuit_acc.update(np.asarray(circuits))
             return model_acc, circuit_acc, note
@@ -534,7 +596,10 @@ def _run_model_outputs(
             obs = int(model.observable_weight)
             reduced = np.mean(expvals[:, :obs], axis=1)
             probs = np.c_[(1.0 - reduced) / 2.0, (1.0 + reduced) / 2.0]
-            circuits = [np.asarray(model.circuit(model.params_, x_trans[i])) for i in range(x_trans.shape[0])]
+            circuits = [
+                np.asarray(model.circuit(model.params_, x_trans[i]))
+                for i in range(x_trans.shape[0])
+            ]
             model_acc.update(probs)
             circuit_acc.update(np.asarray(circuits))
             return model_acc, circuit_acc, note
@@ -547,22 +612,41 @@ def _run_model_outputs(
             input_features = np.zeros([n_eps, n, n_q])
             for e in range(n_eps):
                 stacked_beta = np.stack([model.params_["betas"][e] for _ in range(n)])
-                input_features[e] = (model.params_["omegas"][e] @ model.scaler.transform(x_np).T + stacked_beta.T).T * model.scaling
+                input_features[e] = (
+                    model.params_["omegas"][e] @ model.scaler.transform(x_np).T
+                    + stacked_beta.T
+                ).T * model.scaling
             flat_in = np.reshape(input_features, (n * n_eps, -1))
             raw = np.asarray(model.forward(flat_in)).reshape(n, n_eps * n_q)
             model_acc.update(features)
             circuit_acc.update(raw)
-            return model_acc, circuit_acc, "Gate q_rks model output reports transformed feature vector before logistic head fit."
+            return (
+                model_acc,
+                circuit_acc,
+                "Gate q_rks model output reports transformed feature vector before logistic head fit.",
+            )
 
     # Classical non-torch models (e.g., rbf_svc, rks)
     if spec.backend == "classical":
         if model_name == "rks":
             k_train, _ = model.get_kernels(x_np, x_np)
             model_acc.update(k_train)
-            return model_acc, circuit_acc, "Classical rks output reports precomputed kernel matrix rows."
-        return model_acc, circuit_acc, "Model output requires fitting an sklearn classifier; skipped in this forward-only analysis."
+            return (
+                model_acc,
+                circuit_acc,
+                "Classical rks output reports precomputed kernel matrix rows.",
+            )
+        return (
+            model_acc,
+            circuit_acc,
+            "Model output requires fitting an sklearn classifier; skipped in this forward-only analysis.",
+        )
 
-    return model_acc, circuit_acc, "No output extractor implemented for this model/backend."
+    return (
+        model_acc,
+        circuit_acc,
+        "No output extractor implemented for this model/backend.",
+    )
 
 
 def _analyze_one_configuration(
@@ -584,7 +668,9 @@ def _analyze_one_configuration(
         "backend": spec.backend,
         "model": spec.model,
         "ablation": ablation_label,
-        "measurement_strategy": "probabilities" if measurement_strategy == "probs" else measurement_strategy,
+        "measurement_strategy": "probabilities"
+        if measurement_strategy == "probs"
+        else measurement_strategy,
         "grouping": grouping,
         "status": "ok",
         "note": None,
@@ -610,7 +696,9 @@ def _analyze_one_configuration(
             if spec.model == "data_reuploading":
                 ablation_n_photons = 1
             else:
-                _, ablation_n_photons = get_photonic_mn(int(eval_ctx.input_size), mode="feature_plus_one")
+                _, ablation_n_photons = get_photonic_mn(
+                    int(eval_ctx.input_size), mode="feature_plus_one"
+                )
         ablation_result = ablate_model(
             {"type": model_type, "name": spec.model, "model": model},
             ablation_type,
@@ -692,7 +780,9 @@ def _build_model_specs(include_classical: bool) -> list[ModelSpec]:
     return specs
 
 
-def _measurement_configs_for_model(spec: ModelSpec, args: argparse.Namespace) -> list[dict[str, str]]:
+def _measurement_configs_for_model(
+    spec: ModelSpec, args: argparse.Namespace
+) -> list[dict[str, str]]:
     if spec.backend != "photonic":
         return [{"measurement_strategy": "none", "grouping": "none"}]
     if args.photonic_measurement == "default":
@@ -702,19 +792,30 @@ def _measurement_configs_for_model(spec: ModelSpec, args: argparse.Namespace) ->
     return [{"measurement_strategy": "probs", "grouping": "none"}]
 
 
-def _compatible_ablations(model_type: str, model_name: str) -> list[tuple[str, str | None]]:
+def _compatible_ablations(
+    model_type: str, model_name: str
+) -> list[tuple[str, str | None]]:
     options: list[tuple[str, str | None]] = [("base", None)]
-    for label, ablation_type in [("abla_q", ABLATION_QUANTUM), ("abla_c", ABLATION_CLASSICAL)]:
-        compatible, _ = can_apply_ablation(model_type=model_type, model_name=model_name, ablation_type=ablation_type)
+    for label, ablation_type in [
+        ("abla_q", ABLATION_QUANTUM),
+        ("abla_c", ABLATION_CLASSICAL),
+    ]:
+        compatible, _ = can_apply_ablation(
+            model_type=model_type, model_name=model_name, ablation_type=ablation_type
+        )
         if compatible:
             options.append((label, ablation_type))
     return options
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Analyze model/circuit outputs across hidden_manifold_d_6.")
+    parser = argparse.ArgumentParser(
+        description="Analyze model/circuit outputs across hidden_manifold_d_6."
+    )
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    default_out_dir = PROJECT_ROOT / f"tabular_data/results/analyze_model_outputs/{timestamp}"
+    default_out_dir = (
+        PROJECT_ROOT / f"tabular_data/results/analyze_model_outputs/{timestamp}"
+    )
     parser.add_argument("--d-min", type=int, default=2)
     parser.add_argument("--d-max", type=int, default=20)
     parser.add_argument("--manifold-dim", type=int, default=6)
@@ -863,7 +964,9 @@ def _render_markdown(df: pd.DataFrame, out_md: Path) -> None:
                 .itertuples(index=False, name=None)
             )
 
-            for idx, (backend, model, measurement_strategy, grouping) in enumerate(ordered_groups, start=1):
+            for idx, (backend, model, measurement_strategy, grouping) in enumerate(
+                ordered_groups, start=1
+            ):
                 model_df = d_df.loc[
                     (d_df["backend"] == backend)
                     & (d_df["model"] == model)
@@ -871,15 +974,20 @@ def _render_markdown(df: pd.DataFrame, out_md: Path) -> None:
                     & (d_df["grouping"] == grouping)
                 ].copy()
 
-                model_df["_ablation_order"] = model_df["ablation"].map(lambda v: ablation_order.get(v, 99))
-                model_df = model_df.sort_values(["_ablation_order", "ablation"], kind="stable").drop(
-                    columns=["_ablation_order"]
+                model_df["_ablation_order"] = model_df["ablation"].map(
+                    lambda v: ablation_order.get(v, 99)
                 )
+                model_df = model_df.sort_values(
+                    ["_ablation_order", "ablation"], kind="stable"
+                ).drop(columns=["_ablation_order"])
 
                 f.write(
                     f"#### `{backend}/{model}` | measurement=`{measurement_strategy}` | grouping=`{grouping}`\n\n"
                 )
-                f.write(f"*Table {idx}: ablation comparison (`base`, `abla_q`, `abla_c` when available).*" "\n\n")
+                f.write(
+                    f"*Table {idx}: ablation comparison (`base`, `abla_q`, `abla_c` when available).*"
+                    "\n\n"
+                )
                 f.write(model_df.to_markdown(index=False))
                 f.write("\n\n---\n\n")
 
@@ -909,11 +1017,15 @@ def main() -> None:
             sample_limit=args.max_samples,
             random_state=args.random_state,
         )
-        _progress(f"loaded eval context for d={d}: samples={eval_ctx.x_eval_np.shape[0]}, input_size={eval_ctx.input_size}")
+        _progress(
+            f"loaded eval context for d={d}: samples={eval_ctx.x_eval_np.shape[0]}, input_size={eval_ctx.input_size}"
+        )
 
         for spec in specs:
             _progress(f"preparing spec backend={spec.backend} model={spec.model}")
-            base_hps = _single_run_model_hps(spec.backend, spec.model, args.random_state)
+            base_hps = _single_run_model_hps(
+                spec.backend, spec.model, args.random_state
+            )
             ablations = _compatible_ablations(base_hps.get("type", ""), spec.model)
             measurement_configs = _measurement_configs_for_model(spec, args)
 

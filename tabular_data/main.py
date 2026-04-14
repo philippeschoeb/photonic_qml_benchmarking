@@ -5,7 +5,13 @@ Main run file for tabular data benchmarking.
 import argparse
 from run_scripts.run import run_single, run_search
 from helper import architecture_help
-from registry import CLASSICAL_MODELS, HP_PROFILES, RUN_TYPES, get_dataset_base_name, list_models
+from registry import (
+    CLASSICAL_MODELS,
+    HP_PROFILES,
+    RUN_TYPES,
+    get_dataset_base_name,
+    list_models,
+)
 from models.ablation import parse_ablation_model_name
 import wandb
 import sys

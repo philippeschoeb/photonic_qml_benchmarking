@@ -117,7 +117,6 @@ class CircuitCentricClassifier(BaseEstimator, ClassifierMixin):
         return jax.random.PRNGKey(self.rng.integers(1000000))
 
     def construct_model(self):
-
         dev = qml.device(self.dev_type, wires=self.n_qubits_)
 
         @qml.qnode(dev, **self.qnode_kwargs)

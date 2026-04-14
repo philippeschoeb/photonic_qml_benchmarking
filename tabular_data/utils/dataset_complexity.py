@@ -101,7 +101,9 @@ def _write_arff(x: np.ndarray, y: np.ndarray, output_file: Path, relation: str) 
     return output_file
 
 
-def _to_metric_stats(metric_value, metric_name: str, split_name: str) -> tuple[float, float]:
+def _to_metric_stats(
+    metric_value, metric_name: str, split_name: str
+) -> tuple[float, float]:
     """Convert pycol output to (mean, std), supporting scalar or vector metrics."""
     arr = np.asarray(metric_value, dtype=float).reshape(-1)
     if arr.size == 0:
@@ -185,7 +187,9 @@ def _save_baseline_scores(dataset_key: str, scores: dict[str, float]) -> None:
     BASELINES_JSON_PATH.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
 
 
-def _load_dataset_splits(dataset: str) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+def _load_dataset_splits(
+    dataset: str,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     from datasets.data import download_datasets, get_data
 
     dataset_name, arg1, arg2 = _parse_dataset_name(dataset)
@@ -250,8 +254,15 @@ def _combine_concrete_dataset(dataset: str, value) -> tuple[str, str]:
         concrete = f"{dataset}_{value}"
         label = f"d={value}"
         return concrete, label
-    if dataset in {"hidden_manifold", "hidden_manifold_diff", "two_curves", "two_curves_diff"}:
-        base = "hidden_manifold" if dataset.startswith("hidden_manifold") else "two_curves"
+    if dataset in {
+        "hidden_manifold",
+        "hidden_manifold_diff",
+        "two_curves",
+        "two_curves_diff",
+    }:
+        base = (
+            "hidden_manifold" if dataset.startswith("hidden_manifold") else "two_curves"
+        )
         d, second = value
         concrete = f"{base}_{d}_{second}"
         if base == "hidden_manifold":
@@ -319,7 +330,9 @@ def pycol_combined_figure(
         labels.append(config_label)
         for metric_label, method_name in metric_specs:
             raw_value = getattr(complexity, method_name)()
-            mean_value, std_value = _to_metric_stats(raw_value, metric_label, "combined")
+            mean_value, std_value = _to_metric_stats(
+                raw_value, metric_label, "combined"
+            )
             metric_values[metric_label].append(mean_value)
             metric_stds[metric_label].append(std_value)
 
@@ -475,7 +488,7 @@ def sklearn_accuracy_figure(dataset: str, subsample: bool = False) -> Path:
         for bar, val in zip(bars, vals):
             plt.text(
                 bar.get_x() + bar.get_width() / 2,
-                bar.get_height()-0.03,
+                bar.get_height() - 0.03,
                 f"{val:.2f}",
                 ha="center",
                 va="bottom",
@@ -510,7 +523,10 @@ def sklearn_combined_accuracy_figure(dataset: str, subsample: bool = False) -> P
         "HistGradientBoostingClassifier": [],
     }
     model_builders = [
-        ("LogisticRegression", lambda: LogisticRegression(max_iter=2000, solver="lbfgs")),
+        (
+            "LogisticRegression",
+            lambda: LogisticRegression(max_iter=2000, solver="lbfgs"),
+        ),
         ("KNeighborsClassifier", lambda: KNeighborsClassifier(n_neighbors=5)),
         ("HistGradientBoostingClassifier", lambda: HistGradientBoostingClassifier()),
     ]
@@ -544,13 +560,18 @@ def sklearn_combined_accuracy_figure(dataset: str, subsample: bool = False) -> P
                 if progress is not None:
                     progress.update(1)
                     progress.refresh()
-                model_scores[model_name].append(float(accuracy_score(y_test, test_pred)))
+                model_scores[model_name].append(
+                    float(accuracy_score(y_test, test_pred))
+                )
             save_key = concrete_dataset
             if subsample:
                 save_key = f"{save_key}{SUBSAMPLED_SUFFIX}"
             _save_baseline_scores(
                 save_key,
-                {model_name: model_scores[model_name][-1] for model_name in model_scores},
+                {
+                    model_name: model_scores[model_name][-1]
+                    for model_name in model_scores
+                },
             )
     finally:
         if progress is not None:
@@ -599,9 +620,7 @@ def sklearn_combined_accuracy_figure(dataset: str, subsample: bool = False) -> P
     title_dataset = dataset
     if subsample:
         title_dataset = f"{title_dataset} (subsampled)"
-    fig.suptitle(
-        f"Sklearn Models Test Accuracy for {title_dataset}", fontsize=20
-    )
+    fig.suptitle(f"Sklearn Models Test Accuracy for {title_dataset}", fontsize=20)
     fig.tight_layout(rect=[0, 0.08, 1, 0.94])
 
     output_stem = f"{dataset}{COMBINE_SUFFIX}"
@@ -627,7 +646,12 @@ def all_combine_visualizations(subsample: bool = False) -> Path:
 
     try:
         for dataset in COMBINE_DATASET_CONFIGS:
-            dataset_dir = Path(ROOT_DIR) / "datasets" / "downloaded" / f"{dataset}{COMBINE_SUFFIX}"
+            dataset_dir = (
+                Path(ROOT_DIR)
+                / "datasets"
+                / "downloaded"
+                / f"{dataset}{COMBINE_SUFFIX}"
+            )
             use_subsample = subsample and dataset == SUBSAMPLE_DATASET_TOKEN
             pycol_stem = dataset
             if use_subsample:
@@ -694,9 +718,7 @@ def pycol_complexity_figure(dataset_dir: Path, arff_file: Path) -> Path:
         ("Structural Overlap (N1)", "N1"),
         ("Multiresolution Overlap (MRCA)", "MRCA"),
     ]
-    metric_labels = [
-        label for label, _ in metric_specs
-    ]
+    metric_labels = [label for label, _ in metric_specs]
     train_means = []
     test_means = []
     train_stds = []
@@ -816,8 +838,7 @@ def main() -> None:
         "--sklearn_combine_visu",
         action="store_true",
         help=(
-            "Generate sklearn test-accuracy combine visualization for dataset "
-            "families."
+            "Generate sklearn test-accuracy combine visualization for dataset families."
         ),
     )
     parser.add_argument(
@@ -864,7 +885,12 @@ def main() -> None:
         parser.error(str(exc))
 
     if args.pycol_combine_visu:
-        dataset_dir = Path(ROOT_DIR) / "datasets" / "downloaded" / f"{args.dataset}{COMBINE_SUFFIX}"
+        dataset_dir = (
+            Path(ROOT_DIR)
+            / "datasets"
+            / "downloaded"
+            / f"{args.dataset}{COMBINE_SUFFIX}"
+        )
         arff_configs = download_combined_dataset_arffs(
             args.dataset, subsample=args.subsample
         )

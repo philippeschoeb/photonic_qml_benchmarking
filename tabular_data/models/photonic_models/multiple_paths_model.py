@@ -145,7 +145,9 @@ class SKMultiplePathsModel(BaseEstimator, ClassifierMixin):
             n_photons=self.model_params.get("n"),
         )
         if ablation_result.skipped:
-            raise ValueError(f"Ablation requested but skipped: {ablation_result.reason}")
+            raise ValueError(
+                f"Ablation requested but skipped: {ablation_result.reason}"
+            )
         self.model = ablation_result.model
 
         # Get hyperparams
@@ -216,16 +218,26 @@ class SKMultiplePathsModel(BaseEstimator, ClassifierMixin):
                 pbar.update(1)
 
                 if np.isnan(step_loss):
-                    logging.info("nan encountered at step %s. Training aborted.", step + 1)
+                    logging.info(
+                        "nan encountered at step %s. Training aborted.", step + 1
+                    )
                     break
 
-                if convergence_interval is not None and len(step_loss_history) > 2 * convergence_interval:
+                if (
+                    convergence_interval is not None
+                    and len(step_loss_history) > 2 * convergence_interval
+                ):
                     average1 = np.mean(step_loss_history[-convergence_interval:])
                     average2 = np.mean(
-                        step_loss_history[-2 * convergence_interval : -convergence_interval]
+                        step_loss_history[
+                            -2 * convergence_interval : -convergence_interval
+                        ]
                     )
                     std1 = np.std(step_loss_history[-convergence_interval:])
-                    if np.abs(average2 - average1) <= std1 / np.sqrt(convergence_interval) / 2:
+                    if (
+                        np.abs(average2 - average1)
+                        <= std1 / np.sqrt(convergence_interval) / 2
+                    ):
                         logging.info(
                             "Model %s converged after %s steps.",
                             self.model.__class__.__name__,
@@ -233,7 +245,11 @@ class SKMultiplePathsModel(BaseEstimator, ClassifierMixin):
                         )
                         converged = True
 
-                if ((step + 1) % steps_per_epoch == 0) or (step == max_steps - 1) or converged:
+                if (
+                    ((step + 1) % steps_per_epoch == 0)
+                    or (step == max_steps - 1)
+                    or converged
+                ):
                     avg_train_loss = window_train_loss / max(window_total, 1)
                     train_acc = window_correct / max(window_total, 1)
                     train_losses.append(avg_train_loss)
@@ -254,8 +270,6 @@ class SKMultiplePathsModel(BaseEstimator, ClassifierMixin):
                 if converged:
                     break
 
-        # Count number of parameters
-        num_params = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
         self.train_losses = train_losses
         self.train_accuracies = train_accuracies
         return self

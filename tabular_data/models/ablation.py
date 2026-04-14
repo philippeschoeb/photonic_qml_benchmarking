@@ -94,10 +94,16 @@ def _normalization_from_measurement(
 
     if measurement_strategy == "mode_expectations":
         if n_photons is None or int(n_photons) <= 0:
-            return None, "Quantum ablation with mode_expectations requires positive n_photons."
+            return (
+                None,
+                "Quantum ablation with mode_expectations requires positive n_photons.",
+            )
         return _SoftmaxScale(scale=float(n_photons)), None
 
-    return None, f"Unsupported measurement_strategy `{measurement_strategy}` for quantum ablation."
+    return (
+        None,
+        f"Unsupported measurement_strategy `{measurement_strategy}` for quantum ablation.",
+    )
 
 
 def _make_frozen_replacement_from_quantum_layer(
@@ -138,7 +144,10 @@ def _replace_quantum_block_torch(
     }:
         if not hasattr(model, "dqc") or not isinstance(model.dqc, nn.Sequential):
             return AblationResult(
-                model=model, applied=False, skipped=True, reason="Missing expected `dqc` block."
+                model=model,
+                applied=False,
+                skipped=True,
+                reason="Missing expected `dqc` block.",
             )
         quantum_layer = model.dqc[0]
         replacement, reason = _make_frozen_replacement_from_quantum_layer(
@@ -159,7 +168,10 @@ def _replace_quantum_block_torch(
     if model_name in {"multiple_paths_model", "multiple_paths_model_reservoir"}:
         if not hasattr(model, "pqc"):
             return AblationResult(
-                model=model, applied=False, skipped=True, reason="Missing expected `pqc` block."
+                model=model,
+                applied=False,
+                skipped=True,
+                reason="Missing expected `pqc` block.",
             )
         quantum_layer = model.pqc
         replacement, reason = _make_frozen_replacement_from_quantum_layer(

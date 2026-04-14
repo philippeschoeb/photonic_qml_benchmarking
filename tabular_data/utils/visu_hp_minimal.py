@@ -93,9 +93,8 @@ def _discover_csvs(inputs: Iterable[str]) -> list[Path]:
     for p in inputs:
         resolved = _resolve_path(p)
         if resolved.is_file():
-            if (
-                resolved.suffix.lower() == ".csv"
-                and not resolved.name.endswith("_number_of_configs.csv")
+            if resolved.suffix.lower() == ".csv" and not resolved.name.endswith(
+                "_number_of_configs.csv"
             ):
                 csvs.append(resolved)
             continue
@@ -128,9 +127,8 @@ def _discover_config_count_csvs(inputs: Iterable[str]) -> list[Path]:
     for p in inputs:
         resolved = _resolve_path(p)
         if resolved.is_file():
-            if (
-                resolved.suffix.lower() == ".csv"
-                and resolved.name.endswith("_number_of_configs.csv")
+            if resolved.suffix.lower() == ".csv" and resolved.name.endswith(
+                "_number_of_configs.csv"
             ):
                 csvs.append(resolved)
             continue
@@ -235,7 +233,9 @@ def _load_config_count_rows(csv_files: list[Path]) -> list[ConfigCountRow]:
     return rows
 
 
-def _build_index(rows: list[SummaryRow]) -> tuple[list[str], list[str], dict[tuple[str, str], SummaryRow]]:
+def _build_index(
+    rows: list[SummaryRow],
+) -> tuple[list[str], list[str], dict[tuple[str, str], SummaryRow]]:
     model_keys = list(dict.fromkeys(r.model_key for r in rows))
     datasets = list(dict.fromkeys(r.dataset for r in rows))
     lookup = {(r.model_key, r.dataset): r for r in rows}
@@ -345,7 +345,9 @@ def _parse_dataset_identifier(dataset: str) -> tuple[str, dict[str, int]] | None
     return None
 
 
-def _infer_single_varying_dataset_variable(datasets: list[str]) -> tuple[str, list[tuple[str, int]]] | None:
+def _infer_single_varying_dataset_variable(
+    datasets: list[str],
+) -> tuple[str, list[tuple[str, int]]] | None:
     unique_datasets = list(dict.fromkeys(datasets))
     if len(unique_datasets) < 2:
         return None
@@ -444,7 +446,9 @@ def _plot_multi_path_point_accuracy_by_family(
             continue
         color = palette(idx % 10)
         ax.plot(xs, ys, color=color, linewidth=1.4, alpha=0.85, label=model_key)
-        ax.scatter(xs, ys, color=color, edgecolors="black", linewidths=0.7, s=58, zorder=3)
+        ax.scatter(
+            xs, ys, color=color, edgecolors="black", linewidths=0.7, s=58, zorder=3
+        )
 
     baseline_colors = ["#9467bd", "#8c564b", "#17becf"]
     baseline_names = sorted(
@@ -477,7 +481,9 @@ def _plot_multi_path_point_accuracy_by_family(
             label=f"{baseline_name} baseline",
         )
 
-    ax.set_title(f"{MODEL_FAMILIES[family_name]['title']}: Test Accuracy{title_dataset_suffix}")
+    ax.set_title(
+        f"{MODEL_FAMILIES[family_name]['title']}: Test Accuracy{title_dataset_suffix}"
+    )
     ax.set_xlabel(_variable_axis_label(variable_name))
     ax.set_ylabel("Test Accuracy")
     ax.set_ylim(0, 1)
@@ -524,16 +530,24 @@ def _plot_multi_path_point_dual_metric_by_family(
             continue
         color = palette(idx % 10)
         ax1.plot(xs, vals_a, color=color, linewidth=1.4, alpha=0.85, label=model_key)
-        ax1.scatter(xs, vals_a, color=color, edgecolors="black", linewidths=0.7, s=54, zorder=3)
+        ax1.scatter(
+            xs, vals_a, color=color, edgecolors="black", linewidths=0.7, s=54, zorder=3
+        )
         ax2.plot(xs, vals_b, color=color, linewidth=1.4, alpha=0.85, label=model_key)
-        ax2.scatter(xs, vals_b, color=color, edgecolors="black", linewidths=0.7, s=54, zorder=3)
+        ax2.scatter(
+            xs, vals_b, color=color, edgecolors="black", linewidths=0.7, s=54, zorder=3
+        )
 
-    ax1.set_title(f"{MODEL_FAMILIES[family_name]['title']}: {metric_a_name}{title_dataset_suffix}")
+    ax1.set_title(
+        f"{MODEL_FAMILIES[family_name]['title']}: {metric_a_name}{title_dataset_suffix}"
+    )
     ax1.set_ylabel(ylabel_a)
     ax1.grid(axis="both", alpha=0.25)
     ax1.legend(loc="best", fontsize=8)
 
-    ax2.set_title(f"{MODEL_FAMILIES[family_name]['title']}: {metric_b_name}{title_dataset_suffix}")
+    ax2.set_title(
+        f"{MODEL_FAMILIES[family_name]['title']}: {metric_b_name}{title_dataset_suffix}"
+    )
     ax2.set_xlabel(_variable_axis_label(variable_name))
     ax2.set_ylabel(ylabel_b)
     ax2.set_xticks(x_values)
@@ -690,8 +704,6 @@ def _plot_grouped(
             colors_b.append(_adjust_color(color_b, factor))
 
         if point_mode:
-            bars_a = []
-            bars_b = []
             for x_pos, y_val, face_color in zip(x + offsets[0], vals_a, colors_a):
                 ax.scatter(
                     x_pos,
@@ -724,7 +736,7 @@ def _plot_grouped(
                     float(total) - float(q)
                     for total, q in zip(vals_a, vals_a_quantum_clipped)
                 ]
-                bars_a = ax.bar(
+                ax.bar(
                     x + offsets[0],
                     vals_a_quantum_clipped,
                     width=width,
@@ -744,7 +756,7 @@ def _plot_grouped(
                     hatch=hatch_patterns[ds_idx],
                 )
             else:
-                bars_a = ax.bar(
+                ax.bar(
                     x + offsets[0],
                     vals_a,
                     width=width,
@@ -769,7 +781,11 @@ def _plot_grouped(
                 point_iter = zip(x + offsets[1], vals_b, colors_b)
             else:
                 point_iter = (
-                    (b.get_x() + b.get_width() / 2, b.get_height(), b.get_facecolor()[:3])
+                    (
+                        b.get_x() + b.get_width() / 2,
+                        b.get_height(),
+                        b.get_facecolor()[:3],
+                    )
                     for b in bars_b
                 )
             for x_pos, h, face_rgb in point_iter:
@@ -797,7 +813,12 @@ def _plot_grouped(
                     color=text_color,
                     rotation=0 if point_mode else (90 if thin_bar else 0),
                     bbox=(
-                        dict(boxstyle="round,pad=0.12", facecolor="white", alpha=0.7, linewidth=0)
+                        dict(
+                            boxstyle="round,pad=0.12",
+                            facecolor="white",
+                            alpha=0.7,
+                            linewidth=0,
+                        )
                         if (point_mode or thin_bar) and not use_white_text
                         else None
                     ),
@@ -810,15 +831,21 @@ def _plot_grouped(
                 for q, total in zip(vals_a_quantum, vals_a)
             ]
 
-            for idx, (x_pos, h, face_rgb) in enumerate(zip(x + offsets[0], vals_a, colors_a)):
+            for idx, (x_pos, h, face_rgb) in enumerate(
+                zip(x + offsets[0], vals_a, colors_a)
+            ):
                 if h <= 0:
                     continue
                 quantum_ratio = (vals_a_quantum_clipped[idx] / h) if h > 0 else 0.0
-                quantum_dominates = metric_a_quantum_getter is not None and quantum_ratio >= 0.60
+                quantum_dominates = (
+                    metric_a_quantum_getter is not None and quantum_ratio >= 0.60
+                )
                 text_inside_bar = h >= 0.08 * ymax and not quantum_dominates
                 y = h - 0.04 * ymax if text_inside_bar else h + 0.01 * ymax
                 va = "top" if text_inside_bar else "bottom"
-                text_color = "white" if (text_inside_bar and _is_dark_rgb(face_rgb)) else "black"
+                text_color = (
+                    "white" if (text_inside_bar and _is_dark_rgb(face_rgb)) else "black"
+                )
                 ax.text(
                     x_pos,
                     y,
@@ -836,7 +863,9 @@ def _plot_grouped(
                 text_inside_bar = h >= 0.08 * ymax
                 y = h - 0.04 * ymax if text_inside_bar else h + 0.01 * ymax
                 va = "top" if text_inside_bar else "bottom"
-                text_color = "white" if (text_inside_bar and _is_dark_rgb(face_rgb)) else "black"
+                text_color = (
+                    "white" if (text_inside_bar and _is_dark_rgb(face_rgb)) else "black"
+                )
                 ax.text(
                     x_pos,
                     y,
@@ -859,8 +888,26 @@ def _plot_grouped(
 
     if point_mode:
         metric_legend = [
-            Line2D([0], [0], marker="o", color="none", markerfacecolor=color_a, markeredgecolor="black", markersize=8, label=metric_a_name),
-            Line2D([0], [0], marker="D", color="none", markerfacecolor=color_b, markeredgecolor="black", markersize=8, label=metric_b_name),
+            Line2D(
+                [0],
+                [0],
+                marker="o",
+                color="none",
+                markerfacecolor=color_a,
+                markeredgecolor="black",
+                markersize=8,
+                label=metric_a_name,
+            ),
+            Line2D(
+                [0],
+                [0],
+                marker="D",
+                color="none",
+                markerfacecolor=color_b,
+                markeredgecolor="black",
+                markersize=8,
+                label=metric_b_name,
+            ),
         ]
     else:
         metric_legend = [
@@ -869,7 +916,11 @@ def _plot_grouped(
         ]
         if metric_a_quantum_getter is not None:
             metric_legend.append(
-                Patch(facecolor="black", edgecolor="black", label="Quantum share of Parameters")
+                Patch(
+                    facecolor="black",
+                    edgecolor="black",
+                    label="Quantum share of Parameters",
+                )
             )
     dataset_legend = [
         Patch(
@@ -911,7 +962,12 @@ def _plot_grouped(
             title_fontsize=10,
         )
     else:
-        first = ax.legend(handles=metric_legend + baseline_handles, loc="upper left", title="Metric", ncol=2)
+        first = ax.legend(
+            handles=metric_legend + baseline_handles,
+            loc="upper left",
+            title="Metric",
+            ncol=2,
+        )
     ax.add_artist(first)
     if include_backend_legend and len(datasets) > 1:
         secondary_handles = dataset_legend + backend_legend
@@ -939,7 +995,12 @@ def _plot_grouped(
                 title_fontsize=10,
             )
         else:
-            ax.legend(handles=secondary_handles, loc="upper right", title=secondary_title, ncol=2)
+            ax.legend(
+                handles=secondary_handles,
+                loc="upper right",
+                title=secondary_title,
+                ncol=2,
+            )
 
     if legend_outside_right:
         fig.tight_layout(rect=[0, 0, 0.80, 1])
@@ -1023,7 +1084,9 @@ def _plot_single_metric_grouped(
                 text_inside_bar = h >= 0.08 * ymax
                 y = h - 0.05 * ymax if text_inside_bar else h + 0.02 * ymax
                 va = "top" if text_inside_bar else "bottom"
-                text_color = "white" if (text_inside_bar and _is_dark_rgb(face_rgb)) else "black"
+                text_color = (
+                    "white" if (text_inside_bar and _is_dark_rgb(face_rgb)) else "black"
+                )
                 ax.text(
                     x_pos,
                     y,
@@ -1036,7 +1099,9 @@ def _plot_single_metric_grouped(
                     bbox=(
                         dict(
                             boxstyle="round,pad=0.18",
-                            facecolor=(0, 0, 0, 0.22) if text_inside_bar and text_color == "white" else (1, 1, 1, 0.75),
+                            facecolor=(0, 0, 0, 0.22)
+                            if text_inside_bar and text_color == "white"
+                            else (1, 1, 1, 0.75),
                             linewidth=0,
                         )
                         if not text_inside_bar or text_color != "white"
@@ -1055,7 +1120,16 @@ def _plot_single_metric_grouped(
 
     if point_mode:
         metric_legend = [
-            Line2D([0], [0], marker="o", color="none", markerfacecolor=color, markeredgecolor="black", markersize=8, label=metric_name)
+            Line2D(
+                [0],
+                [0],
+                marker="o",
+                color="none",
+                markerfacecolor=color,
+                markeredgecolor="black",
+                markersize=8,
+                label=metric_name,
+            )
         ]
     else:
         metric_legend = [Patch(facecolor=color, edgecolor="black", label=metric_name)]
@@ -1180,18 +1254,12 @@ def _plot_each_model_figures(
 
     for base_model_key, variant_to_model_key in grouped_model_keys.items():
         ordered_variants = [v for v in variant_order if v in variant_to_model_key]
-        other_variants = sorted(v for v in variant_to_model_key if v not in variant_order)
+        other_variants = sorted(
+            v for v in variant_to_model_key if v not in variant_order
+        )
         ordered_variants.extend(other_variants)
         if not ordered_variants:
             continue
-
-        acc_train = []
-        acc_test = []
-        counts_params = []
-        counts_quantum_params = []
-        counts_vectors = []
-        time_search = []
-        time_train_eval = []
 
         series_by_variant: dict[str, dict[str, list[float]]] = {}
         for variant in ordered_variants:
@@ -1220,7 +1288,9 @@ def _plot_each_model_figures(
                     s_counts_quantum_params.append(float(row.num_quantum_params))
                     s_counts_vectors.append(float(row.num_support_vectors))
                     s_time_search.append(float(row.hp_search_time_seconds))
-                    s_time_train_eval.append(float(row.optimal_model_train_eval_time_seconds))
+                    s_time_train_eval.append(
+                        float(row.optimal_model_train_eval_time_seconds)
+                    )
             series_by_variant[variant] = {
                 "acc_train": s_acc_train,
                 "acc_test": s_acc_test,
@@ -1244,8 +1314,22 @@ def _plot_each_model_figures(
             for variant in ordered_variants:
                 marker = marker_map.get(variant, "o")
                 label_suffix = variant_labels.get(variant, variant)
-                ax1.plot(x, series_by_variant[variant]["acc_train"], color="#1f77b4", linewidth=1.0, alpha=0.45, zorder=2)
-                ax1.plot(x, series_by_variant[variant]["acc_test"], color="#d62728", linewidth=1.0, alpha=0.45, zorder=2)
+                ax1.plot(
+                    x,
+                    series_by_variant[variant]["acc_train"],
+                    color="#1f77b4",
+                    linewidth=1.0,
+                    alpha=0.45,
+                    zorder=2,
+                )
+                ax1.plot(
+                    x,
+                    series_by_variant[variant]["acc_test"],
+                    color="#d62728",
+                    linewidth=1.0,
+                    alpha=0.45,
+                    zorder=2,
+                )
                 ax1.scatter(
                     x,
                     series_by_variant[variant]["acc_train"],
@@ -1309,7 +1393,9 @@ def _plot_each_model_figures(
         )
         for idx, baseline_name in enumerate(baseline_names):
             baseline_vals = [
-                _normalize_baseline_accuracy(baselines_by_dataset.get(dataset, {}).get(baseline_name))
+                _normalize_baseline_accuracy(
+                    baselines_by_dataset.get(dataset, {}).get(baseline_name)
+                )
                 if baselines_by_dataset.get(dataset, {}).get(baseline_name) is not None
                 else np.nan
                 for dataset in datasets
@@ -1362,7 +1448,9 @@ def _plot_each_model_figures(
                     color="white" if use_white_text else "black",
                     bbox=dict(
                         boxstyle="round,pad=0.10",
-                        facecolor=(0, 0, 0, 0.22) if use_white_text else (1, 1, 1, 0.60),
+                        facecolor=(0, 0, 0, 0.22)
+                        if use_white_text
+                        else (1, 1, 1, 0.60),
                         linewidth=0,
                     ),
                 )
@@ -1382,10 +1470,44 @@ def _plot_each_model_figures(
             for variant in ordered_variants:
                 marker = marker_map.get(variant, "o")
                 label_suffix = variant_labels.get(variant, variant)
-                ax2.plot(x, series_by_variant[variant]["counts_params"], color="#2ca02c", linewidth=1.0, alpha=0.45, zorder=2)
-                ax2.plot(x, series_by_variant[variant]["counts_vectors"], color="#ff7f0e", linewidth=1.0, alpha=0.45, zorder=2)
-                ax2.scatter(x, series_by_variant[variant]["counts_params"], color="#2ca02c", edgecolors="black", linewidths=0.7, s=52, marker=marker, label=f"Parameters ({label_suffix})", zorder=3)
-                ax2.scatter(x, series_by_variant[variant]["counts_vectors"], color="#ff7f0e", edgecolors="black", linewidths=0.7, s=52, marker=marker, label=f"Support Vectors ({label_suffix})", zorder=3)
+                ax2.plot(
+                    x,
+                    series_by_variant[variant]["counts_params"],
+                    color="#2ca02c",
+                    linewidth=1.0,
+                    alpha=0.45,
+                    zorder=2,
+                )
+                ax2.plot(
+                    x,
+                    series_by_variant[variant]["counts_vectors"],
+                    color="#ff7f0e",
+                    linewidth=1.0,
+                    alpha=0.45,
+                    zorder=2,
+                )
+                ax2.scatter(
+                    x,
+                    series_by_variant[variant]["counts_params"],
+                    color="#2ca02c",
+                    edgecolors="black",
+                    linewidths=0.7,
+                    s=52,
+                    marker=marker,
+                    label=f"Parameters ({label_suffix})",
+                    zorder=3,
+                )
+                ax2.scatter(
+                    x,
+                    series_by_variant[variant]["counts_vectors"],
+                    color="#ff7f0e",
+                    edgecolors="black",
+                    linewidths=0.7,
+                    s=52,
+                    marker=marker,
+                    label=f"Support Vectors ({label_suffix})",
+                    zorder=3,
+                )
         else:
             for idx, variant in enumerate(ordered_variants):
                 offset_params = start + width * (2 * idx)
@@ -1450,18 +1572,70 @@ def _plot_each_model_figures(
             for variant in ordered_variants:
                 marker = marker_map.get(variant, "o")
                 label_suffix = variant_labels.get(variant, variant)
-                ax3.plot(x, series_by_variant[variant]["time_search"], color="#d62728", linewidth=1.0, alpha=0.45, zorder=2)
-                ax3.plot(x, series_by_variant[variant]["time_train_eval"], color="#2ca02c", linewidth=1.0, alpha=0.45, zorder=2)
-                ax3.scatter(x, series_by_variant[variant]["time_search"], color="#d62728", edgecolors="black", linewidths=0.7, s=52, marker=marker, label=f"HP Search Time ({label_suffix})", zorder=3)
-                ax3.scatter(x, series_by_variant[variant]["time_train_eval"], color="#2ca02c", edgecolors="black", linewidths=0.7, s=52, marker=marker, label=f"Training+Eval Time ({label_suffix})", zorder=3)
+                ax3.plot(
+                    x,
+                    series_by_variant[variant]["time_search"],
+                    color="#d62728",
+                    linewidth=1.0,
+                    alpha=0.45,
+                    zorder=2,
+                )
+                ax3.plot(
+                    x,
+                    series_by_variant[variant]["time_train_eval"],
+                    color="#2ca02c",
+                    linewidth=1.0,
+                    alpha=0.45,
+                    zorder=2,
+                )
+                ax3.scatter(
+                    x,
+                    series_by_variant[variant]["time_search"],
+                    color="#d62728",
+                    edgecolors="black",
+                    linewidths=0.7,
+                    s=52,
+                    marker=marker,
+                    label=f"HP Search Time ({label_suffix})",
+                    zorder=3,
+                )
+                ax3.scatter(
+                    x,
+                    series_by_variant[variant]["time_train_eval"],
+                    color="#2ca02c",
+                    edgecolors="black",
+                    linewidths=0.7,
+                    s=52,
+                    marker=marker,
+                    label=f"Training+Eval Time ({label_suffix})",
+                    zorder=3,
+                )
         else:
             for idx, variant in enumerate(ordered_variants):
                 offset_search = start + width * (2 * idx)
                 offset_train_eval = start + width * (2 * idx + 1)
                 hatch = variant_hatches.get(variant, "..")
                 label_suffix = variant_labels.get(variant, variant)
-                ax3.bar(x + offset_search, series_by_variant[variant]["time_search"], width=width, color="#d62728", edgecolor="black", linewidth=0.6, hatch=hatch, label=f"HP Search Time ({label_suffix})")
-                ax3.bar(x + offset_train_eval, series_by_variant[variant]["time_train_eval"], width=width, color="#2ca02c", edgecolor="black", linewidth=0.6, hatch=hatch, label=f"Training+Eval Time ({label_suffix})")
+                ax3.bar(
+                    x + offset_search,
+                    series_by_variant[variant]["time_search"],
+                    width=width,
+                    color="#d62728",
+                    edgecolor="black",
+                    linewidth=0.6,
+                    hatch=hatch,
+                    label=f"HP Search Time ({label_suffix})",
+                )
+                ax3.bar(
+                    x + offset_train_eval,
+                    series_by_variant[variant]["time_train_eval"],
+                    width=width,
+                    color="#2ca02c",
+                    edgecolor="black",
+                    linewidth=0.6,
+                    hatch=hatch,
+                    label=f"Training+Eval Time ({label_suffix})",
+                )
         ax3.set_title("Search Time / Training+Eval Time")
         ax3.set_ylabel("Time (s)")
         ax3.set_xticks(x)
@@ -1471,7 +1645,9 @@ def _plot_each_model_figures(
         ax3.legend(loc="upper right")
 
         fig.suptitle(f"{base_model_key}{title_dataset_suffix}", fontsize=15)
-        fig.subplots_adjust(top=0.90, bottom=0.10, left=0.07, right=0.98, hspace=0.42, wspace=0.28)
+        fig.subplots_adjust(
+            top=0.90, bottom=0.10, left=0.07, right=0.98, hspace=0.42, wspace=0.28
+        )
 
         out_path = _with_optional_point_suffix(
             each_model_dir / f"{_sanitize_filename(base_model_key)}.png",
@@ -1561,7 +1737,9 @@ def main() -> None:
             )
         else:
             variable_name, dataset_points = inferred
-            dataset_title = _multi_path_point_dataset_title([dataset for dataset, _ in dataset_points])
+            dataset_title = _multi_path_point_dataset_title(
+                [dataset for dataset, _ in dataset_points]
+            )
             title_dataset_suffix = f" on {dataset_title}" if dataset_title else ""
             generated_paths = _plot_multi_path_point_family_figures(
                 rows=rows_global,
@@ -1577,7 +1755,9 @@ def main() -> None:
                 print(path)
             return
 
-    fig1 = _with_optional_point_suffix(output_dir / "hp_minimal_accuracy.png", args.point)
+    fig1 = _with_optional_point_suffix(
+        output_dir / "hp_minimal_accuracy.png", args.point
+    )
     _plot_grouped(
         model_keys=model_keys,
         datasets=datasets,

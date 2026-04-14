@@ -98,7 +98,11 @@ def training_torch(
                 )
                 converged = True
 
-            if ((step + 1) % steps_per_epoch == 0) or (step == max_steps - 1) or converged:
+            if (
+                ((step + 1) % steps_per_epoch == 0)
+                or (step == max_steps - 1)
+                or converged
+            ):
                 avg_train_loss = window_train_loss / max(window_total, 1)
                 train_acc = window_correct / max(window_total, 1)
                 train_losses.append(avg_train_loss)
@@ -227,7 +231,9 @@ def training_sklearn_q_kernel(
     model = model_dict["model"]
     optimizable_model = model.quantum_kernel
 
-    y_train_np = np.asarray(y_train.detach().cpu().numpy() if hasattr(y_train, "detach") else y_train)
+    y_train_np = np.asarray(
+        y_train.detach().cpu().numpy() if hasattr(y_train, "detach") else y_train
+    )
     if pre_train and len(np.unique(y_train_np)) > 2:
         logging.warning(
             "Disabling q-kernel pretraining because NKernelAlignment is binary-only and labels are multiclass."

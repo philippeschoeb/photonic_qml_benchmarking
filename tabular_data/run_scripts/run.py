@@ -53,6 +53,10 @@ def run_single(
     use_wandb,
     big_script_name=None,
 ):
+    ablation_spec = parse_ablation_model_name(model)
+    base_model = ablation_spec.base_model
+    ablation_type = ablation_spec.ablation_type
+
     # Setup logging and return save directory
     save_dir = set_up_logging(
         dataset=dataset,
@@ -71,10 +75,20 @@ def run_single(
     )
 
     # Fetch hyperparameters for single run
-    hyperparams = single_hps(dataset, model, architecture, backend, random_state)
+    hyperparams = single_hps(dataset, base_model, architecture, backend, random_state)
     dataset_hps = hyperparams["dataset"]
     model_hps = hyperparams["model"]
     training_hps = hyperparams["training"]
+    if ablation_type is not None:
+        can_apply, skip_reason = can_apply_ablation(
+            model_type=model_hps["type"],
+            model_name=base_model,
+            ablation_type=ablation_type,
+        )
+        if not can_apply:
+            logging.warning("Skipping run `%s`: %s", model, skip_reason)
+            return
+        training_hps["ablation_type"] = ablation_type
     # Fetch data
     train_loader, test_loader, x_train, x_test, y_train, y_test = fetch_data(
         dataset, random_state, **dataset_hps
@@ -93,12 +107,12 @@ def run_single(
     model_type = model_hps["type"]
 
     # Align photonic modes/photons with feature count.
-    if backend == "photonic" and model != "data_reuploading":
+    if backend == "photonic" and base_model != "data_reuploading":
         model_hps["m"], model_hps["n"] = get_photonic_mn(input_size)
 
     # Fetch model
     model = fetch_model(
-        model, backend, input_size, training_hps["output_size"], **model_hps
+        base_model, backend, input_size, training_hps["output_size"], **model_hps
     )
     # Define model dictionary
     model_dict = {"type": model_hps["type"], "name": model_hps["name"], "model": model}
@@ -287,8 +301,6 @@ def run_search(
         param_grid_serializable = {"grids": param_grid_serializable}
     param_grid_serializable["number_of_configs"] = number_of_configs
 
-    # Get device
-    device = training_hps["device"][0]
     # Get model type
     model_type = model_hps["type"][0]
     if ablation_type is not None:
@@ -524,10 +536,10 @@ def run_search(
         hp_artifact.add_file(save_dir + "/cv_results.json")
         wandb.log_artifact(hp_artifact)
         # Skip saving best model, for now (because it is problematic for some models)
-        #joblib.dump(best_model, save_dir + "/best_model.pkl")
-        #artifact = wandb.Artifact("best_model.pkl", type="model")
-        #artifact.add_file(save_dir + "/best_model.pkl")
-        #wandb.log_artifact(artifact)
+        # joblib.dump(best_model, save_dir + "/best_model.pkl")
+        # artifact = wandb.Artifact("best_model.pkl", type="model")
+        # artifact.add_file(save_dir + "/best_model.pkl")
+        # wandb.log_artifact(artifact)
     return
 
 
@@ -547,6 +559,7 @@ def set_up_logging(
     else:
         raise ValueError(f"Unknown run_type: {run_type}")
     model_backend_dataset = f"{model}_{backend}_{dataset}"
+    model_backend = f"{model}_{backend}"
     repo_root = os.path.dirname(
         os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     )
@@ -556,7 +569,7 @@ def set_up_logging(
         # If a grouped run path is provided (e.g. script_name/timestamp),
         # store model outputs directly beneath it.
         if "/" in big_script_name:
-            path_parts.append(model_backend_dataset)
+            path_parts.append(model_backend)
         else:
             run_folder = f"{run_type_label}_{timestamp}"
             path_parts.extend([run_folder, model_backend_dataset])

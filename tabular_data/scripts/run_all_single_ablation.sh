@@ -4,17 +4,18 @@ if [ -z "${BASH_VERSION:-}" ]; then
   exec bash "$0" "$@"
 fi
 
-# Run single runs for all supported models/backends on one dataset.
+# Run single runs for all supported models/backends on one dataset,
+# plus all compatible ablation variants.
 
 set -euo pipefail
-
-DATASET="hidden_manifold_2_6"
-USE_WANDB=false
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "${ROOT_DIR}"
 SCRIPT_NAME="$(basename "$0" .sh)"
 BATCH_TIMESTAMP="$(date +"%Y-%m-%d_%H-%M-%S")"
+
+DATASET="hidden_manifold_2_6"
+USE_WANDB=false
 BATCH_RUN_GROUP="${SCRIPT_NAME}/${DATASET}_${BATCH_TIMESTAMP}"
 
 MODELS=(
@@ -45,7 +46,7 @@ declare -A MODEL_BACKENDS=(
   ["rks"]="classical"
 )
 
-echo "====== Single Run Sweep ======"
+echo "====== Single Run Sweep (with Ablations) ======"
 echo "Dataset: ${DATASET}"
 echo "Use Weights & Biases: ${USE_WANDB}"
 echo "Run group: ${BATCH_RUN_GROUP}"
@@ -64,13 +65,29 @@ for model in "${MODELS[@]}"; do
   fi
   backends="${MODEL_BACKENDS["$model"]}"
   for backend in ${backends}; do
-    if [[ "${backend}" == "classical" ]]; then
-      echo "-> Model: ${model}, Backend: auto (classical)"
-      python main.py --dataset "${DATASET}" --model "${model}" --run_type single --big_script_name "${BATCH_RUN_GROUP}" "${WANDB_FLAG[@]}"
-    else
-      echo "-> Model: ${model}, Backend: ${backend}"
-      python main.py --dataset "${DATASET}" --model "${model}" --backend "${backend}" --run_type single --big_script_name "${BATCH_RUN_GROUP}" "${WANDB_FLAG[@]}"
+    variants=("${model}")
+
+    # Add all compatible single-run ablation variants.
+    if [[ "${backend}" == "photonic" ]]; then
+      case "${model}" in
+        dressed_quantum_circuit|multiple_paths_model)
+          variants+=("${model}_abla_q" "${model}_abla_c")
+          ;;
+        dressed_quantum_circuit_reservoir|multiple_paths_model_reservoir|q_rks)
+          variants+=("${model}_abla_q")
+          ;;
+      esac
     fi
+
+    for variant_model in "${variants[@]}"; do
+      if [[ "${backend}" == "classical" ]]; then
+        echo "-> Model: ${variant_model}, Backend: auto (classical)"
+        python main.py --dataset "${DATASET}" --model "${variant_model}" --run_type single --big_script_name "${BATCH_RUN_GROUP}" "${WANDB_FLAG[@]}"
+      else
+        echo "-> Model: ${variant_model}, Backend: ${backend}"
+        python main.py --dataset "${DATASET}" --model "${variant_model}" --backend "${backend}" --run_type single --big_script_name "${BATCH_RUN_GROUP}" "${WANDB_FLAG[@]}"
+      fi
+    done
   done
 done
 

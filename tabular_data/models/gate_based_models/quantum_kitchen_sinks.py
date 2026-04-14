@@ -19,7 +19,6 @@ import jax
 
 jax.config.update("jax_enable_x64", True)
 from sklearn.base import BaseEstimator, ClassifierMixin, clone
-from sklearn.utils.extmath import softmax
 from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import StandardScaler
 from sklearn.preprocessing import MinMaxScaler
@@ -135,7 +134,6 @@ class QuantumKitchenSinks(BaseEstimator, ClassifierMixin):
 
         @qml.qnode(dev, **self.qnode_kwargs)
         def circuit(Q):
-
             # Single-qubit layer
             for i, q in enumerate(Q):
                 qml.RX(q, wires=i)
@@ -251,7 +249,7 @@ class QuantumKitchenSinks(BaseEstimator, ClassifierMixin):
         """
         X = self.transform(X)
         predictions_2d = self.linear_model.predict_proba(X)
-        #return softmax(predictions_2d, copy=False)
+        # return softmax(predictions_2d, copy=False)
         return predictions_2d
 
     def transform(self, X, preprocess=True):
@@ -321,7 +319,9 @@ class SKQuantumKitchenSinksGate(BaseEstimator, ClassifierMixin):
         }
         if deep:
             params.update(self.data_params)
-            params.update({f"model_params__{k}": v for k, v in self.model_params.items()})
+            params.update(
+                {f"model_params__{k}": v for k, v in self.model_params.items()}
+            )
             params.update(
                 {f"training_params__{k}": v for k, v in self.training_params.items()}
             )

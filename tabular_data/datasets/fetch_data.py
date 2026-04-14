@@ -56,7 +56,9 @@ def fetch_data(dataset, random_state=None, **hyperparams):
         )
         logging.warning(f"Subsample {num_train} training and {num_test} testing data")
 
-    logging.info(f'Number of train points: {len(x_train)}\nNumber of test points: {len(x_test)}')
+    logging.info(
+        f"Number of train points: {len(x_train)}\nNumber of test points: {len(x_test)}"
+    )
 
     scaling = hyperparams.get("scaling", "none")
     batch_size = hyperparams.get("batch_size", 32)

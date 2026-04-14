@@ -5,7 +5,10 @@ import torch
 import numpy as np
 import wandb
 
-def save_train_losses_accs(train_loss, test_loss, train_accs, test_accs, save_dir, use_wandb):
+
+def save_train_losses_accs(
+    train_loss, test_loss, train_accs, test_accs, save_dir, use_wandb
+):
     os.makedirs(save_dir, exist_ok=True)
 
     fig, axes = plt.subplots(1, 2, figsize=(12, 5))  # 2 plots side by side
@@ -51,18 +54,24 @@ def save_train_losses_accs(train_loss, test_loss, train_accs, test_accs, save_di
     # Save to Wandb
     if use_wandb:
         wandb.log({"final_train_acc": train_accs[-1], "final_test_acc": test_accs[-1]})
-        for train_l, test_l, train_a, test_a in zip(train_loss, test_loss, train_accs, test_accs):
-            wandb.log({
-                "train_loss": train_l,
-                "test_loss": test_l,
-                "train_acc": train_a,
-                "test_acc": test_a,
-            })
+        for train_l, test_l, train_a, test_a in zip(
+            train_loss, test_loss, train_accs, test_accs
+        ):
+            wandb.log(
+                {
+                    "train_loss": train_l,
+                    "test_loss": test_l,
+                    "train_acc": train_a,
+                    "test_acc": test_a,
+                }
+            )
 
     return
 
 
-def save_train_loss_final_accs(train_loss, final_train_acc, final_test_acc, save_dir, use_wandb):
+def save_train_loss_final_accs(
+    train_loss, final_train_acc, final_test_acc, save_dir, use_wandb
+):
     os.makedirs(save_dir, exist_ok=True)
 
     fig, axes = plt.subplots(1, 2, figsize=(12, 5))  # 2 plots side by side
@@ -85,16 +94,21 @@ def save_train_loss_final_accs(train_loss, final_train_acc, final_test_acc, save
     axes[1].set_title("Final Accuracies", fontsize=16)
     axes[1].set_ylabel("Accuracy", fontsize=14)
     axes[1].tick_params(axis="both", labelsize=12)
-    #axes[1].grid()
+    # axes[1].grid()
 
     # Annotate bar values
     for bar in bars:
         height = bar.get_height()
-        axes[1].annotate(f"{height:.2f}",
-                         xy=(bar.get_x() + bar.get_width() / 2, height - 0.07),
-                         xytext=(0, 5),  # offset
-                         textcoords="offset points",
-                         ha="center", va="bottom", fontsize=16, fontweight="bold")
+        axes[1].annotate(
+            f"{height:.2f}",
+            xy=(bar.get_x() + bar.get_width() / 2, height - 0.07),
+            xytext=(0, 5),  # offset
+            textcoords="offset points",
+            ha="center",
+            va="bottom",
+            fontsize=16,
+            fontweight="bold",
+        )
 
     # Reduce spacing
     plt.tight_layout(pad=1.0, w_pad=2.0)
@@ -115,10 +129,12 @@ def save_train_loss_final_accs(train_loss, final_train_acc, final_test_acc, save
 
     # Save to Wandb
     if use_wandb:
-        wandb.log({
-            "final_train_acc": final_train_acc,
-            "final_test_acc": final_test_acc,
-        })
+        wandb.log(
+            {
+                "final_train_acc": final_train_acc,
+                "final_test_acc": final_test_acc,
+            }
+        )
         for train_l in train_loss:
             wandb.log({"train_loss": train_l})
 
@@ -139,16 +155,21 @@ def save_final_accs(final_train_acc, final_test_acc, save_dir, use_wandb):
     ax.set_title("Final Accuracies", fontsize=16)
     ax.set_ylabel("Accuracy", fontsize=14)
     ax.tick_params(axis="both", labelsize=12)
-    #ax.grid()
+    # ax.grid()
 
     # Annotate values
     for bar in bars:
         height = bar.get_height()
-        ax.annotate(f"{height:.2f}",
-                    xy=(bar.get_x() + bar.get_width() / 2, height - 0.07),
-                    xytext=(0, 5),
-                    textcoords="offset points",
-                    ha="center", va="bottom", fontsize=16, fontweight="bold")
+        ax.annotate(
+            f"{height:.2f}",
+            xy=(bar.get_x() + bar.get_width() / 2, height - 0.07),
+            xytext=(0, 5),
+            textcoords="offset points",
+            ha="center",
+            va="bottom",
+            fontsize=16,
+            fontweight="bold",
+        )
 
     plt.tight_layout()
 
@@ -167,10 +188,12 @@ def save_final_accs(final_train_acc, final_test_acc, save_dir, use_wandb):
 
     # Save to Wandb
     if use_wandb:
-        wandb.log({
-            "final_train_acc": final_train_acc,
-            "final_test_acc": final_test_acc,
-        })
+        wandb.log(
+            {
+                "final_train_acc": final_train_acc,
+                "final_test_acc": final_test_acc,
+            }
+        )
 
     return
 
@@ -200,8 +223,10 @@ def save_hyperparams(hps, save_dir):
 
     # Walk recursively through dicts
     def serialize_dict(d):
-        return {k: make_serializable(v) if not isinstance(v, dict) else serialize_dict(v)
-                for k, v in d.items()}
+        return {
+            k: make_serializable(v) if not isinstance(v, dict) else serialize_dict(v)
+            for k, v in d.items()
+        }
 
     hps = serialize_dict(hps)
 
@@ -213,7 +238,9 @@ def save_hyperparams(hps, save_dir):
     return
 
 
-def save_sk_train_losses_accs(train_loss, train_accs, final_test_acc, save_dir, use_wandb):
+def save_sk_train_losses_accs(
+    train_loss, train_accs, final_test_acc, save_dir, use_wandb
+):
     os.makedirs(save_dir, exist_ok=True)
 
     fig, axes = plt.subplots(1, 2, figsize=(12, 5))  # 2 plots side by side
@@ -224,12 +251,14 @@ def save_sk_train_losses_accs(train_loss, train_accs, final_test_acc, save_dir, 
     axes[0].set_xlabel("Epoch", fontsize=14)
     axes[0].set_ylabel("Loss", fontsize=14)
     axes[0].tick_params(axis="both", labelsize=12)
-    #axes[0].legend(fontsize=12)
+    # axes[0].legend(fontsize=12)
     axes[0].grid()
 
     # Plot train accuracy
     axes[1].plot(train_accs, label="Train Accuracy", color="tab:blue")
-    axes[1].axhline(y=final_test_acc, color='red', linestyle='--', label='Test Accuracy')
+    axes[1].axhline(
+        y=final_test_acc, color="red", linestyle="--", label="Test Accuracy"
+    )
     axes[1].set_title("Train Accuracies", fontsize=16)
     axes[1].set_xlabel("Epoch", fontsize=14)
     axes[1].set_ylabel("Accuracy", fontsize=14)
@@ -282,11 +311,16 @@ def save_sk_final_test_acc(final_test_acc, save_dir, use_wandb):
     # Annotate values
     for bar in bars:
         height = bar.get_height()
-        ax.annotate(f"{height:.2f}",
-                    xy=(bar.get_x() + bar.get_width() / 2, height - 0.07),
-                    xytext=(0, 5),
-                    textcoords="offset points",
-                    ha="center", va="bottom", fontsize=16, fontweight="bold")
+        ax.annotate(
+            f"{height:.2f}",
+            xy=(bar.get_x() + bar.get_width() / 2, height - 0.07),
+            xytext=(0, 5),
+            textcoords="offset points",
+            ha="center",
+            va="bottom",
+            fontsize=16,
+            fontweight="bold",
+        )
 
     plt.tight_layout()
 
@@ -327,8 +361,10 @@ def save_search_hyperparams(hps, best_hps, save_dir, use_wandb):
 
     # Walk recursively through dicts
     def serialize_dict(d):
-        return {k: make_serializable(v) if not isinstance(v, dict) else serialize_dict(v)
-                for k, v in d.items()}
+        return {
+            k: make_serializable(v) if not isinstance(v, dict) else serialize_dict(v)
+            for k, v in d.items()
+        }
 
     hps = serialize_dict(hps)
     best_hps = serialize_dict(best_hps)
@@ -344,11 +380,11 @@ def save_search_hyperparams(hps, best_hps, save_dir, use_wandb):
         json.dump(best_hps, f, indent=4, default=str)
 
     if use_wandb:
-        hp_artifact = wandb.Artifact('search_hps', type='dataset')
+        hp_artifact = wandb.Artifact("search_hps", type="dataset")
         hp_artifact.add_file(os.path.join(save_dir, "search_hps.json"))
         wandb.log_artifact(hp_artifact)
 
-        hp_artifact = wandb.Artifact('best_hps', type='dataset')
+        hp_artifact = wandb.Artifact("best_hps", type="dataset")
         hp_artifact.add_file(os.path.join(save_dir, "best_hps.json"))
         wandb.log_artifact(hp_artifact)
 

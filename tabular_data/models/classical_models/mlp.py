@@ -159,16 +159,26 @@ class SKMLP(BaseEstimator, ClassifierMixin):
                 pbar.update(1)
 
                 if np.isnan(step_loss):
-                    logging.info("nan encountered at step %s. Training aborted.", step + 1)
+                    logging.info(
+                        "nan encountered at step %s. Training aborted.", step + 1
+                    )
                     break
 
-                if convergence_interval is not None and len(step_loss_history) > 2 * convergence_interval:
+                if (
+                    convergence_interval is not None
+                    and len(step_loss_history) > 2 * convergence_interval
+                ):
                     average1 = np.mean(step_loss_history[-convergence_interval:])
                     average2 = np.mean(
-                        step_loss_history[-2 * convergence_interval : -convergence_interval]
+                        step_loss_history[
+                            -2 * convergence_interval : -convergence_interval
+                        ]
                     )
                     std1 = np.std(step_loss_history[-convergence_interval:])
-                    if np.abs(average2 - average1) <= std1 / np.sqrt(convergence_interval) / 2:
+                    if (
+                        np.abs(average2 - average1)
+                        <= std1 / np.sqrt(convergence_interval) / 2
+                    ):
                         logging.info(
                             "Model %s converged after %s steps.",
                             self.model.__class__.__name__,
@@ -176,7 +186,11 @@ class SKMLP(BaseEstimator, ClassifierMixin):
                         )
                         converged = True
 
-                if ((step + 1) % steps_per_epoch == 0) or (step == max_steps - 1) or converged:
+                if (
+                    ((step + 1) % steps_per_epoch == 0)
+                    or (step == max_steps - 1)
+                    or converged
+                ):
                     avg_train_loss = window_train_loss / max(window_total, 1)
                     train_acc = window_correct / max(window_total, 1)
                     train_losses.append(avg_train_loss)

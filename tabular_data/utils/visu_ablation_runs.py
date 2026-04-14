@@ -60,6 +60,33 @@ class SummaryRowStd:
     n_runs: int
 
 
+_MODEL_FAMILY_COLORS = {
+    "dressed_quantum_circuit": "#1f77b4",
+    "dressed_quantum_circuit_reservoir": "#17becf",
+    "multiple_paths_model": "#2ca02c",
+    "multiple_paths_model_reservoir": "#9467bd",
+    "data_reuploading": "#ff7f0e",
+    "mlp": "#d62728",
+}
+
+
+def _family_model_color(model_key: str, fallback_idx: int):
+    base_model = model_key.split(" (", 1)[0]
+    fixed = _MODEL_FAMILY_COLORS.get(base_model)
+    if fixed is not None:
+        return fixed
+    palette = plt.get_cmap("tab10")
+    return palette(fallback_idx % 10)
+
+
+def _family_model_marker(model_key: str) -> str:
+    if model_key.endswith(" (gate)"):
+        return "^"
+    if model_key.endswith(" (classical)"):
+        return "D"
+    return "o"
+
+
 def _discover_run_dirs(
     runs_root: Path,
     dataset_prefix: str,
@@ -72,7 +99,9 @@ def _discover_run_dirs(
             pattern = f"{dataset_prefix}_{setting}_v{version}_*"
             matches = sorted(runs_root.glob(pattern))
             if not matches:
-                raise FileNotFoundError(f"No run folder found for pattern: {runs_root / pattern}")
+                raise FileNotFoundError(
+                    f"No run folder found for pattern: {runs_root / pattern}"
+                )
             run_dirs.append(matches[-1])
     return run_dirs
 
@@ -218,7 +247,6 @@ def _plot_family_accuracy_with_std(
     title_dataset_suffix: str = "",
 ) -> None:
     fig, ax = plt.subplots(figsize=(10, 6))
-    palette = plt.get_cmap("tab10")
     x_values = [value for _, value in dataset_points]
 
     for idx, model_key in enumerate(family_model_keys):
@@ -234,10 +262,41 @@ def _plot_family_accuracy_with_std(
             yerr.append(float(row.final_test_acc_std))
         if not xs:
             continue
-        color = palette(idx % 10)
-        ax.plot(xs, ys, color=color, linewidth=1.4, alpha=0.85, label=model_key)
-        ax.scatter(xs, ys, color=color, edgecolors="black", linewidths=0.7, s=58, zorder=3)
-        ax.errorbar(xs, ys, yerr=yerr, fmt="none", ecolor=color, elinewidth=1.1, capsize=3, zorder=4)
+        color = _family_model_color(model_key, idx)
+        marker = _family_model_marker(model_key)
+        ax.plot(
+            xs,
+            ys,
+            color=color,
+            linewidth=1.4,
+            alpha=0.85,
+            marker=marker,
+            markersize=5.5,
+            markerfacecolor=color,
+            markeredgecolor="black",
+            markeredgewidth=0.7,
+            label=model_key,
+        )
+        ax.scatter(
+            xs,
+            ys,
+            color=color,
+            edgecolors="black",
+            linewidths=0.7,
+            s=58,
+            marker=marker,
+            zorder=3,
+        )
+        ax.errorbar(
+            xs,
+            ys,
+            yerr=yerr,
+            fmt="none",
+            ecolor=color,
+            elinewidth=1.1,
+            capsize=3,
+            zorder=4,
+        )
 
     baseline_colors = ["#9467bd", "#8c564b", "#17becf"]
     baseline_names = sorted(
@@ -270,7 +329,9 @@ def _plot_family_accuracy_with_std(
             label=f"{baseline_name} baseline",
         )
 
-    ax.set_title(f"{MODEL_FAMILIES[family_name]['title']}: Test Accuracy (mean +/- std){title_dataset_suffix}")
+    ax.set_title(
+        f"{MODEL_FAMILIES[family_name]['title']}: Test Accuracy (mean +/- std){title_dataset_suffix}"
+    )
     ax.set_xlabel(_variable_axis_label(variable_name))
     ax.set_ylabel("Test Accuracy")
     ax.set_ylim(0, 1)
@@ -301,7 +362,6 @@ def _plot_family_dual_metric_with_std(
     title_dataset_suffix: str = "",
 ) -> None:
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 9), sharex=True)
-    palette = plt.get_cmap("tab10")
     x_values = [value for _, value in dataset_points]
 
     for idx, model_key in enumerate(family_model_keys):
@@ -321,20 +381,85 @@ def _plot_family_dual_metric_with_std(
             err_b.append(float(metric_b_std_getter(row)))
         if not xs:
             continue
-        color = palette(idx % 10)
-        ax1.plot(xs, vals_a, color=color, linewidth=1.4, alpha=0.85, label=model_key)
-        ax1.scatter(xs, vals_a, color=color, edgecolors="black", linewidths=0.7, s=54, zorder=3)
-        ax1.errorbar(xs, vals_a, yerr=err_a, fmt="none", ecolor=color, elinewidth=1.1, capsize=3, zorder=4)
-        ax2.plot(xs, vals_b, color=color, linewidth=1.4, alpha=0.85, label=model_key)
-        ax2.scatter(xs, vals_b, color=color, edgecolors="black", linewidths=0.7, s=54, zorder=3)
-        ax2.errorbar(xs, vals_b, yerr=err_b, fmt="none", ecolor=color, elinewidth=1.1, capsize=3, zorder=4)
+        color = _family_model_color(model_key, idx)
+        marker = _family_model_marker(model_key)
+        ax1.plot(
+            xs,
+            vals_a,
+            color=color,
+            linewidth=1.4,
+            alpha=0.85,
+            marker=marker,
+            markersize=5.0,
+            markerfacecolor=color,
+            markeredgecolor="black",
+            markeredgewidth=0.7,
+            label=model_key,
+        )
+        ax1.scatter(
+            xs,
+            vals_a,
+            color=color,
+            edgecolors="black",
+            linewidths=0.7,
+            s=54,
+            marker=marker,
+            zorder=3,
+        )
+        ax1.errorbar(
+            xs,
+            vals_a,
+            yerr=err_a,
+            fmt="none",
+            ecolor=color,
+            elinewidth=1.1,
+            capsize=3,
+            zorder=4,
+        )
+        ax2.plot(
+            xs,
+            vals_b,
+            color=color,
+            linewidth=1.4,
+            alpha=0.85,
+            marker=marker,
+            markersize=5.0,
+            markerfacecolor=color,
+            markeredgecolor="black",
+            markeredgewidth=0.7,
+            label=model_key,
+        )
+        ax2.scatter(
+            xs,
+            vals_b,
+            color=color,
+            edgecolors="black",
+            linewidths=0.7,
+            s=54,
+            marker=marker,
+            zorder=3,
+        )
+        ax2.errorbar(
+            xs,
+            vals_b,
+            yerr=err_b,
+            fmt="none",
+            ecolor=color,
+            elinewidth=1.1,
+            capsize=3,
+            zorder=4,
+        )
 
-    ax1.set_title(f"{MODEL_FAMILIES[family_name]['title']}: {metric_a_name} (mean +/- std){title_dataset_suffix}")
+    ax1.set_title(
+        f"{MODEL_FAMILIES[family_name]['title']}: {metric_a_name} (mean +/- std){title_dataset_suffix}"
+    )
     ax1.set_ylabel(ylabel_a)
     ax1.grid(axis="both", alpha=0.25)
     ax1.legend(loc="best", fontsize=8)
 
-    ax2.set_title(f"{MODEL_FAMILIES[family_name]['title']}: {metric_b_name} (mean +/- std){title_dataset_suffix}")
+    ax2.set_title(
+        f"{MODEL_FAMILIES[family_name]['title']}: {metric_b_name} (mean +/- std){title_dataset_suffix}"
+    )
     ax2.set_xlabel(_variable_axis_label(variable_name))
     ax2.set_ylabel(ylabel_b)
     ax2.set_xticks(x_values)
@@ -501,8 +626,12 @@ def _plot_each_model_figures_with_std(
                     vals_time_std.append(float(row.hp_search_time_seconds_std))
 
             if has_real_ablation:
-                all_acc_lows.extend([max(0.0, v - s) for v, s in zip(vals_test, vals_test_std)])
-                all_acc_highs.extend([min(1.0, v + s) for v, s in zip(vals_test, vals_test_std)])
+                all_acc_lows.extend(
+                    [max(0.0, v - s) for v, s in zip(vals_test, vals_test_std)]
+                )
+                all_acc_highs.extend(
+                    [min(1.0, v + s) for v, s in zip(vals_test, vals_test_std)]
+                )
             else:
                 all_acc_lows.extend(
                     [max(0.0, v - s) for v, s in zip(vals_train, vals_train_std)]
@@ -512,8 +641,12 @@ def _plot_each_model_figures_with_std(
                     [min(1.0, v + s) for v, s in zip(vals_train, vals_train_std)]
                     + [min(1.0, v + s) for v, s in zip(vals_test, vals_test_std)]
                 )
-            all_param_lows.extend([max(0.0, v - s) for v, s in zip(vals_params, vals_params_std)])
-            all_param_highs.extend([v + s for v, s in zip(vals_params, vals_params_std)])
+            all_param_lows.extend(
+                [max(0.0, v - s) for v, s in zip(vals_params, vals_params_std)]
+            )
+            all_param_highs.extend(
+                [v + s for v, s in zip(vals_params, vals_params_std)]
+            )
 
             off_train = start + width * (2 * idx)
             off_test = start + width * (2 * idx + 1)
@@ -522,8 +655,24 @@ def _plot_each_model_figures_with_std(
                 color = variant_colors.get(variant, "#7f7f7f")
                 # Same x-axis positions for all ablations; distinguish by color.
                 if not has_real_ablation:
-                    ax1.plot(x_values, vals_train, color=color, linewidth=1.2, alpha=0.70, linestyle="--", zorder=2)
-                ax1.plot(x_values, vals_test, color=color, linewidth=1.4, alpha=0.90, linestyle="-", zorder=2)
+                    ax1.plot(
+                        x_values,
+                        vals_train,
+                        color=color,
+                        linewidth=1.2,
+                        alpha=0.70,
+                        linestyle="--",
+                        zorder=2,
+                    )
+                ax1.plot(
+                    x_values,
+                    vals_test,
+                    color=color,
+                    linewidth=1.4,
+                    alpha=0.90,
+                    linestyle="-",
+                    zorder=2,
+                )
                 if not has_real_ablation:
                     ax1.scatter(
                         x_values,
@@ -548,29 +697,171 @@ def _plot_each_model_figures_with_std(
                     zorder=3,
                 )
                 if not has_real_ablation:
-                    ax1.errorbar(x_values, vals_train, yerr=vals_train_std, fmt="none", ecolor=color, elinewidth=1.0, capsize=2, zorder=4)
-                ax1.errorbar(x_values, vals_test, yerr=vals_test_std, fmt="none", ecolor=color, elinewidth=1.0, capsize=2, zorder=4)
+                    ax1.errorbar(
+                        x_values,
+                        vals_train,
+                        yerr=vals_train_std,
+                        fmt="none",
+                        ecolor=color,
+                        elinewidth=1.0,
+                        capsize=2,
+                        zorder=4,
+                    )
+                ax1.errorbar(
+                    x_values,
+                    vals_test,
+                    yerr=vals_test_std,
+                    fmt="none",
+                    ecolor=color,
+                    elinewidth=1.0,
+                    capsize=2,
+                    zorder=4,
+                )
 
-                ax2.plot(x_values, vals_params, color=color, linewidth=1.4, alpha=0.85, zorder=2)
-                ax2.scatter(x_values, vals_params, color=color, edgecolors="black", linewidths=0.7, s=52, marker="o", label=f"{label_suffix}", zorder=3)
-                ax2.errorbar(x_values, vals_params, yerr=vals_params_std, fmt="none", ecolor=color, elinewidth=1.0, capsize=2, zorder=4)
+                ax2.plot(
+                    x_values,
+                    vals_params,
+                    color=color,
+                    linewidth=1.4,
+                    alpha=0.85,
+                    zorder=2,
+                )
+                ax2.scatter(
+                    x_values,
+                    vals_params,
+                    color=color,
+                    edgecolors="black",
+                    linewidths=0.7,
+                    s=52,
+                    marker="o",
+                    label=f"{label_suffix}",
+                    zorder=3,
+                )
+                ax2.errorbar(
+                    x_values,
+                    vals_params,
+                    yerr=vals_params_std,
+                    fmt="none",
+                    ecolor=color,
+                    elinewidth=1.0,
+                    capsize=2,
+                    zorder=4,
+                )
 
-                ax3.plot(x_values, vals_time, color=color, linewidth=1.4, alpha=0.85, zorder=2)
-                ax3.scatter(x_values, vals_time, color=color, edgecolors="black", linewidths=0.7, s=52, marker="o", label=f"{label_suffix}", zorder=3)
-                ax3.errorbar(x_values, vals_time, yerr=vals_time_std, fmt="none", ecolor=color, elinewidth=1.0, capsize=2, zorder=4)
+                ax3.plot(
+                    x_values,
+                    vals_time,
+                    color=color,
+                    linewidth=1.4,
+                    alpha=0.85,
+                    zorder=2,
+                )
+                ax3.scatter(
+                    x_values,
+                    vals_time,
+                    color=color,
+                    edgecolors="black",
+                    linewidths=0.7,
+                    s=52,
+                    marker="o",
+                    label=f"{label_suffix}",
+                    zorder=3,
+                )
+                ax3.errorbar(
+                    x_values,
+                    vals_time,
+                    yerr=vals_time_std,
+                    fmt="none",
+                    ecolor=color,
+                    elinewidth=1.0,
+                    capsize=2,
+                    zorder=4,
+                )
             else:
                 if not has_real_ablation:
-                    ax1.bar(x_values + off_train, vals_train, width=width, color="#1f77b4", edgecolor="black", linewidth=0.6, hatch=hatch, label=f"Train ({label_suffix})")
-                ax1.bar(x_values + off_test, vals_test, width=width, color="#d62728", edgecolor="black", linewidth=0.6, hatch=hatch, label=f"Test ({label_suffix})")
+                    ax1.bar(
+                        x_values + off_train,
+                        vals_train,
+                        width=width,
+                        color="#1f77b4",
+                        edgecolor="black",
+                        linewidth=0.6,
+                        hatch=hatch,
+                        label=f"Train ({label_suffix})",
+                    )
+                ax1.bar(
+                    x_values + off_test,
+                    vals_test,
+                    width=width,
+                    color="#d62728",
+                    edgecolor="black",
+                    linewidth=0.6,
+                    hatch=hatch,
+                    label=f"Test ({label_suffix})",
+                )
                 if not has_real_ablation:
-                    ax1.errorbar(x_values + off_train, vals_train, yerr=vals_train_std, fmt="none", ecolor="black", elinewidth=1.0, capsize=2, zorder=4)
-                ax1.errorbar(x_values + off_test, vals_test, yerr=vals_test_std, fmt="none", ecolor="black", elinewidth=1.0, capsize=2, zorder=4)
+                    ax1.errorbar(
+                        x_values + off_train,
+                        vals_train,
+                        yerr=vals_train_std,
+                        fmt="none",
+                        ecolor="black",
+                        elinewidth=1.0,
+                        capsize=2,
+                        zorder=4,
+                    )
+                ax1.errorbar(
+                    x_values + off_test,
+                    vals_test,
+                    yerr=vals_test_std,
+                    fmt="none",
+                    ecolor="black",
+                    elinewidth=1.0,
+                    capsize=2,
+                    zorder=4,
+                )
 
-                ax2.bar(x_values + off_train, vals_params, width=width, color="#2ca02c", edgecolor="black", linewidth=0.6, hatch=hatch, label=f"Params ({label_suffix})")
-                ax2.errorbar(x_values + off_train, vals_params, yerr=vals_params_std, fmt="none", ecolor="black", elinewidth=1.0, capsize=2, zorder=4)
+                ax2.bar(
+                    x_values + off_train,
+                    vals_params,
+                    width=width,
+                    color="#2ca02c",
+                    edgecolor="black",
+                    linewidth=0.6,
+                    hatch=hatch,
+                    label=f"Params ({label_suffix})",
+                )
+                ax2.errorbar(
+                    x_values + off_train,
+                    vals_params,
+                    yerr=vals_params_std,
+                    fmt="none",
+                    ecolor="black",
+                    elinewidth=1.0,
+                    capsize=2,
+                    zorder=4,
+                )
 
-                ax3.bar(x_values + off_train, vals_time, width=width, color="#d62728", edgecolor="black", linewidth=0.6, hatch=hatch, label=f"HP Search Time ({label_suffix})")
-                ax3.errorbar(x_values + off_train, vals_time, yerr=vals_time_std, fmt="none", ecolor="black", elinewidth=1.0, capsize=2, zorder=4)
+                ax3.bar(
+                    x_values + off_train,
+                    vals_time,
+                    width=width,
+                    color="#d62728",
+                    edgecolor="black",
+                    linewidth=0.6,
+                    hatch=hatch,
+                    label=f"HP Search Time ({label_suffix})",
+                )
+                ax3.errorbar(
+                    x_values + off_train,
+                    vals_time,
+                    yerr=vals_time_std,
+                    fmt="none",
+                    ecolor="black",
+                    elinewidth=1.0,
+                    capsize=2,
+                    zorder=4,
+                )
 
             # Display mean values directly on train/test bars only.
             if not point_mode:
@@ -585,7 +876,12 @@ def _plot_each_model_figures_with_std(
                             ha="center",
                             va="bottom",
                             fontsize=7,
-                            bbox=dict(boxstyle="round,pad=0.08", facecolor="white", alpha=0.70, linewidth=0),
+                            bbox=dict(
+                                boxstyle="round,pad=0.08",
+                                facecolor="white",
+                                alpha=0.70,
+                                linewidth=0,
+                            ),
                         )
                 for x_pos, val in zip(test_positions, vals_test):
                     ax1.text(
@@ -595,7 +891,12 @@ def _plot_each_model_figures_with_std(
                         ha="center",
                         va="bottom",
                         fontsize=7,
-                        bbox=dict(boxstyle="round,pad=0.08", facecolor="white", alpha=0.70, linewidth=0),
+                        bbox=dict(
+                            boxstyle="round,pad=0.08",
+                            facecolor="white",
+                            alpha=0.70,
+                            linewidth=0,
+                        ),
                     )
 
         if has_real_ablation:
@@ -641,17 +942,23 @@ def _plot_each_model_figures_with_std(
         ax3.legend(loc="upper right")
         ax3.set_xticks(x_values)
         if point_mode and variable_name is not None and dataset_points:
-            ax3.set_xticklabels([str(v) for _, v in dataset_points], rotation=0, ha="center")
+            ax3.set_xticklabels(
+                [str(v) for _, v in dataset_points], rotation=0, ha="center"
+            )
             ax3.set_xlabel(_variable_axis_label(variable_name))
         else:
             ax3.set_xticklabels(ordered_datasets, rotation=25, ha="right")
 
         point_dataset_suffix = ""
         if point_mode and dataset_points:
-            dataset_title = _multi_path_point_dataset_title([dataset for dataset, _ in dataset_points])
+            dataset_title = _multi_path_point_dataset_title(
+                [dataset for dataset, _ in dataset_points]
+            )
             if dataset_title:
                 point_dataset_suffix = f" on {dataset_title}"
-        fig.suptitle(f"{base_model_key}{point_dataset_suffix}{title_dataset_suffix}", fontsize=15)
+        fig.suptitle(
+            f"{base_model_key}{point_dataset_suffix}{title_dataset_suffix}", fontsize=15
+        )
         fig.tight_layout(rect=[0, 0, 1, 0.97])
         suffix = "_point" if point_mode else ""
         out_path = each_model_dir / f"{_sanitize_filename(base_model_key)}{suffix}.png"
@@ -662,7 +969,9 @@ def _plot_each_model_figures_with_std(
     return saved_paths
 
 
-def _default_output_dir(runs_root: Path, dataset_prefix: str, settings: list[str]) -> Path:
+def _default_output_dir(
+    runs_root: Path, dataset_prefix: str, settings: list[str]
+) -> Path:
     stamp = datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
     joined = "_".join(settings)
     return runs_root / "combined_figs_ablation" / f"{dataset_prefix}_{joined}_{stamp}"
@@ -746,7 +1055,9 @@ def main() -> None:
             "Expected comparable datasets such as hidden_manifold_10_2 and hidden_manifold_10_10."
         )
     variable_name, dataset_points = inferred
-    dataset_title = _multi_path_point_dataset_title([dataset for dataset, _ in dataset_points])
+    dataset_title = _multi_path_point_dataset_title(
+        [dataset for dataset, _ in dataset_points]
+    )
     title_dataset_suffix = f" on {dataset_title}" if dataset_title else ""
     family_figures = _plot_family_figures_with_std(
         rows=rows_global_agg,

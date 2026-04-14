@@ -5,7 +5,12 @@ from sklearn.base import BaseEstimator, ClassifierMixin
 from sklearn.metrics import accuracy_score
 from sklearn.svm import SVC
 import merlin as ml
-from models.photonic_based_utils import get_circuit, get_input_fock_state, scale_from_string_to_value, get_computation_space
+from models.photonic_based_utils import (
+    get_circuit,
+    get_input_fock_state,
+    scale_from_string_to_value,
+    get_computation_space,
+)
 from merlin_additional.loss import NKernelAlignment
 from training.training_torch import assign_optimizer
 from utils.photonic_dims import get_photonic_mn

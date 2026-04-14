@@ -421,7 +421,9 @@ class SKMultiplePathsModelGate(BaseEstimator, ClassifierMixin):
         }
         if deep:
             params.update(self.data_params)
-            params.update({f"model_params__{k}": v for k, v in self.model_params.items()})
+            params.update(
+                {f"model_params__{k}": v for k, v in self.model_params.items()}
+            )
             params.update(
                 {f"training_params__{k}": v for k, v in self.training_params.items()}
             )

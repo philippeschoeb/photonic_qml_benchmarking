@@ -51,9 +51,7 @@ HP_PROFILES = [
 
 
 def get_dataset_base_name(dataset: str) -> str:
-    return next(
-        name for name in DATASET_BASE_NAMES if dataset.startswith(name)
-    )
+    return next(name for name in DATASET_BASE_NAMES if dataset.startswith(name))
 
 
 def list_models() -> list[str]:

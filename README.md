@@ -70,3 +70,7 @@ Notes:
 - `tabular_data/` – core pipelines for datasets, models, training loops, hyperparameter definitions.
 - `time_series_data/`, `vision_data/` – placeholders for future modalities.
 - `tabular_data/results/` – metrics and artifacts written by completed runs.
+
+## Documentation Pointers
+- Main tabular pipeline docs: [`tabular_data/README.md`](tabular_data/README.md)
+- Utility-script documentation index: [`tabular_data/utils/README.md`](tabular_data/utils/README.md)

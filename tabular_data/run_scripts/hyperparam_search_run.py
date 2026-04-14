@@ -382,9 +382,7 @@ def get_model_hps_bayes_gate(model, architecture, random_state, hp_profile):
     return model_hps
 
 
-def get_model_hps_halving_grid_classical(
-    model, architecture, random_state, hp_profile
-):
+def get_model_hps_halving_grid_classical(model, architecture, random_state, hp_profile):
     # Handle custom mlp architecture
     if model == "mlp" and architecture != "default":
         architecture_split = architecture.split("_")
@@ -523,7 +521,6 @@ def get_training_hps_halving_grid(model_type, dataset_name, model, hp_profile):
     else:
         raise Exception(f"Dataset name {dataset_name} not found.")
 
-
     # Determine if pre_train for q_kernel_method
     if model == "q_kernel_method_reservoir":
         pre_train = False
@@ -578,7 +575,6 @@ def get_training_hps_bayes(model_type, dataset_name, model, hp_profile):
     else:
         raise Exception(f"Dataset name {dataset_name} not found.")
 
-
     # Determine if pre_train for q_kernel_method
     if model == "q_kernel_method_reservoir":
         pre_train = False
@@ -629,9 +625,7 @@ def get_hyperparams_halving_grid(
 
     # Model HPs #####################################################
     if backend == "photonic":
-        model_hps = get_model_hps_halving_grid_photonic(
-            model, architecture, hp_profile
-        )
+        model_hps = get_model_hps_halving_grid_photonic(model, architecture, hp_profile)
     elif backend == "gate":
         model_hps = get_model_hps_halving_grid_gate(
             model, architecture, sk_random, hp_profile
@@ -699,9 +693,7 @@ def get_hyperparams_bayes(dataset, model, architecture, backend, sk_random, hp_p
     if backend == "photonic":
         model_hps = get_model_hps_bayes_photonic(model, architecture, hp_profile)
     elif backend == "gate":
-        model_hps = get_model_hps_bayes_gate(
-            model, architecture, sk_random, hp_profile
-        )
+        model_hps = get_model_hps_bayes_gate(model, architecture, sk_random, hp_profile)
     elif backend == "classical":
         model_hps = get_model_hps_bayes_classical(
             model, architecture, sk_random, hp_profile
@@ -718,9 +710,7 @@ def get_hyperparams_bayes(dataset, model, architecture, backend, sk_random, hp_p
 
     # Training HPs #####################################################
     model_type = model_hps["type"][0]
-    training_hps = get_training_hps_bayes(
-        model_type, dataset_name, model, hp_profile
-    )
+    training_hps = get_training_hps_bayes(model_type, dataset_name, model, hp_profile)
 
     try:
         device = training_hps["device"][0]

@@ -6,6 +6,7 @@ import numpy as np
 from merlin.datasets import spiral
 from sklearn.model_selection import train_test_split
 
+
 def generate_spiral_dataset(
     n_samples: int,
     n_features: int,

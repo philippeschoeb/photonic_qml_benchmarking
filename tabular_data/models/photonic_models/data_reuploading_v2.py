@@ -1,7 +1,12 @@
 import torch
 import math
 import merlin as ml
-from models.photonic_based_utils import get_computation_space, get_reuploading_circuit, get_input_fock_state, ScalingLayer
+from models.photonic_based_utils import (
+    get_computation_space,
+    get_reuploading_circuit,
+    get_input_fock_state,
+    ScalingLayer,
+)
 
 
 class DataReuploading(torch.nn.Module):
@@ -39,9 +44,13 @@ class DataReuploading(torch.nn.Module):
             input_state=input_fock_state,
             trainable_parameters=trainable_params,
             input_parameters=["px"],
-            measurement_strategy=ml.MeasurementStrategy.probs(computation_space=computation_space),
+            measurement_strategy=ml.MeasurementStrategy.probs(
+                computation_space=computation_space
+            ),
         )
-        self.drm = torch.nn.Sequential(q_layer, torch.nn.Linear(q_layer.output_size, output_size))
+        self.drm = torch.nn.Sequential(
+            q_layer, torch.nn.Linear(q_layer.output_size, output_size)
+        )
 
     def forward(self, x):
         x = self.scaling(x)

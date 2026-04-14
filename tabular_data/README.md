@@ -2,6 +2,11 @@
 
 This folder contains the tabular benchmarking pipeline (datasets, models, training, and result logging).
 
+## Utility Scripts
+
+Utility scripts and their usage docs are indexed in:
+- [`utils/README.md`](utils/README.md)
+
 # Usage
 Minimal usage (photonic backend by default):
 ```bash

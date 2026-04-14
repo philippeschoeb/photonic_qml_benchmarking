@@ -268,7 +268,9 @@ class SKQRKS(BaseEstimator, ClassifierMixin):
             n_photons=model_kwargs.get("n"),
         )
         if ablation_result.skipped:
-            raise ValueError(f"Ablation requested but skipped: {ablation_result.reason}")
+            raise ValueError(
+                f"Ablation requested but skipped: {ablation_result.reason}"
+            )
         self.model = ablation_result.model
         kernel_matrix_train, _ = self.model.get_kernels(x, x)
         self._x_train = np.array(x)

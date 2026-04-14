@@ -114,7 +114,7 @@ def train(
             pbar.update(1)
 
             if np.isnan(loss_val):
-                logging.info(f"nan encountered. Training aborted.")
+                logging.info("nan encountered. Training aborted.")
                 break
 
             # decide convergence
@@ -413,5 +413,7 @@ def median_heuristic(X):
     """
     m = len(X)
     X = np.array(X)
-    med = np.median([np.sqrt(np.sum((X[i] - X[j]) ** 2)) for i in range(m) for j in range(m)])
+    med = np.median(
+        [np.sqrt(np.sum((X[i] - X[j]) ** 2)) for i in range(m) for j in range(m)]
+    )
     return med

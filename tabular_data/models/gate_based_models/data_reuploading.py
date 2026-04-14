@@ -13,7 +13,6 @@
 # limitations under the License.
 
 from math import ceil
-from tracemalloc import start
 import pennylane as qml
 import numpy as np
 import jax
@@ -331,7 +330,6 @@ class DataReuploadingClassifier(BaseEstimator, ClassifierMixin):
 
 
 class DataReuploadingClassifierNoScaling(DataReuploadingClassifier):
-
     def construct_model(self):
         """Construct the quantum circuit used in the model."""
 
@@ -393,7 +391,6 @@ class DataReuploadingClassifierNoScaling(DataReuploadingClassifier):
 
 
 class DataReuploadingClassifierNoTrainableEmbedding(DataReuploadingClassifier):
-
     def construct_model(self):
         """Construct the quantum circuit used in the model."""
 
@@ -465,7 +462,6 @@ class DataReuploadingClassifierNoTrainableEmbedding(DataReuploadingClassifier):
 
 
 class DataReuploadingClassifierNoCost(DataReuploadingClassifier):
-
     def fit(self, X, y):
         """Fit the model to data X and labels y.
 
@@ -504,7 +500,6 @@ class DataReuploadingClassifierNoCost(DataReuploadingClassifier):
 
 
 class DataReuploadingClassifierSeparable(DataReuploadingClassifier):
-
     def construct_model(self):
         """Construct the quantum circuit used in the model."""
 
@@ -585,7 +580,9 @@ class SKDataReuploadingGate(BaseEstimator, ClassifierMixin):
         }
         if deep:
             params.update(self.data_params)
-            params.update({f"model_params__{k}": v for k, v in self.model_params.items()})
+            params.update(
+                {f"model_params__{k}": v for k, v in self.model_params.items()}
+            )
             params.update(
                 {f"training_params__{k}": v for k, v in self.training_params.items()}
             )

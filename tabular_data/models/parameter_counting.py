@@ -70,13 +70,34 @@ def _count_gate_rks_trained_params(params: dict | None) -> int:
 
 
 def count_parameters(model_dict, hp_opt=False):
+    """Return model complexity metrics using trainable parameters only.
+
+    Args:
+        model_dict: Dict containing at least:
+            - ``type``: model family/type identifier
+            - ``model``: fitted model object
+            - ``name``: base model name (optional, used for splits)
+        hp_opt: When True, unwrap sklearn search wrappers before counting.
+
+    Returns:
+        Tuple ``(num_params, num_quantum_params, num_classical_params, num_support_vectors)``.
+    """
     # If the model comes from HP optimization, we usually take the model out of its SK wrapper.
     # For multiclass gate wrappers using one-vs-rest, keep the wrapper to aggregate counts.
     if hp_opt:
         wrapped_model = model_dict["model"]
-        if not getattr(wrapped_model, "ovr_models_", None):
-            model_dict["model"] = wrapped_model.model
-        return count_parameters(model_dict)
+        unwrapped_model = (
+            wrapped_model
+            if getattr(wrapped_model, "ovr_models_", None)
+            else wrapped_model.model
+        )
+        return count_parameters(
+            {
+                "type": model_dict["type"],
+                "name": model_dict.get("name"),
+                "model": unwrapped_model,
+            }
+        )
 
     model_type = model_dict["type"]
     model = model_dict["model"]
@@ -96,7 +117,8 @@ def count_parameters(model_dict, hp_opt=False):
         num_params = num_quantum_params
     elif model_type == "sklearn_q_kernel":
         optimizable_model = model.quantum_kernel
-        num_quantum_params = sum(p.numel() for p in optimizable_model.parameters())
+        # Count only trainable quantum-kernel parameters.
+        num_quantum_params = _count_torch_trainable_params(optimizable_model)
         num_classical_params = 0
         num_params = num_quantum_params
         num_support_vectors = len(model.model.support_)
@@ -153,8 +175,7 @@ def count_parameters(model_dict, hp_opt=False):
         num_classical_params = 0
         if getattr(model, "ovr_models_", None):
             num_support_vectors = sum(
-                len(binary_model.svm.support_)
-                for _, binary_model in model.ovr_models_
+                len(binary_model.svm.support_) for _, binary_model in model.ovr_models_
             )
         else:
             num_support_vectors = len(model.svm.support_)

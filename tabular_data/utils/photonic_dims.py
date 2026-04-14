@@ -36,4 +36,3 @@ def get_photonic_mn(input_size: int, mode: str | None = None) -> tuple[int, int]
     if n > m:
         raise ValueError(f"Invalid (m, n)=({m}, {n}) for input_size={input_size}")
     return m, n
-

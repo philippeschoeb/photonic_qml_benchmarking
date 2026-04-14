@@ -7,8 +7,9 @@ import numpy as np
 
 # Computation space util ###################################################################
 
+
 def get_computation_space(no_bunching):
-    if no_bunching == True:
+    if no_bunching:
         return ml.ComputationSpace.UNBUNCHED
     else:
         return ml.ComputationSpace.FOCK
@@ -80,8 +81,10 @@ def get_measurement_output_size(layer_output_size, measurement_strategy, groupin
         return layer_output_size
     # For both lex and mod grouping, the output size is halved
     return layer_output_size // 2
-    
+
+
 # Input Fock state util ###################################################################
+
 
 def get_input_fock_state(type, m, n):
     assert type in ["standard", "spaced"], f"Type ({type}) is not supported"
@@ -91,6 +94,7 @@ def get_input_fock_state(type, m, n):
         return get_spaced_state(m, n)
     else:
         raise NotImplementedError
+
 
 def get_standard_state(m, n):
     return [1] * n + [0] * (m - n)
@@ -121,13 +125,16 @@ def print_simple_state(state):
     print(f"Fock state: {state}")
     return
 
+
 def get_circuit(circuit_type, m, input_size, reservoir):
     if circuit_type == "generic_mzi":
         return get_generic_mzi(m, input_size, reservoir)
     else:
         raise NotImplementedError(f"Circuit type {circuit_type} not implemented")
-    
+
+
 # Photonic circuit util ###################################################################
+
 
 def get_generic_mzi(m, input_size, reservoir):
     """
@@ -274,9 +281,11 @@ def get_generic_amp_mzi(m, reservoir):
             phase_shifter_fn=pcvl.PS,
         )
         return circuit
-    
+
+
 # Scaling + processing layers util ###################################################################
-    
+
+
 class ScalingLayer(torch.nn.Module):
     def __init__(self, scaling):
         super().__init__()
