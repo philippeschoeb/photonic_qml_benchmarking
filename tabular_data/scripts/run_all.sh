@@ -7,6 +7,8 @@ set -uo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "${ROOT_DIR}"
+RANDOM_STATE="${RANDOM_STATE:-42}"
+MAX_TRAIN_TIME_SECONDS="${MAX_TRAIN_TIME_SECONDS:-1800}"
 
 CONFIG_PATH="${1:-scripts/run_all_config.json}"
 if [[ ! -f "${CONFIG_PATH}" ]]; then
@@ -61,6 +63,8 @@ echo "Config: tabular_data/${CONFIG_PATH}" | tee -a "${MASTER_LOG}"
 echo "Datasets: ${DATASETS[*]}" | tee -a "${MASTER_LOG}"
 echo "Run ablations: ${RUN_ABLATIONS}" | tee -a "${MASTER_LOG}"
 echo "HP profile: ${HP_PROFILE}" | tee -a "${MASTER_LOG}"
+echo "Random state: ${RANDOM_STATE}" | tee -a "${MASTER_LOG}"
+echo "Max single-train time (s): ${MAX_TRAIN_TIME_SECONDS}" | tee -a "${MASTER_LOG}"
 echo "Models override: ${MODELS_OVERRIDE}" | tee -a "${MASTER_LOG}"
 echo "Shared results root: tabular_data/${RESULTS_ROOT}" | tee -a "${MASTER_LOG}"
 echo | tee -a "${MASTER_LOG}"
@@ -75,6 +79,8 @@ for dataset in "${DATASETS[@]}"; do
   RUN_ABLATIONS="${RUN_ABLATIONS}" \
   HP_PROFILE="${HP_PROFILE}" \
   MODELS_OVERRIDE="${MODELS_OVERRIDE}" \
+  RANDOM_STATE="${RANDOM_STATE}" \
+  MAX_TRAIN_TIME_SECONDS="${MAX_TRAIN_TIME_SECONDS}" \
   ./scripts/run_all_hp_search_minimal_ablation.sh "${dataset}" 2>&1 | tee -a "${MASTER_LOG}"
   exit_code=${PIPESTATUS[0]}
 

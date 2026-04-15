@@ -15,6 +15,8 @@ LOG_DIR="${RESULTS_ROOT}/logs"
 mkdir -p "${LOG_DIR}"
 
 DATASET="${1:-${DATASET:-hidden_manifold_10_10}}"
+RANDOM_STATE="${RANDOM_STATE:-42}"
+MAX_TRAIN_TIME_SECONDS="${MAX_TRAIN_TIME_SECONDS:-1800}"
 RUN_ABLATIONS="${RUN_ABLATIONS:-1}"
 if [[ "${2:-}" == "--with-ablation" ]]; then
   RUN_ABLATIONS=1
@@ -95,6 +97,8 @@ echo "====== Hyperparameter Search (minimal) + Ablations Sweep ======"
 echo "Dataset: ${DATASET}"
 echo "Run ablations: ${RUN_ABLATIONS} (set arg '--with-ablation' or env RUN_ABLATIONS=1)"
 echo "HP profile: ${HP_PROFILE}"
+echo "Random state: ${RANDOM_STATE}"
+echo "Max single-train time (s): ${MAX_TRAIN_TIME_SECONDS}"
 echo "Models: ${MODELS[*]}"
 echo "Output root: tabular_data/${RESULTS_ROOT}"
 echo "Summary CSV: tabular_data/${RESULTS_ROOT}/hp_search_${DATASET}.csv"
@@ -149,6 +153,8 @@ for model in "${MODELS[@]}"; do
       --model "${model}"
       --run_type hyperparam_search
       --hp_profile "${HP_PROFILE}"
+      --random_state "${RANDOM_STATE}"
+      --max_train_time_seconds "${MAX_TRAIN_TIME_SECONDS}"
       --big_script_name "${RUN_GROUP}"
     )
     if [[ -n "${WANDB_FLAG}" ]]; then
@@ -169,6 +175,8 @@ for model in "${MODELS[@]}"; do
           --model "${abla_model_q}"
           --run_type hyperparam_search
           --hp_profile "${HP_PROFILE}"
+          --random_state "${RANDOM_STATE}"
+          --max_train_time_seconds "${MAX_TRAIN_TIME_SECONDS}"
           --big_script_name "${RUN_GROUP}"
         )
         if [[ -n "${WANDB_FLAG}" ]]; then
@@ -185,6 +193,8 @@ for model in "${MODELS[@]}"; do
           --model "${abla_model_c}"
           --run_type hyperparam_search
           --hp_profile "${HP_PROFILE}"
+          --random_state "${RANDOM_STATE}"
+          --max_train_time_seconds "${MAX_TRAIN_TIME_SECONDS}"
           --big_script_name "${RUN_GROUP}"
         )
         if [[ -n "${WANDB_FLAG}" ]]; then

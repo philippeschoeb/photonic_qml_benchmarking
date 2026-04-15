@@ -39,6 +39,22 @@ If you need information on `dataset_complexity.py`, refer to the guide [`dataset
 
 If you need information on `analyze_model_outputs.py`, refer to the guide [`analyze_model_outputs_guide.md`](./analyze_model_outputs_guide.md).
 
+### `summarize_long_training.py` (quick usage in this README)
+
+Purpose:
+- Summarize timeout/cut-short events from `long_training*.jsonl` reports.
+- Groups by `model/backend/dataset` and prints top hyperparameter signatures.
+
+Run from `tabular_data/`:
+
+```bash
+python utils/summarize_long_training.py --input results/run_all_single/hidden_manifold_2_6_YYYY-MM-DD_HH-MM-SS
+```
+
+Useful flags:
+- `--input <path>`: JSONL file or directory to scan recursively.
+- `--top_k_hyperparams <int>`: Number of top hyperparameter signatures per group.
+
 ## Non-runnable Helper Modules
 
 These are utility modules imported by other code (not primary CLI scripts):

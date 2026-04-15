@@ -103,3 +103,4 @@ Where:
 Anthony Walsh for the Quantum Kernel Method implementation
 Hugo Izadi for the Data Re-uploading model implementation
 Bowles, Ahmed and Schuld for their benchmarking implementation
+Cassandre Notton for her support throughout all steps of this ambicious project

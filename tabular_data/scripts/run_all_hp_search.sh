@@ -14,6 +14,8 @@ fi
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "${ROOT_DIR}"
 SCRIPT_NAME="$(basename "$0" .sh)"
+RANDOM_STATE="${RANDOM_STATE:-42}"
+MAX_TRAIN_TIME_SECONDS="${MAX_TRAIN_TIME_SECONDS:-1800}"
 
 DATASETS=(
   "downscaled_mnist_pca_2"
@@ -95,6 +97,8 @@ is_fast_strategy() {
 
 echo "====== Hyperparameter Search Sweep ======"
 echo "Root directory: ${ROOT_DIR}"
+echo "Random state: ${RANDOM_STATE}"
+echo "Max single-train time (s): ${MAX_TRAIN_TIME_SECONDS}"
 echo "Datasets: ${DATASETS[*]}"
 echo "Models: ${MODELS[*]}"
 echo
@@ -115,10 +119,10 @@ for dataset in "${DATASETS[@]}"; do
       search_type="${MODEL_SEARCH_TYPE[$model]:-unknown}"
       if [[ "${backend}" == "classical" ]]; then
         echo "    -> Model: ${model}, Backend: auto (classical) (search: ${search_type})"
-        cmd=(python -u main.py --dataset "${dataset}" --model "${model}" --run_type hyperparam_search --big_script_name "${SCRIPT_NAME}")
+        cmd=(python -u main.py --dataset "${dataset}" --model "${model}" --run_type hyperparam_search --random_state "${RANDOM_STATE}" --max_train_time_seconds "${MAX_TRAIN_TIME_SECONDS}" --big_script_name "${SCRIPT_NAME}")
       else
         echo "    -> Model: ${model}, Backend: ${backend} (search: ${search_type})"
-        cmd=(python -u main.py --dataset "${dataset}" --model "${model}" --backend "${backend}" --run_type hyperparam_search --big_script_name "${SCRIPT_NAME}")
+        cmd=(python -u main.py --dataset "${dataset}" --model "${model}" --backend "${backend}" --run_type hyperparam_search --random_state "${RANDOM_STATE}" --max_train_time_seconds "${MAX_TRAIN_TIME_SECONDS}" --big_script_name "${SCRIPT_NAME}")
       fi
       start_time=$(date +%s)
       if timeout "${TIMEOUT_SECONDS}" "${cmd[@]}"; then
@@ -134,7 +138,7 @@ for dataset in "${DATASETS[@]}"; do
         end_time=$(date +%s)
         elapsed=$((end_time - start_time))
         if [[ ${exit_code} -eq 124 ]]; then
-          printf "       SKIPPED: exceeded 1 hour timeout after %dm%02ds\n" $((elapsed / 60)) $((elapsed % 60))
+          printf "       SKIPPED: exceeded 1 hour timeout after %dm%02ds. Nothing is returned for this run (process terminated by timeout).\n" $((elapsed / 60)) $((elapsed % 60))
         else
           printf "       FAILED (exit code %d) after %dm%02ds\n" "${exit_code}" $((elapsed / 60)) $((elapsed % 60))
         fi

@@ -35,6 +35,7 @@ class MultiplePathsModelClassifier(BaseEstimator, ClassifierMixin):
         jit=True,
         max_steps=100000,
         convergence_interval=200,
+        max_train_time_seconds=None,
         dev_type="default.qubit",
         qnode_kwargs={"interface": "jax-jit"},
         scaling=1.0,
@@ -75,6 +76,7 @@ class MultiplePathsModelClassifier(BaseEstimator, ClassifierMixin):
         self.batch_size = batch_size
         self.max_steps = max_steps
         self.convergence_interval = convergence_interval
+        self.max_train_time_seconds = max_train_time_seconds
         self.dev_type = dev_type
         self.qnode_kwargs = qnode_kwargs
         self.jit = jit
@@ -463,6 +465,9 @@ class SKMultiplePathsModelGate(BaseEstimator, ClassifierMixin):
             kwargs["n_classical_h_layers"] = len(num_neurons) if num_neurons else 0
         if kwargs.get("max_vmap") is None:
             kwargs["max_vmap"] = kwargs.get("batch_size", 32)
+        max_train_time_seconds = self.training_params.get("max_train_time_seconds")
+        if max_train_time_seconds is not None:
+            kwargs["max_train_time_seconds"] = float(max_train_time_seconds)
         return kwargs
 
     def fit(self, X, y):

@@ -1,5 +1,6 @@
 import numpy as np
 import torch
+import json
 from torch.utils.data import DataLoader, TensorDataset
 from sklearn.base import BaseEstimator, ClassifierMixin
 from sklearn.metrics import accuracy_score
@@ -14,6 +15,8 @@ from models.photonic_based_utils import (
 from merlin_additional.loss import NKernelAlignment
 from training.training_torch import assign_optimizer
 from utils.photonic_dims import get_photonic_mn
+from time import monotonic
+from utils.long_training_events import append_long_training_event
 
 
 class QSVC:
@@ -157,6 +160,7 @@ class _BaseSKQSVC(BaseEstimator, ClassifierMixin):
         return tensor.to(self.device)
 
     def fit(self, x, y):
+        self.timed_out_ = False
         model_kwargs = dict(self.model_params)
         if "circuit_type" in model_kwargs and "circuit" not in model_kwargs:
             model_kwargs["circuit"] = model_kwargs.pop("circuit_type")
@@ -165,6 +169,14 @@ class _BaseSKQSVC(BaseEstimator, ClassifierMixin):
         optimizer_name = self.training_params.get("optimizer", "Adam")
         lr = self.training_params.get("lr", 0.001)
         epochs = self.training_params.get("epochs", 5)
+        max_train_time_seconds = self.training_params.get("max_train_time_seconds")
+        timeout_events_path = self.training_params.get("timeout_events_path")
+        timeout_events_metadata = self.training_params.get("timeout_events_metadata")
+        if isinstance(timeout_events_metadata, str):
+            try:
+                timeout_events_metadata = json.loads(timeout_events_metadata)
+            except json.JSONDecodeError:
+                timeout_events_metadata = {"raw": timeout_events_metadata}
         pre_train = self.training_params.get("pre_train", True)
         unique_labels = np.unique(y)
         if pre_train and not np.array_equal(unique_labels, np.array([-1, 1])):
@@ -199,6 +211,8 @@ class _BaseSKQSVC(BaseEstimator, ClassifierMixin):
         loader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
 
         train_losses = []
+        train_start_time = monotonic()
+        timed_out = False
         if pre_train:
             optimizable_model = self.model.quantum_kernel
             optimizable_model.to(self.device)
@@ -206,9 +220,22 @@ class _BaseSKQSVC(BaseEstimator, ClassifierMixin):
             optimizer = assign_optimizer(optimizer_name, optimizable_model, lr)
 
             for _ in range(epochs):
+                if (
+                    max_train_time_seconds is not None
+                    and (monotonic() - train_start_time) >= max_train_time_seconds
+                ):
+                    timed_out = True
+                    break
                 epoch_loss = 0.0
                 total_samples = 0
                 for batch_x, batch_y in loader:
+                    if (
+                        max_train_time_seconds is not None
+                        and (monotonic() - train_start_time) >= max_train_time_seconds
+                    ):
+                        timed_out = True
+                        total_samples = max(total_samples, 1)
+                        break
                     batch_x = self._to_device(batch_x)
                     batch_y = self._to_device(batch_y)
 
@@ -224,6 +251,8 @@ class _BaseSKQSVC(BaseEstimator, ClassifierMixin):
                     total_samples += batch_size_actual
 
                 train_losses.append(epoch_loss / max(total_samples, 1))
+                if timed_out:
+                    break
 
             self.model.pretraining_done()
 
@@ -247,6 +276,33 @@ class _BaseSKQSVC(BaseEstimator, ClassifierMixin):
         self.train_losses = train_losses
         self.train_accuracies = train_acc_history
         self.final_train_acc = train_acc
+        self.timed_out_ = timed_out
+        if timed_out and timeout_events_path:
+            append_long_training_event(
+                timeout_events_path,
+                {
+                    **(timeout_events_metadata or {}),
+                    "status": "cut_short",
+                    "event_type": "max_train_time_reached",
+                    "source": "hp_search_cv_fit",
+                    "reason": "Reached max_train_time_seconds during q-kernel pretraining.",
+                    "model_name": self.model_name,
+                    "max_train_time_seconds": max_train_time_seconds,
+                    "hyperparameters": {
+                        "data_params": self.data_params,
+                        "model_params": self.model_params,
+                        "training_params": {
+                            k: v
+                            for k, v in self.training_params.items()
+                            if k
+                            not in {
+                                "timeout_events_path",
+                                "timeout_events_metadata",
+                            }
+                        },
+                    },
+                },
+            )
         self.is_fitted_ = True
         return self
 

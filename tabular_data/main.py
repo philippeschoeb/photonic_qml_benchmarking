@@ -27,6 +27,7 @@ def main(
     use_wandb,
     hp_profile,
     big_script_name,
+    max_train_time_seconds,
 ):
     # Setup Wandb
     if use_wandb:
@@ -51,6 +52,7 @@ def main(
             random_state,
             use_wandb,
             big_script_name,
+            max_train_time_seconds=max_train_time_seconds,
         )
     elif run_type == "hyperparam_search":
         run_search(
@@ -62,6 +64,7 @@ def main(
             use_wandb,
             hp_profile,
             big_script_name,
+            max_train_time_seconds=max_train_time_seconds,
         )
     else:
         raise ValueError(f"Invalid run type: {run_type}")
@@ -138,6 +141,13 @@ if __name__ == "__main__":
         required=False,
         default=None,
         help="Optional prefix folder under results/ for bulk scripts (e.g. run_all_single)",
+    )
+    parser.add_argument(
+        "--max_train_time_seconds",
+        type=float,
+        required=False,
+        default=None,
+        help="Optional max wall-clock time budget for single-run training and supported hp-search fit loops.",
     )
 
     # Parse and handle args
@@ -225,4 +235,5 @@ if __name__ == "__main__":
         use_wandb,
         hp_profile,
         args.big_script_name,
+        args.max_train_time_seconds,
     )

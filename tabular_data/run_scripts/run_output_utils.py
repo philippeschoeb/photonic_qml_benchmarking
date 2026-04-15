@@ -6,6 +6,7 @@ from typing import Optional
 import numpy as np
 import torch
 from sklearn.model_selection import ParameterGrid
+from utils.long_training_events import append_long_training_event_with_csv
 
 
 def _serialize_for_json(obj):
@@ -120,3 +121,31 @@ def save_hp_search_summary(
         if write_configs_header:
             writer.writeheader()
         writer.writerow(configs_csv_row)
+
+
+def save_long_training_event(
+    save_dir: str,
+    event: dict,
+    dataset: str,
+    big_script_name: Optional[str] = None,
+):
+    """Persist timeout/skip events locally and optionally into grouped aggregates."""
+    os.makedirs(save_dir, exist_ok=True)
+
+    per_run_jsonl = os.path.join(save_dir, "long_training_events.jsonl")
+    per_run_csv = os.path.join(save_dir, "long_training_events.csv")
+    append_long_training_event_with_csv(per_run_jsonl, per_run_csv, event)
+
+    if not big_script_name:
+        return
+
+    repo_root = os.path.dirname(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    )
+    summary_dir = os.path.join(repo_root, "tabular_data", "results", big_script_name)
+    os.makedirs(summary_dir, exist_ok=True)
+
+    dataset_slug = dataset.replace("/", "_")
+    agg_jsonl = os.path.join(summary_dir, f"long_training_{dataset_slug}.jsonl")
+    agg_csv = os.path.join(summary_dir, f"long_training_{dataset_slug}.csv")
+    append_long_training_event_with_csv(agg_jsonl, agg_csv, event)

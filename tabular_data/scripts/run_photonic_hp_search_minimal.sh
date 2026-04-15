@@ -14,6 +14,8 @@ LOG_DIR="${RESULTS_ROOT}/logs"
 mkdir -p "${LOG_DIR}"
 
 DATASET="${1:-${DATASET:-hidden_manifold_2_6}}"
+RANDOM_STATE="${RANDOM_STATE:-42}"
+MAX_TRAIN_TIME_SECONDS="${MAX_TRAIN_TIME_SECONDS:-1800}"
 USE_WANDB=0
 WANDB_FLAG="--no-wandb"
 if [[ "${USE_WANDB}" == "1" ]]; then
@@ -45,6 +47,8 @@ declare -A MODEL_BACKENDS=(
 echo "====== Hyperparameter Search (minimal) Sweep ======"
 echo "Dataset: ${DATASET}"
 echo "Models: ${MODELS[*]}"
+echo "Random state: ${RANDOM_STATE}"
+echo "Max single-train time (s): ${MAX_TRAIN_TIME_SECONDS}"
 echo "Output root: tabular_data/${RESULTS_ROOT}"
 echo "Summary CSV: tabular_data/${RESULTS_ROOT}/hp_search_${DATASET}.csv"
 echo "Logs dir: tabular_data/${LOG_DIR}"
@@ -92,7 +96,7 @@ for model in "${MODELS[@]}"; do
   fi
   backends="${MODEL_BACKENDS["$model"]}"
   for backend in ${backends}; do
-    cmd=(python -u main.py --dataset "${DATASET}" --model "${model}" --run_type hyperparam_search --hp_profile minimal --big_script_name "${RUN_GROUP}")
+    cmd=(python -u main.py --dataset "${DATASET}" --model "${model}" --run_type hyperparam_search --hp_profile minimal --random_state "${RANDOM_STATE}" --max_train_time_seconds "${MAX_TRAIN_TIME_SECONDS}" --big_script_name "${RUN_GROUP}")
     if [[ -n "${WANDB_FLAG}" ]]; then
       cmd+=("${WANDB_FLAG}")
     fi

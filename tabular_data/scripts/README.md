@@ -122,3 +122,44 @@ bash scripts/run_all.sh scripts/run_all_config.json
 
 - Most scripts support turning Weights & Biases logging on/off via a variable near the top of the file.
 - Output folders are created under `tabular_data/results/` with script-specific grouping.
+
+## Random Seed (All Scripts)
+
+All scripts support the same method to control random seed:
+- set environment variable `RANDOM_STATE` before the command.
+- if omitted, scripts default to `RANDOM_STATE=42`.
+
+Examples:
+```bash
+RANDOM_STATE=7 bash scripts/run_all_single.sh
+RANDOM_STATE=123 bash scripts/run_all_hp_search_minimal.sh hidden_manifold_10_10
+RANDOM_STATE=99 bash scripts/run_all.sh
+```
+
+## Max Single-Train Time (All Scripts)
+
+All scripts support the same environment variable:
+- `MAX_TRAIN_TIME_SECONDS` (default: `1800`, i.e. 30 minutes)
+
+Behavior:
+- Applied to single-run invocations via `--max_train_time_seconds`.
+- For model types with iterative loops we can stop gracefully and use current metrics as final outputs.
+- For model types that cannot be interrupted safely from inside training, single-run scripts also use a `timeout` fallback (when available), which stops the process and may leave no final model/results for that run.
+- Hyperparameter-search workflows now forward this value to per-fit training loops for supported models.
+
+Long-training report output:
+- Single-run grouped scripts append timeout/cut-short events to:
+  - `tabular_data/results/<run_group>/long_training_<dataset>.jsonl`
+- When events are recorded from Python runs, a CSV companion is also maintained:
+  - `tabular_data/results/<run_group>/long_training_<dataset>.csv`
+- Per-run folders also include:
+  - `long_training_events.jsonl`
+  - `long_training_events.csv`
+- Quick summary utility:
+  - `python tabular_data/utils/summarize_long_training.py --input tabular_data/results/<run_group>`
+
+Examples:
+```bash
+MAX_TRAIN_TIME_SECONDS=900 bash scripts/run_all_single.sh
+MAX_TRAIN_TIME_SECONDS=1200 bash scripts/run_all_single_ablation.sh
+```

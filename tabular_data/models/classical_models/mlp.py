@@ -1,11 +1,14 @@
 import torch
 import numpy as np
+import json
 from sklearn.metrics import accuracy_score
 from sklearn.base import BaseEstimator, ClassifierMixin
 import logging
 from training.training_torch import assign_criterion, assign_optimizer, assign_scheduler
 from torch.utils.data import DataLoader, TensorDataset
 from tqdm import tqdm
+from time import monotonic
+from utils.long_training_events import append_long_training_event
 
 
 class MLP(torch.nn.Module):
@@ -90,6 +93,7 @@ class SKMLP(BaseEstimator, ClassifierMixin):
 
     def fit(self, x, y):
         self.model = self.model_class(**self.model_params)
+        self.timed_out_ = False
 
         # Get hyperparams
         criterion = self.training_params.get("criterion", "CrossEntropyLoss")
@@ -103,6 +107,14 @@ class SKMLP(BaseEstimator, ClassifierMixin):
         momentum = self.training_params.get("momentum", 0.9)
         weight_decay = self.training_params.get("weight_decay", 0)
         device = self.training_params.get("device", "cpu")
+        max_train_time_seconds = self.training_params.get("max_train_time_seconds")
+        timeout_events_path = self.training_params.get("timeout_events_path")
+        timeout_events_metadata = self.training_params.get("timeout_events_metadata")
+        if isinstance(timeout_events_metadata, str):
+            try:
+                timeout_events_metadata = json.loads(timeout_events_metadata)
+            except json.JSONDecodeError:
+                timeout_events_metadata = {"raw": timeout_events_metadata}
 
         # Prepare data
         x = torch.tensor(x, dtype=torch.float32)
@@ -130,9 +142,22 @@ class SKMLP(BaseEstimator, ClassifierMixin):
         window_correct = 0
         window_total = 0
         converged = False
+        train_start_time = monotonic()
+        timed_out = False
 
         with tqdm(total=max_steps, desc="Torch Training Progress", unit="step") as pbar:
             for step in range(max_steps):
+                if (
+                    max_train_time_seconds is not None
+                    and (monotonic() - train_start_time) >= max_train_time_seconds
+                ):
+                    logging.warning(
+                        "Reached max_train_time_seconds=%.1f. Stopping SKMLP training early at step %s.",
+                        float(max_train_time_seconds),
+                        step,
+                    )
+                    timed_out = True
+                    break
                 try:
                     batch_x, batch_y = next(train_iter)
                 except StopIteration:
@@ -223,6 +248,33 @@ class SKMLP(BaseEstimator, ClassifierMixin):
         )
         self.train_losses = train_losses
         self.train_accuracies = train_accuracies
+        self.timed_out_ = timed_out
+        if timed_out and timeout_events_path:
+            append_long_training_event(
+                timeout_events_path,
+                {
+                    **(timeout_events_metadata or {}),
+                    "status": "cut_short",
+                    "event_type": "max_train_time_reached",
+                    "source": "hp_search_cv_fit",
+                    "reason": "Reached max_train_time_seconds during SKMLP fit.",
+                    "model_name": self.model_name,
+                    "max_train_time_seconds": max_train_time_seconds,
+                    "hyperparameters": {
+                        "data_params": self.data_params,
+                        "model_params": self.model_params,
+                        "training_params": {
+                            k: v
+                            for k, v in self.training_params.items()
+                            if k
+                            not in {
+                                "timeout_events_path",
+                                "timeout_events_metadata",
+                            }
+                        },
+                    },
+                },
+            )
         return self
 
     def predict(self, x):

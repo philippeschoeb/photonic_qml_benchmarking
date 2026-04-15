@@ -33,6 +33,7 @@ def distribute_training(
             momentum=hyperparams["momentum"],
             weight_decay=hyperparams["weight_decay"],
             device=hyperparams["device"],
+            max_train_time_seconds=hyperparams.get("max_train_time_seconds"),
         )
     elif model_dict["type"] == "reuploading":
         return training_reuploading(
@@ -48,6 +49,7 @@ def distribute_training(
             patience=hyperparams["patience"],
             tau=hyperparams["tau"],
             convergence_tolerance=hyperparams["convergence_tolerance"],
+            max_train_time_seconds=hyperparams.get("max_train_time_seconds"),
         )
     elif model_dict["type"] == "sklearn_q_kernel":
         return training_sklearn_q_kernel(
@@ -62,14 +64,29 @@ def distribute_training(
             epochs=hyperparams["epochs"],
             pre_train=hyperparams["pre_train"],
             device=hyperparams["device"],
+            max_train_time_seconds=hyperparams.get("max_train_time_seconds"),
         )
     elif model_dict["type"] == "sklearn_kernel":
         return training_sklearn_kernel(model_dict, x_train, x_test, y_train, y_test)
     elif model_dict["type"] == "sklearn":
         return training_sklearn(model_dict, x_train, x_test, y_train, y_test)
     elif model_dict["type"] == "jax_sklearn_gate":
-        return training_sklearn_gate(model_dict, x_train, x_test, y_train, y_test)
+        return training_sklearn_gate(
+            model_dict,
+            x_train,
+            x_test,
+            y_train,
+            y_test,
+            max_train_time_seconds=hyperparams.get("max_train_time_seconds"),
+        )
     elif model_dict["type"] == "sklearn_gate" or model_dict["type"] == "gate_rks":
-        return training_sklearn_gate(model_dict, x_train, x_test, y_train, y_test)
+        return training_sklearn_gate(
+            model_dict,
+            x_train,
+            x_test,
+            y_train,
+            y_test,
+            max_train_time_seconds=hyperparams.get("max_train_time_seconds"),
+        )
     else:
         raise ValueError(f"Unknown model type: {model_dict['type']}")

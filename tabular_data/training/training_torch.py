@@ -4,6 +4,7 @@ import numpy as np
 from sklearn.metrics import accuracy_score
 from merlin_additional.loss import NKernelAlignment
 from tqdm import tqdm
+from time import monotonic
 
 
 def _has_converged(loss_history, convergence_interval):
@@ -32,6 +33,7 @@ def training_torch(
     device=torch.device("cpu"),
     max_steps=None,
     convergence_interval=200,
+    max_train_time_seconds=None,
 ):
     model_type = model_dict["type"]
     model_name = model_dict["name"]
@@ -57,9 +59,23 @@ def training_torch(
     window_correct = 0
     window_total = 0
     converged = False
+    timed_out = False
+    train_start_time = monotonic()
 
     with tqdm(total=max_steps, desc="Torch Training Progress", unit="step") as pbar:
         for step in range(max_steps):
+            if (
+                max_train_time_seconds is not None
+                and (monotonic() - train_start_time) >= max_train_time_seconds
+            ):
+                logging.warning(
+                    "Reached max_train_time_seconds=%.1f. Stopping torch training early at step %s. Returning intermediate model and intermediate metrics as final results for this run.",
+                    float(max_train_time_seconds),
+                    step,
+                )
+                timed_out = True
+                break
+
             try:
                 batch_x, batch_y = next(train_iter)
             except StopIteration:
@@ -102,6 +118,7 @@ def training_torch(
                 ((step + 1) % steps_per_epoch == 0)
                 or (step == max_steps - 1)
                 or converged
+                or timed_out
             ):
                 avg_train_loss = window_train_loss / max(window_total, 1)
                 train_acc = window_correct / max(window_total, 1)
@@ -145,11 +162,15 @@ def training_torch(
                 window_correct = 0
                 window_total = 0
 
-            if converged:
+            if converged or timed_out:
                 break
 
+    final_train_acc = train_accuracies[-1] if train_accuracies else 0.0
+    final_test_acc = test_accuracies[-1] if test_accuracies else 0.0
     logging.warning(
-        f"Final Train Accuracy: {train_acc:.4f} | Final Test Accuracy: {test_acc:.4f}"
+        "Final Train Accuracy: %.4f | Final Test Accuracy: %.4f",
+        final_train_acc,
+        final_test_acc,
     )
 
     return {
@@ -160,6 +181,9 @@ def training_torch(
         "train_accs": train_accuracies,
         "test_losses": test_losses,
         "test_accs": test_accuracies,
+        "timed_out": timed_out,
+        "timeout_stage": "training_loop" if timed_out else None,
+        "max_train_time_seconds": max_train_time_seconds,
     }
 
 
@@ -176,10 +200,16 @@ def training_reuploading(
     patience,
     tau,
     convergence_tolerance,
+    max_train_time_seconds=None,
 ):
     model_type = model_dict["type"]
     model_name = model_dict["name"]
     model = model_dict["model"]
+
+    if max_train_time_seconds is not None:
+        logging.warning(
+            "max_train_time_seconds is currently not enforceable for reuploading models; running full fit."
+        )
 
     model.fit(
         x_train,
@@ -225,6 +255,7 @@ def training_sklearn_q_kernel(
     epochs,
     pre_train,
     device,
+    max_train_time_seconds=None,
 ):
     model_type = model_dict["type"]
     model_name = model_dict["name"]
@@ -240,6 +271,9 @@ def training_sklearn_q_kernel(
         )
         pre_train = False
 
+    train_start_time = monotonic()
+    timed_out = False
+
     if pre_train:
         optimizable_model.to(device)
 
@@ -248,9 +282,31 @@ def training_sklearn_q_kernel(
 
         train_losses = []
         for epoch in tqdm(range(epochs), desc="Kernel Pretraining", unit="epoch"):
+            if (
+                max_train_time_seconds is not None
+                and (monotonic() - train_start_time) >= max_train_time_seconds
+            ):
+                logging.warning(
+                    "Reached max_train_time_seconds=%.1f during q-kernel pretraining. Stopping pretraining early at epoch %s. Returning intermediate model and intermediate metrics as final results for this run.",
+                    float(max_train_time_seconds),
+                    epoch,
+                )
+                timed_out = True
+                break
             train_loss = 0
             total = 0
             for batch_idx, (x_batch, y_batch) in enumerate(train_loader):
+                if (
+                    max_train_time_seconds is not None
+                    and (monotonic() - train_start_time) >= max_train_time_seconds
+                ):
+                    logging.warning(
+                        "Reached max_train_time_seconds=%.1f during q-kernel pretraining batch loop. Stopping pretraining early. Returning intermediate model and intermediate metrics as final results for this run.",
+                        float(max_train_time_seconds),
+                    )
+                    timed_out = True
+                    total = max(total, 1)
+                    break
                 x_batch = x_batch.to(device)
                 y_batch = y_batch.to(device)
 
@@ -295,6 +351,9 @@ def training_sklearn_q_kernel(
         "train_losses": train_losses,
         "final_train_acc": train_acc,
         "final_test_acc": test_acc,
+        "timed_out": timed_out,
+        "timeout_stage": "q_kernel_pretraining" if timed_out else None,
+        "max_train_time_seconds": max_train_time_seconds,
     }
 
 

@@ -100,9 +100,23 @@ def train(
 
     loss_history = []
     converged = False
+    timed_out = False
     start = time.time()
+    max_train_time_seconds = getattr(model, "max_train_time_seconds", None)
     with tqdm(total=model.max_steps, desc="Training Progress") as pbar:
         for step in range(model.max_steps):
+            if (
+                max_train_time_seconds is not None
+                and (time.time() - start) >= float(max_train_time_seconds)
+            ):
+                logging.warning(
+                    "Reached max_train_time_seconds=%.1f for %s. Stopping gate-based training early at step %s.",
+                    float(max_train_time_seconds),
+                    model.__class__.__name__,
+                    step,
+                )
+                timed_out = True
+                break
             key_batch = random_key_generator()
             key_loss = jax.random.split(key_batch, 1)[0]
             X_batch, y_batch = get_batch(X, y, key_batch, batch_size=model.batch_size)
@@ -141,8 +155,9 @@ def train(
     loss_history = np.array(loss_history)
     model.loss_history_ = loss_history / np.max(np.abs(loss_history))
     model.training_time_ = end - start
+    model.timed_out_ = timed_out
 
-    if not converged and convergence_interval is not None:
+    if not timed_out and (not converged and convergence_interval is not None):
         print("Loss did not converge:", loss_history)
         raise ConvergenceWarning(
             f"Model {model.__class__.__name__} has not converged after the maximum number of {model.max_steps} steps."

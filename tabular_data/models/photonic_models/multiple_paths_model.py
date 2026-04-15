@@ -1,6 +1,7 @@
 import logging
 import torch
 import numpy as np
+import json
 from torch.utils.data import DataLoader, TensorDataset
 import merlin as ml
 from sklearn.base import BaseEstimator, ClassifierMixin
@@ -19,6 +20,8 @@ from models.photonic_based_utils import (
 from models.classical_models.mlp import MLP
 from models.ablation import apply_ablation_if_requested
 from utils.photonic_dims import get_photonic_mn
+from time import monotonic
+from utils.long_training_events import append_long_training_event
 
 
 class MultiplePathsModel(torch.nn.Module):
@@ -134,6 +137,7 @@ class SKMultiplePathsModel(BaseEstimator, ClassifierMixin):
 
     def fit(self, x, y):
         input_size = x.shape[1]
+        self.timed_out_ = False
         self.model_params["m"], self.model_params["n"] = get_photonic_mn(input_size)
         self.model = self.model_class(**self.model_params)
         ablation_result = apply_ablation_if_requested(
@@ -162,6 +166,14 @@ class SKMultiplePathsModel(BaseEstimator, ClassifierMixin):
         momentum = self.training_params.get("momentum", 0.9)
         weight_decay = self.training_params.get("weight_decay", 0)
         device = self.training_params.get("device", "cpu")
+        max_train_time_seconds = self.training_params.get("max_train_time_seconds")
+        timeout_events_path = self.training_params.get("timeout_events_path")
+        timeout_events_metadata = self.training_params.get("timeout_events_metadata")
+        if isinstance(timeout_events_metadata, str):
+            try:
+                timeout_events_metadata = json.loads(timeout_events_metadata)
+            except json.JSONDecodeError:
+                timeout_events_metadata = {"raw": timeout_events_metadata}
 
         # Prepare data
         x = torch.tensor(x, dtype=torch.float32)
@@ -189,9 +201,22 @@ class SKMultiplePathsModel(BaseEstimator, ClassifierMixin):
         window_correct = 0
         window_total = 0
         converged = False
+        train_start_time = monotonic()
+        timed_out = False
 
         with tqdm(total=max_steps, desc="Training Progress", unit="step") as pbar:
             for step in range(max_steps):
+                if (
+                    max_train_time_seconds is not None
+                    and (monotonic() - train_start_time) >= max_train_time_seconds
+                ):
+                    logging.warning(
+                        "Reached max_train_time_seconds=%.1f. Stopping SKMultiplePathsModel training early at step %s.",
+                        float(max_train_time_seconds),
+                        step,
+                    )
+                    timed_out = True
+                    break
                 try:
                     batch_x, batch_y = next(train_iter)
                 except StopIteration:
@@ -272,6 +297,33 @@ class SKMultiplePathsModel(BaseEstimator, ClassifierMixin):
 
         self.train_losses = train_losses
         self.train_accuracies = train_accuracies
+        self.timed_out_ = timed_out
+        if timed_out and timeout_events_path:
+            append_long_training_event(
+                timeout_events_path,
+                {
+                    **(timeout_events_metadata or {}),
+                    "status": "cut_short",
+                    "event_type": "max_train_time_reached",
+                    "source": "hp_search_cv_fit",
+                    "reason": "Reached max_train_time_seconds during SKMultiplePathsModel fit.",
+                    "model_name": self.model_name,
+                    "max_train_time_seconds": max_train_time_seconds,
+                    "hyperparameters": {
+                        "data_params": self.data_params,
+                        "model_params": self.model_params,
+                        "training_params": {
+                            k: v
+                            for k, v in self.training_params.items()
+                            if k
+                            not in {
+                                "timeout_events_path",
+                                "timeout_events_metadata",
+                            }
+                        },
+                    },
+                },
+            )
         return self
 
     def predict(self, x):

@@ -15,7 +15,20 @@ Benchmark suite for quantum and classical models. The repository currently focus
 - For GPU acceleration make sure the CUDA toolkit versions used by PyTorch and JAX match the drivers on your machine. Installing the wheels linked from https://pytorch.org and https://jax.readthedocs.io/en/latest/installation.html is recommended.
 
 ## Data Availability
-The tabular datasets used in this study (`downscaled_mnist_pca`, `hidden_manifold`, `two_curves`) are expected to be present locally. If you already have direct access, no extra download is required. When running in a fresh environment you can optionally obtain them through PennyLane's `qml.data` utilities (`qml.data.load("other", name="hidden-manifold")`, etc.).
+The tabular datasets used in this study are:
+- `downscaled_mnist_pca`
+- `hidden_manifold`
+- `two_curves`
+- `spiral`
+
+To download the cached HDF5 datasets (`downscaled_mnist_pca`, `hidden_manifold`, `two_curves`), use the dataset helper in [`tabular_data/datasets/data.py`](tabular_data/datasets/data.py):
+
+```bash
+cd tabular_data
+python -c "from datasets.data import download_datasets; download_datasets()"
+```
+
+`spiral` is generated procedurally in code (see `tabular_data/datasets/spiral.py`) and does not require a dataset download step.
 
 ## Running Benchmarks
 All tabular experiments are launched from `tabular_data/main.py`.
@@ -33,6 +46,8 @@ python main.py --dataset {dataset} --model {model} --run_type hyperparam_search 
 ```
 
 Use `--architecture help` to inspect model-specific architecture strings. Classical models automatically switch to the classical backend.
+
+Complete bash scripts for multi-run experiments are available in [`tabular_data/scripts/`](tabular_data/scripts/). These scripts support batch-style experiment execution across multiple models, backends, and datasets.
 
 ## Ablation Studies (Opt-In)
 Two ablation modes are supported for hyperparameter search, and they are only run when explicitly requested.

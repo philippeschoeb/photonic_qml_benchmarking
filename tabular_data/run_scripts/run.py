@@ -24,6 +24,7 @@ from run_scripts.hyperparam_search_run import serialize_param_grid
 from run_scripts.run_output_utils import (
     _count_search_configurations,
     save_hp_search_summary,
+    save_long_training_event,
 )
 from datasets.fetch_data import fetch_data, fetch_sk_data
 from models.fetch_model import fetch_model, fetch_sk_model
@@ -52,6 +53,7 @@ def run_single(
     random_state,
     use_wandb,
     big_script_name=None,
+    max_train_time_seconds=None,
 ):
     ablation_spec = parse_ablation_model_name(model)
     base_model = ablation_spec.base_model
@@ -73,12 +75,19 @@ def run_single(
     logging.warning(
         f"SINGLE RUN {separator}\nDataset: {dataset}\nModel: {model}\nArchitecture: {architecture}\nBackend: {backend}\nRunType: single\nRandomState: {random_state}\n"
     )
+    if max_train_time_seconds is not None:
+        logging.warning(
+            "Single-run max training time budget: %.1f seconds",
+            float(max_train_time_seconds),
+        )
 
     # Fetch hyperparameters for single run
     hyperparams = single_hps(dataset, base_model, architecture, backend, random_state)
     dataset_hps = hyperparams["dataset"]
     model_hps = hyperparams["model"]
     training_hps = hyperparams["training"]
+    if max_train_time_seconds is not None:
+        training_hps["max_train_time_seconds"] = float(max_train_time_seconds)
     if ablation_type is not None:
         can_apply, skip_reason = can_apply_ablation(
             model_type=model_hps["type"],
@@ -133,6 +142,11 @@ def run_single(
     end = time()
     training_time = end - start
     logging.warning(f"Training completed in {training_time} seconds")
+    if results_dict.get("timed_out"):
+        logging.warning(
+            "Training run was cut short due to max_train_time_seconds=%s.",
+            results_dict.get("max_train_time_seconds", max_train_time_seconds),
+        )
 
     # Number of parameters after training (for 'sklearn_gate' models)
     (
@@ -211,6 +225,31 @@ def run_single(
     save_hyperparams(
         {"dataset": dataset_hps, "model": model_hps, "training": training_hps}, save_dir
     )
+    if results_dict.get("timed_out"):
+        save_long_training_event(
+            save_dir=save_dir,
+            dataset=dataset,
+            big_script_name=big_script_name,
+            event={
+                "dataset": dataset,
+                "model": model,
+                "backend": backend,
+                "run_type": "single",
+                "status": "cut_short",
+                "event_type": "max_train_time_reached",
+                "source": results_dict.get("timeout_stage", "training_loop"),
+                "reason": "Reached max_train_time_seconds during training.",
+                "max_train_time_seconds": results_dict.get(
+                    "max_train_time_seconds", max_train_time_seconds
+                ),
+                "run_dir": save_dir,
+                "hyperparameters": {
+                    "dataset": dataset_hps,
+                    "model": model_hps,
+                    "training": training_hps,
+                },
+            },
+        )
     # Also in wandb
     if use_wandb:
         wandb.log(
@@ -234,6 +273,7 @@ def run_search(
     use_wandb,
     hp_profile,
     big_script_name=None,
+    max_train_time_seconds=None,
 ):
     ablation_spec = parse_ablation_model_name(model)
     base_model = ablation_spec.base_model
@@ -291,6 +331,11 @@ def run_search(
         raise NotImplementedError(f"Unknown model name for hp search: {base_model}")
     logging.warning(f"Hyperparameters search type: {search_type}")
     logging.warning(f"Hyperparameters profile: {hp_profile}")
+    if max_train_time_seconds is not None:
+        logging.warning(
+            "Per-fit max training time budget requested: %.1f seconds",
+            float(max_train_time_seconds),
+        )
     number_of_configs = _count_search_configurations(param_grid)
     logging.warning(
         f"Number of hyperparameter configurations considered: {number_of_configs}"
@@ -300,6 +345,57 @@ def run_search(
     if isinstance(param_grid_serializable, list):
         param_grid_serializable = {"grids": param_grid_serializable}
     param_grid_serializable["number_of_configs"] = number_of_configs
+    if max_train_time_seconds is not None:
+        budget = float(max_train_time_seconds)
+        training_hps["max_train_time_seconds"] = [budget]
+        timeout_meta = {
+            "dataset": dataset,
+            "model": model,
+            "backend": backend,
+            "run_type": "hyperparam_search",
+            "search_type": search_type,
+            "hp_profile": hp_profile,
+        }
+        timeout_meta_json = json.dumps(timeout_meta, sort_keys=True)
+        if isinstance(param_grid, list):
+            for grid in param_grid:
+                grid["training_params__max_train_time_seconds"] = [budget]
+                grid["training_params__timeout_events_metadata"] = [timeout_meta_json]
+                if big_script_name:
+                    repo_root = os.path.dirname(
+                        os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                    )
+                    dataset_slug = dataset.replace("/", "_")
+                    timeout_events_path = os.path.join(
+                        repo_root,
+                        "tabular_data",
+                        "results",
+                        big_script_name,
+                        f"long_training_{dataset_slug}.jsonl",
+                    )
+                else:
+                    timeout_events_path = os.path.join(
+                        save_dir, "long_training_events.jsonl"
+                    )
+                grid["training_params__timeout_events_path"] = [timeout_events_path]
+        else:
+            param_grid["training_params__max_train_time_seconds"] = [budget]
+            param_grid["training_params__timeout_events_metadata"] = [timeout_meta_json]
+            if big_script_name:
+                repo_root = os.path.dirname(
+                    os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                )
+                dataset_slug = dataset.replace("/", "_")
+                timeout_events_path = os.path.join(
+                    repo_root,
+                    "tabular_data",
+                    "results",
+                    big_script_name,
+                    f"long_training_{dataset_slug}.jsonl",
+                )
+            else:
+                timeout_events_path = os.path.join(save_dir, "long_training_events.jsonl")
+            param_grid["training_params__timeout_events_path"] = [timeout_events_path]
 
     # Get model type
     model_type = model_hps["type"][0]

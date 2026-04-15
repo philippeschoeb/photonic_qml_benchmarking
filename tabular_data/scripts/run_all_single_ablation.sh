@@ -16,7 +16,12 @@ BATCH_TIMESTAMP="$(date +"%Y-%m-%d_%H-%M-%S")"
 
 DATASET="hidden_manifold_2_6"
 USE_WANDB=false
+RANDOM_STATE="${RANDOM_STATE:-42}"
+MAX_TRAIN_TIME_SECONDS="${MAX_TRAIN_TIME_SECONDS:-1800}"
 BATCH_RUN_GROUP="${SCRIPT_NAME}/${DATASET}_${BATCH_TIMESTAMP}"
+RESULTS_ROOT="results/${BATCH_RUN_GROUP}"
+LONG_TRAINING_FILE="${RESULTS_ROOT}/long_training_${DATASET}.jsonl"
+mkdir -p "${RESULTS_ROOT}"
 
 MODELS=(
   "dressed_quantum_circuit"
@@ -49,6 +54,8 @@ declare -A MODEL_BACKENDS=(
 echo "====== Single Run Sweep (with Ablations) ======"
 echo "Dataset: ${DATASET}"
 echo "Use Weights & Biases: ${USE_WANDB}"
+echo "Random state: ${RANDOM_STATE}"
+echo "Max single-train time (s): ${MAX_TRAIN_TIME_SECONDS}"
 echo "Run group: ${BATCH_RUN_GROUP}"
 echo "Models: ${MODELS[*]}"
 echo
@@ -57,6 +64,29 @@ WANDB_FLAG=()
 if [[ "${USE_WANDB}" != "true" ]]; then
   WANDB_FLAG+=(--no-wandb)
 fi
+
+run_single_cmd() {
+  local model_label="$1"
+  local backend_label="$2"
+  shift
+  shift
+  local -a cmd=( "$@" )
+  if command -v timeout >/dev/null 2>&1; then
+    if timeout "${MAX_TRAIN_TIME_SECONDS}" "${cmd[@]}"; then
+      return 0
+    fi
+    local exit_code=$?
+    if [[ ${exit_code} -eq 124 ]]; then
+      echo "   [TIMEOUT] ${model_label} exceeded ${MAX_TRAIN_TIME_SECONDS}s. Nothing is returned for this run (process terminated by timeout)."
+      printf '{"timestamp":"%s","dataset":"%s","model":"%s","backend":"%s","run_type":"single","status":"skipped","event_type":"process_timeout","source":"shell_timeout","reason":"Process terminated by timeout command before run completion.","max_train_time_seconds":%s,"hyperparameters":{"dataset":"%s","model":"%s","backend":"%s","random_state":%s,"max_train_time_seconds":%s}}\n' \
+        "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" "${DATASET}" "${model_label}" "${backend_label}" "${MAX_TRAIN_TIME_SECONDS}" \
+        "${DATASET}" "${model_label}" "${backend_label}" "${RANDOM_STATE}" "${MAX_TRAIN_TIME_SECONDS}" >> "${LONG_TRAINING_FILE}"
+    fi
+    return ${exit_code}
+  fi
+  echo "   [WARN] 'timeout' not found; relying on in-training time budget only."
+  "${cmd[@]}"
+}
 
 for model in "${MODELS[@]}"; do
   if [[ ! -v MODEL_BACKENDS["$model"] ]]; then
@@ -82,10 +112,10 @@ for model in "${MODELS[@]}"; do
     for variant_model in "${variants[@]}"; do
       if [[ "${backend}" == "classical" ]]; then
         echo "-> Model: ${variant_model}, Backend: auto (classical)"
-        python main.py --dataset "${DATASET}" --model "${variant_model}" --run_type single --big_script_name "${BATCH_RUN_GROUP}" "${WANDB_FLAG[@]}"
+        run_single_cmd "${variant_model}" "classical" python main.py --dataset "${DATASET}" --model "${variant_model}" --run_type single --random_state "${RANDOM_STATE}" --max_train_time_seconds "${MAX_TRAIN_TIME_SECONDS}" --big_script_name "${BATCH_RUN_GROUP}" "${WANDB_FLAG[@]}"
       else
         echo "-> Model: ${variant_model}, Backend: ${backend}"
-        python main.py --dataset "${DATASET}" --model "${variant_model}" --backend "${backend}" --run_type single --big_script_name "${BATCH_RUN_GROUP}" "${WANDB_FLAG[@]}"
+        run_single_cmd "${variant_model}" "${backend}" python main.py --dataset "${DATASET}" --model "${variant_model}" --backend "${backend}" --run_type single --random_state "${RANDOM_STATE}" --max_train_time_seconds "${MAX_TRAIN_TIME_SECONDS}" --big_script_name "${BATCH_RUN_GROUP}" "${WANDB_FLAG[@]}"
       fi
     done
   done

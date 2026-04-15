@@ -34,6 +34,7 @@ class DataReuploadingClassifier(BaseEstimator, ClassifierMixin):
         observable_type="single",
         convergence_interval=200,
         max_steps=10000,
+        max_train_time_seconds=None,
         learning_rate=0.05,
         batch_size=32,
         max_vmap=None,
@@ -94,6 +95,7 @@ class DataReuploadingClassifier(BaseEstimator, ClassifierMixin):
         self.observable_type = observable_type
         self.convergence_interval = convergence_interval
         self.max_steps = max_steps
+        self.max_train_time_seconds = max_train_time_seconds
         self.learning_rate = learning_rate
         self.batch_size = batch_size
         self.dev_type = dev_type
@@ -615,6 +617,9 @@ class SKDataReuploadingGate(BaseEstimator, ClassifierMixin):
             kwargs["learning_rate"] = kwargs.pop("lr")
         if kwargs.get("max_vmap") is None:
             kwargs["max_vmap"] = kwargs.get("batch_size", 32)
+        max_train_time_seconds = self.training_params.get("max_train_time_seconds")
+        if max_train_time_seconds is not None:
+            kwargs["max_train_time_seconds"] = float(max_train_time_seconds)
         return kwargs
 
     def fit(self, X, y):
